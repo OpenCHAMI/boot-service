@@ -1,0 +1,175 @@
+# Example YAML node configuration for OpenCHAMI boot service
+# This file demonstrates how to configure nodes for local YAML-based node resolution
+# 
+# Usage:
+#   1. Save this file as nodes.yaml (or any name you prefer)
+#   2. Configure the boot service to use YAML provider with this file
+#   3. The boot service will use this file as a fallback when nodes aren't found locally
+#
+# Benefits of YAML provider:
+#   - Fast local resolution (no external API calls)
+#   - Easy to version control and manage
+#   - Perfect for development, testing, and edge deployments
+#   - No dependency on external HSM service
+
+version: "1.0"
+nodes:
+  # Compute nodes
+  - id: "x1000c0s0b0n0"
+    xname: "x1000c0s0b0n0"
+    type: "Node"
+    role: "Compute"
+    subrole: "Worker"
+    state: "Ready"
+    enabled: true
+    nid: 1000
+    boot_mac: "00:1B:63:84:45:E6"
+    ethernet_interfaces:
+      - mac_address: "00:1B:63:84:45:E6"
+        ip_address: "10.1.1.100"
+        description: "Primary boot interface"
+    metadata:
+      cluster: "hpc-cluster-1"
+      rack: "rack-01"
+      chassis: "c0"
+
+  - id: "x1000c0s0b0n1"
+    xname: "x1000c0s0b0n1"
+    type: "Node"
+    role: "Compute"
+    subrole: "Worker"
+    state: "Ready"
+    enabled: true
+    nid: 1001
+    boot_mac: "00:1B:63:84:45:E7"
+    ethernet_interfaces:
+      - mac_address: "00:1B:63:84:45:E7"
+        ip_address: "10.1.1.101"
+        description: "Primary boot interface"
+    metadata:
+      cluster: "hpc-cluster-1"
+      rack: "rack-01"
+      chassis: "c0"
+
+  - id: "x1000c0s1b0n0"
+    xname: "x1000c0s1b0n0"
+    type: "Node"
+    role: "Compute"
+    subrole: "Worker"
+    state: "Ready"
+    enabled: true
+    nid: 1002
+    boot_mac: "00:1B:63:84:45:E8"
+    ethernet_interfaces:
+      - mac_address: "00:1B:63:84:45:E8"
+        ip_address: "10.1.1.102"
+        description: "Primary boot interface"
+      - mac_address: "00:1B:63:84:45:E9"
+        ip_address: "10.2.1.102"
+        description: "High-speed interconnect"
+    metadata:
+      cluster: "hpc-cluster-1"
+      rack: "rack-01"
+      chassis: "c0"
+
+  # Management nodes
+  - id: "x1000c0s2b0n0"
+    xname: "x1000c0s2b0n0"
+    type: "Node"
+    role: "Management"
+    subrole: "Master"
+    state: "Ready"
+    enabled: true
+    nid: 2000
+    boot_mac: "00:1B:63:84:46:01"
+    ethernet_interfaces:
+      - mac_address: "00:1B:63:84:46:01"
+        ip_address: "10.1.1.200"
+        description: "Management interface"
+    metadata:
+      cluster: "hpc-cluster-1"
+      rack: "rack-01"
+      chassis: "c0"
+      services: ["kubernetes", "slurm-controller"]
+
+  # Service nodes
+  - id: "x1000c0s3b0n0"
+    xname: "x1000c0s3b0n0"
+    type: "Node"
+    role: "Service"
+    subrole: "Storage"
+    state: "Ready"
+    enabled: true
+    nid: 3000
+    boot_mac: "00:1B:63:84:47:01"
+    ethernet_interfaces:
+      - mac_address: "00:1B:63:84:47:01"
+        ip_address: "10.1.1.300"
+        description: "Storage management interface"
+    metadata:
+      cluster: "hpc-cluster-1"
+      rack: "rack-02"
+      chassis: "c0"
+      services: ["ceph", "nfs"]
+
+  # Network equipment
+  - id: "x1000c0r0e0"
+    xname: "x1000c0r0e0"
+    type: "RouterModule"
+    role: "Service"
+    state: "Ready"
+    enabled: true
+    ethernet_interfaces:
+      - mac_address: "00:1B:63:84:48:01"
+        ip_address: "10.1.1.1"
+        description: "Router management interface"
+    metadata:
+      cluster: "hpc-cluster-1"
+      rack: "rack-01"
+      device_type: "switch"
+
+  # Development/test nodes
+  - id: "x9999c0s0b0n0"
+    xname: "x9999c0s0b0n0"
+    type: "Node"
+    role: "Compute"
+    subrole: "Development"
+    state: "Ready"
+    enabled: true
+    nid: 9999
+    boot_mac: "00:1B:63:84:99:01"
+    ethernet_interfaces:
+      - mac_address: "00:1B:63:84:99:01"
+        ip_address: "10.1.1.999"
+        description: "Development node"
+    metadata:
+      cluster: "dev-cluster"
+      rack: "dev-rack"
+      chassis: "c0"
+      environment: "development"
+
+# Configuration notes:
+# 
+# Required fields:
+#   - id: Unique identifier (usually same as xname)
+#   - xname: Component name in HSM format (x<cabinet>c<chassis>s<slot>b<blade>n<node>)
+#   - type: Component type (Node, RouterModule, etc.)
+#   - role: Primary role (Compute, Management, Service)
+#   - state: Current state (Ready, Off, etc.)
+#   - enabled: Whether the component is enabled
+#
+# Optional fields:
+#   - subrole: Secondary role classification
+#   - nid: Numeric node ID
+#   - boot_mac: Primary boot MAC address
+#   - ethernet_interfaces: List of network interfaces
+#   - metadata: Additional key-value pairs for custom attributes
+#
+# The boot service will index nodes by:
+#   - id
+#   - xname  
+#   - nid (if present)
+#   - boot_mac (if present)
+#   - All ethernet interface MAC addresses
+#
+# This allows flexible node resolution by any of these identifiers.

@@ -1,0 +1,132 @@
+# OpenCHAMI Boot Service Authentication Configuration Examples
+# This file demonstrates various authentication configurations using tokensmith
+
+# Development Configuration (Authentication Disabled)
+development:
+  auth:
+    enabled: false
+    allowEmptyToken: true
+    nonEnforcing: true
+    validateExpiration: false
+    validateIssuer: false
+    validateAudience: false
+    requiredClaims: []
+
+# Basic Production Configuration with Static JWT Public Key
+production_static:
+  auth:
+    enabled: true
+    jwtPublicKey: |
+      -----BEGIN PUBLIC KEY-----
+      MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...
+      -----END PUBLIC KEY-----
+    jwtIssuer: "https://auth.openchami.org"
+    jwtAudience: "boot-service"
+    validateExpiration: true
+    validateIssuer: true
+    validateAudience: true
+    requiredClaims: 
+      - "sub"
+      - "iss"
+      - "aud"
+    requiredScopes:
+      - "boot:read"
+    allowEmptyToken: false
+    nonEnforcing: false
+
+# Production Configuration with JWKS (Recommended)
+production_jwks:
+  auth:
+    enabled: true
+    jwksUrl: "https://auth.openchami.org/.well-known/jwks.json"
+    jwksRefreshInterval: "1h"
+    jwtIssuer: "https://auth.openchami.org"
+    jwtAudience: "boot-service"
+    validateExpiration: true
+    validateIssuer: true
+    validateAudience: true
+    requiredClaims:
+      - "sub"
+      - "iss"
+      - "aud"
+    requiredScopes:
+      - "boot:read"
+    allowEmptyToken: false
+    nonEnforcing: false
+
+# OpenCHAMI Cluster Configuration
+# This configuration is designed for use within an OpenCHAMI cluster
+# where services communicate using tokensmith-issued tokens
+openchami_cluster:
+  auth:
+    enabled: true
+    jwksUrl: "http://tokensmith:8080/.well-known/jwks.json"
+    jwksRefreshInterval: "15m"
+    jwtIssuer: "openchami-tokensmith"
+    jwtAudience: "openchami-cluster"
+    validateExpiration: true
+    validateIssuer: true
+    validateAudience: true
+    requiredClaims:
+      - "sub"
+      - "cluster_id"
+      - "openchami_id"
+    requiredScopes:
+      - "boot:read"
+    allowEmptyToken: false
+    nonEnforcing: false
+
+# Testing/Staging Configuration (Permissive)
+testing:
+  auth:
+    enabled: true
+    jwksUrl: "https://staging-auth.openchami.org/.well-known/jwks.json"
+    jwksRefreshInterval: "5m"
+    validateExpiration: true
+    validateIssuer: false  # More permissive for testing
+    validateAudience: false # More permissive for testing
+    requiredClaims:
+      - "sub"
+    requiredScopes: []  # No scopes required for testing
+    allowEmptyToken: false
+    nonEnforcing: true  # Log errors but don't block requests
+
+# Service-to-Service Configuration
+# For internal service communication with specific scopes
+service_to_service:
+  auth:
+    enabled: true
+    jwksUrl: "http://tokensmith:8080/.well-known/jwks.json"
+    jwksRefreshInterval: "30m"
+    jwtIssuer: "openchami-tokensmith"
+    jwtAudience: "openchami-services"
+    validateExpiration: true
+    validateIssuer: true
+    validateAudience: true
+    requiredClaims:
+      - "sub"
+      - "service_id"
+      - "target_service"
+    requiredScopes:
+      - "service:boot"
+    allowEmptyToken: false
+    nonEnforcing: false
+
+# Edge Computing Configuration
+# For edge deployments with relaxed requirements
+edge:
+  auth:
+    enabled: true
+    jwtPublicKey: |
+      -----BEGIN PUBLIC KEY-----
+      # Static public key for edge deployments without internet access
+      -----END PUBLIC KEY-----
+    validateExpiration: true
+    validateIssuer: false
+    validateAudience: false
+    requiredClaims:
+      - "sub"
+    requiredScopes:
+      - "boot:read"
+    allowEmptyToken: false
+    nonEnforcing: false

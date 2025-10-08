@@ -344,3 +344,27 @@ func (c *HSMClient) ClearCache() {
 
 	c.logger.Printf("HSM cache cleared")
 }
+
+// GetStats returns client statistics
+func (c *HSMClient) GetStats(ctx context.Context) map[string]interface{} {
+	stats := map[string]interface{}{
+		"hsm_base_url":    c.config.BaseURL,
+		"cache_enabled":   c.cache != nil,
+		"authenticated":   c.config.AuthToken != "",
+		"cache_expiry":    c.cache.expiry.String(),
+		"request_timeout": c.config.Timeout.String(),
+	}
+
+	// Add cache stats if available
+	if c.cache != nil {
+		c.cache.mu.RLock()
+		componentCount := len(c.cache.components)
+		interfaceCount := len(c.cache.ethernetInterfaces)
+		c.cache.mu.RUnlock()
+
+		stats["cached_components"] = componentCount
+		stats["cached_interfaces"] = interfaceCount
+	}
+
+	return stats
+}

@@ -308,47 +308,32 @@ func (s *IntegrationService) StartSyncWorker(ctx context.Context) {
 	}
 }
 
-// GetHSMStats returns statistics about HSM integration
+// GetHSMStats returns detailed HSM integration statistics
 func (s *IntegrationService) GetHSMStats(ctx context.Context) (map[string]interface{}, error) {
-	stats := make(map[string]interface{})
+	// Get HSM client stats directly
+	hsmStats := s.hsmClient.GetStats(ctx)
 
-	// Health status
-	err := s.HealthCheck(ctx)
-	stats["hsm_healthy"] = err == nil
-	if err != nil {
-		stats["hsm_error"] = err.Error()
+	stats := map[string]interface{}{
+		"hsm_integration_enabled": true,
+		"hsm_client_stats":        hsmStats,
+		"sync_enabled":            s.syncEnabled,
+		"sync_interval":           s.syncInterval.String(),
 	}
-
-	// Component counts
-	components, err := s.hsmClient.GetComponents(ctx)
-	if err == nil {
-		stats["total_components"] = len(components)
-
-		// Count by type
-		typeCounts := make(map[string]int)
-		for _, comp := range components {
-			typeCounts[comp.Type]++
-		}
-		stats["components_by_type"] = typeCounts
-
-		// Count by role
-		roleCounts := make(map[string]int)
-		for _, comp := range components {
-			if comp.Role != "" {
-				roleCounts[comp.Role]++
-			}
-		}
-		stats["components_by_role"] = roleCounts
-	}
-
-	// Ethernet interface count
-	interfaces, err := s.hsmClient.GetEthernetInterfaces(ctx)
-	if err == nil {
-		stats["ethernet_interfaces"] = len(interfaces)
-	}
-
-	stats["sync_enabled"] = s.syncEnabled
-	stats["sync_interval"] = s.syncInterval.String()
 
 	return stats, nil
+}
+
+// GetStats returns HSM integration statistics (implements NodeProvider interface)
+func (s *IntegrationService) GetStats(ctx context.Context) map[string]interface{} {
+	// Get HSM client stats directly
+	hsmStats := s.hsmClient.GetStats(ctx)
+
+	stats := map[string]interface{}{
+		"hsm_integration_enabled": true,
+		"hsm_client_stats":        hsmStats,
+		"sync_enabled":            s.syncEnabled,
+		"sync_interval":           s.syncInterval.String(),
+	}
+
+	return stats
 }
