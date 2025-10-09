@@ -33,17 +33,10 @@ package main
 
 import (
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 )
 
 // RegisterGeneratedRoutes registers all generated routes
 func RegisterGeneratedRoutes(r chi.Router) {
-	// Apply standard middleware
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-
 	// BootConfiguration routes
 	r.Route("/bootconfigurations", func(r chi.Router) {
 		r.Get("/", GetBootConfigurations)
