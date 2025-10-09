@@ -1,0 +1,217 @@
+# OpenCHAMI Boot Service Configuration Example
+#
+# This is a comprehensive example configuration file for the OpenCHAMI boot service.
+# To use this configuration:
+#   1. Copy this file to config.yaml: cp config.example.yaml config.yaml
+#   2. Customize the settings below for your environment
+#   3. Remove or comment out sections you don't need
+#
+# Configuration precedence (highest to lowest):
+#   1. Command-line flags
+#   2. Environment variables (e.g., BOOT_SERVICE_PORT=8082)
+#   3. Configuration file (config.yaml)
+#   4. Default values
+
+# =============================================================================
+# SERVER CONFIGURATION
+# =============================================================================
+
+# HTTP server settings
+port: 8082                    # Port to listen on
+host: "0.0.0.0"              # Interface to bind to (0.0.0.0 for all interfaces)
+read_timeout: 30             # HTTP read timeout in seconds
+write_timeout: 30            # HTTP write timeout in seconds  
+idle_timeout: 120            # HTTP idle timeout in seconds
+
+# =============================================================================
+# STORAGE CONFIGURATION
+# =============================================================================
+
+# Data storage settings
+data_dir: "./data"           # Directory for storing boot configurations
+storage_type: "file"         # Storage backend: "file", "database" (future)
+
+# Database settings (when storage_type: "database")
+# database:
+#   driver: "postgres"
+#   host: "localhost"
+#   port: 5432
+#   name: "boot_service"
+#   user: "boot_user"
+#   password: "boot_password"
+#   ssl_mode: "require"
+#   max_connections: 25
+#   connection_timeout: 30
+
+# =============================================================================
+# FEATURE TOGGLES
+# =============================================================================
+
+# Authentication
+enable_auth: false           # Enable TokenSmith JWT authentication
+                            # Set to true for production environments
+
+# Metrics and monitoring
+enable_metrics: true         # Enable Prometheus metrics endpoint
+metrics_port: 9092          # Port for metrics endpoint (/metrics)
+
+# API compatibility
+enable_legacy_api: true     # Enable legacy BSS-compatible endpoints
+                           # Disable to force use of new API only
+
+# =============================================================================
+# AUTHENTICATION CONFIGURATION (when enable_auth: true)
+# =============================================================================
+
+auth:
+  # Core authentication settings
+  enabled: false             # Must match enable_auth above
+
+  # JWT validation method (choose one):
+  
+  # Option 1: JWKS URL (recommended for production)
+  jwks_url: "https://auth.openchami.org/.well-known/jwks.json"
+  jwks_refresh_interval: "1h"  # How often to refresh JWKS cache
+  
+  # Option 2: Static RSA public key (for development/testing)
+  # jwt_public_key: |
+  #   -----BEGIN PUBLIC KEY-----
+  #   MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...
+  #   -----END PUBLIC KEY-----
+
+  # JWT validation options
+  jwt_issuer: "https://auth.openchami.org"     # Expected token issuer
+  jwt_audience: "boot-service"                  # Expected token audience
+  validate_expiration: true                     # Check token expiration
+  validate_issuer: true                        # Validate issuer claim
+  validate_audience: true                      # Validate audience claim
+
+  # Authorization requirements
+  required_claims: ["sub", "iss", "aud"]      # Required JWT claims
+  required_scopes: ["boot:read"]              # Required OAuth2 scopes
+
+  # Development/testing options (never use in production)
+  allow_empty_token: false    # Allow requests without tokens
+  non_enforcing: false       # Log auth failures but don't block requests
+
+# =============================================================================
+# HARDWARE STATE MANAGER INTEGRATION
+# =============================================================================
+
+# HSM (Hardware State Manager) settings
+hsm_url: "http://localhost:27779"  # URL of the HSM service
+                                   # Set to your HSM endpoint
+
+# HSM authentication (when HSM requires auth)
+# hsm_auth:
+#   type: "service_token"      # Authentication type for HSM
+#   service_name: "boot-service"
+#   token_endpoint: "http://tokensmith:8080/token"
+
+# =============================================================================
+# EXTERNAL SERVICES
+# =============================================================================
+
+# TokenSmith authentication service (when enable_auth: true)
+tokensmith:
+  url: "http://localhost:8080"                    # TokenSmith service URL
+  timeout: 30                                    # Request timeout in seconds
+  
+  # Service-to-service authentication
+  service_auth:
+    enabled: false                               # Enable service tokens
+    service_name: "boot-service"                 # This service's identifier
+    token_endpoint: "/token"                     # Token endpoint path
+
+# BSS (Boot Script Service) integration
+bss:
+  enabled: false                                 # Enable BSS integration
+  url: "http://localhost:27778"                 # BSS service URL
+  timeout: 30                                   # Request timeout in seconds
+
+# =============================================================================
+# LOGGING AND MONITORING
+# =============================================================================
+
+# Logging configuration
+logging:
+  level: "info"               # Log level: debug, info, warn, error
+  format: "json"             # Log format: json, text
+  output: "stdout"           # Log output: stdout, stderr, file
+  # file: "/var/log/boot-service.log"  # Log file (when output: file)
+
+# Health check configuration
+health:
+  enabled: true              # Enable health check endpoint
+  endpoint: "/health"        # Health check URL path
+  timeout: 5                # Health check timeout in seconds
+
+# =============================================================================
+# PERFORMANCE AND SCALING
+# =============================================================================
+
+# Request limits
+limits:
+  max_request_size: "10MB"   # Maximum request body size
+  max_concurrent: 100        # Maximum concurrent requests
+  rate_limit: 1000          # Requests per minute per IP
+
+# Caching (future feature)
+# cache:
+#   enabled: false
+#   type: "memory"           # Cache type: memory, redis
+#   ttl: "5m"               # Cache TTL
+#   max_size: "100MB"       # Maximum cache size
+
+# =============================================================================
+# DEVELOPMENT AND TESTING
+# =============================================================================
+
+# Development mode settings
+development:
+  enabled: false             # Enable development mode
+  cors_enabled: true        # Enable CORS for browser testing
+  cors_origins: ["*"]       # Allowed CORS origins
+  debug_endpoints: false    # Enable debug/diagnostic endpoints
+  mock_services: false      # Use mock external services
+
+# =============================================================================
+# DEPLOYMENT ENVIRONMENT EXAMPLES
+# =============================================================================
+
+# Uncomment and modify one of these sections for your deployment environment:
+
+# --- Development Environment ---
+# enable_auth: false
+# enable_metrics: true
+# logging:
+#   level: "debug"
+# development:
+#   enabled: true
+#   debug_endpoints: true
+
+# --- Production Environment ---
+# enable_auth: true
+# enable_metrics: true
+# auth:
+#   enabled: true
+#   jwks_url: "https://auth.openchami.org/.well-known/jwks.json"
+#   jwt_issuer: "https://auth.openchami.org"
+#   jwt_audience: "boot-service"
+#   required_scopes: ["boot:read"]
+# logging:
+#   level: "info"
+#   format: "json"
+
+# --- Kubernetes/Container Environment ---
+# port: 8080
+# host: "0.0.0.0"
+# data_dir: "/data"
+# auth:
+#   jwks_url: "http://tokensmith:8080/.well-known/jwks.json"
+#   jwt_issuer: "openchami-tokensmith"
+#   jwt_audience: "openchami-cluster"
+# hsm_url: "http://smd:27779"
+# logging:
+#   format: "json"
+#   output: "stdout"

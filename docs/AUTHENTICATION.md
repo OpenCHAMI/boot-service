@@ -106,6 +106,8 @@ r.Group(func(r chi.Router) {
 
 ## Configuration Examples
 
+> **📝 Note**: For comprehensive configuration examples with detailed documentation, see `config.example.yaml` in the project root. Copy this file to `config.yaml` and customize for your environment.
+
 ### Development Environment
 
 ```yaml
@@ -118,15 +120,15 @@ auth:
 ```yaml
 auth:
   enabled: true
-  jwksUrl: "https://auth.openchami.org/.well-known/jwks.json"
-  jwksRefreshInterval: "1h"
-  jwtIssuer: "https://auth.openchami.org"
-  jwtAudience: "boot-service"
-  validateExpiration: true
-  validateIssuer: true
-  validateAudience: true
-  requiredClaims: ["sub", "iss", "aud"]
-  requiredScopes: ["boot:read"]
+  jwks_url: "https://auth.openchami.org/.well-known/jwks.json"
+  jwks_refresh_interval: "1h"
+  jwt_issuer: "https://auth.openchami.org"
+  jwt_audience: "boot-service"
+  validate_expiration: true
+  validate_issuer: true
+  validate_audience: true
+  required_claims: ["sub", "iss", "aud"]
+  required_scopes: ["boot:read"]
 ```
 
 ### OpenCHAMI Cluster
@@ -134,11 +136,11 @@ auth:
 ```yaml
 auth:
   enabled: true
-  jwksUrl: "http://tokensmith:8080/.well-known/jwks.json"
-  jwtIssuer: "openchami-tokensmith"
-  jwtAudience: "openchami-cluster"
-  requiredClaims: ["sub", "cluster_id", "openchami_id"]
-  requiredScopes: ["boot:read"]
+  jwks_url: "http://tokensmith:8080/.well-known/jwks.json"
+  jwt_issuer: "openchami-tokensmith"
+  jwt_audience: "openchami-cluster"
+  required_claims: ["sub", "cluster_id", "openchami_id"]
+  required_scopes: ["boot:read"]
 ```
 
 ## Usage Patterns

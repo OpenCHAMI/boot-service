@@ -2,3 +2,6 @@ CLAUDE/
 dist/
 bin/
 data/
+
+# Configuration files (use config.example.yaml as template)
+config.yaml
