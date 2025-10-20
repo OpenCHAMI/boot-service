@@ -1,7 +1,8 @@
 .PHONY: build run test generate clean dev codegen-init
 
 build:
-	go build -o bin/server cmd/server/main.go
+	go build -o bin/server ./cmd/server/
+	go build -o bin/client ./cmd/client/
 
 run: build
 	./bin/server
@@ -9,16 +10,12 @@ run: build
 test:
 	go test ./...
 
-# Initialize code generation (run after adding resources)
-codegen-init:
-	fabrica codegen init
-
 # Generate handlers, storage, and OpenAPI specs
 generate:
-	fabrica generate --handlers --storage --openapi
+	fabrica generate --handlers --storage --openapi --client
 
 # Development workflow: regenerate and build
-dev: clean codegen-init generate build
+dev: clean generate build
 	@echo "✅ Development build complete"
 
 clean:

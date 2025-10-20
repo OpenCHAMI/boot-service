@@ -67,13 +67,16 @@ func ensureBackend() {
 
 // LoadAllBootConfigurations retrieves all BootConfiguration resources.
 //
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//
 // Returns:
 //   - []*bootconfiguration.BootConfiguration: Slice of BootConfiguration resources
 //   - error: Any error that occurred during loading
-func LoadAllBootConfigurations() ([]*bootconfiguration.BootConfiguration, error) {
+func LoadAllBootConfigurations(ctx context.Context) ([]*bootconfiguration.BootConfiguration, error) {
 	ensureBackend()
 
-	rawData, err := Backend.LoadAll(context.Background(), "BootConfiguration")
+	rawData, err := Backend.LoadAll(ctx, "BootConfiguration")
 	if err != nil {
 		return nil, fmt.Errorf("failed to load all bootconfigurations: %w", err)
 	}
@@ -93,15 +96,16 @@ func LoadAllBootConfigurations() ([]*bootconfiguration.BootConfiguration, error)
 // LoadBootConfiguration retrieves a single BootConfiguration resource by UID.
 //
 // Parameters:
+//   - ctx: Context for cancellation and timeouts
 //   - uid: Unique identifier of the BootConfiguration resource
 //
 // Returns:
 //   - *bootconfiguration.BootConfiguration: The BootConfiguration resource
 //   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
-func LoadBootConfiguration(uid string) (*bootconfiguration.BootConfiguration, error) {
+func LoadBootConfiguration(ctx context.Context, uid string) (*bootconfiguration.BootConfiguration, error) {
 	ensureBackend()
 
-	rawData, err := Backend.Load(context.Background(), "BootConfiguration", uid)
+	rawData, err := Backend.Load(ctx, "BootConfiguration", uid)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load BootConfiguration %s: %w", uid, err)
 	}
@@ -117,11 +121,12 @@ func LoadBootConfiguration(uid string) (*bootconfiguration.BootConfiguration, er
 // SaveBootConfiguration stores a BootConfiguration resource.
 //
 // Parameters:
+//   - ctx: Context for cancellation and timeouts
 //   - bootConfiguration: The BootConfiguration resource to save
 //
 // Returns:
 //   - error: Any error that occurred during saving
-func SaveBootConfiguration(bootConfiguration *bootconfiguration.BootConfiguration) error {
+func SaveBootConfiguration(ctx context.Context, bootConfiguration *bootconfiguration.BootConfiguration) error {
 	ensureBackend()
 
 	data, err := json.Marshal(bootConfiguration)
@@ -129,7 +134,7 @@ func SaveBootConfiguration(bootConfiguration *bootconfiguration.BootConfiguratio
 		return fmt.Errorf("failed to marshal BootConfiguration: %w", err)
 	}
 
-	if err := Backend.Save(context.Background(), "BootConfiguration", bootConfiguration.Metadata.UID, data); err != nil {
+	if err := Backend.Save(ctx, "BootConfiguration", bootConfiguration.Metadata.UID, data); err != nil {
 		return fmt.Errorf("failed to save BootConfiguration: %w", err)
 	}
 
@@ -139,15 +144,16 @@ func SaveBootConfiguration(bootConfiguration *bootconfiguration.BootConfiguratio
 // UpdateBootConfiguration updates an existing BootConfiguration resource.
 //
 // Parameters:
+//   - ctx: Context for cancellation and timeouts
 //   - bootConfiguration: The BootConfiguration resource to update
 //
 // Returns:
 //   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
-func UpdateBootConfiguration(bootConfiguration *bootconfiguration.BootConfiguration) error {
+func UpdateBootConfiguration(ctx context.Context, bootConfiguration *bootconfiguration.BootConfiguration) error {
 	ensureBackend()
 
 	// Check if resource exists first
-	exists, err := Backend.Exists(context.Background(), "BootConfiguration", bootConfiguration.Metadata.UID)
+	exists, err := Backend.Exists(ctx, "BootConfiguration", bootConfiguration.Metadata.UID)
 	if err != nil {
 		return fmt.Errorf("failed to check BootConfiguration existence: %w", err)
 	}
@@ -160,7 +166,7 @@ func UpdateBootConfiguration(bootConfiguration *bootconfiguration.BootConfigurat
 		return fmt.Errorf("failed to marshal BootConfiguration: %w", err)
 	}
 
-	if err := Backend.Save(context.Background(), "BootConfiguration", bootConfiguration.Metadata.UID, data); err != nil {
+	if err := Backend.Save(ctx, "BootConfiguration", bootConfiguration.Metadata.UID, data); err != nil {
 		return fmt.Errorf("failed to update BootConfiguration: %w", err)
 	}
 
@@ -170,14 +176,15 @@ func UpdateBootConfiguration(bootConfiguration *bootconfiguration.BootConfigurat
 // DeleteBootConfiguration removes a BootConfiguration resource by UID.
 //
 // Parameters:
+//   - ctx: Context for cancellation and timeouts
 //   - uid: Unique identifier of the BootConfiguration resource
 //
 // Returns:
 //   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
-func DeleteBootConfiguration(uid string) error {
+func DeleteBootConfiguration(ctx context.Context, uid string) error {
 	ensureBackend()
 
-	if err := Backend.Delete(context.Background(), "BootConfiguration", uid); err != nil {
+	if err := Backend.Delete(ctx, "BootConfiguration", uid); err != nil {
 		return fmt.Errorf("failed to delete BootConfiguration %s: %w", uid, err)
 	}
 
@@ -187,15 +194,16 @@ func DeleteBootConfiguration(uid string) error {
 // ExistsBootConfiguration checks if a BootConfiguration resource exists.
 //
 // Parameters:
+//   - ctx: Context for cancellation and timeouts
 //   - uid: Unique identifier of the BootConfiguration resource
 //
 // Returns:
 //   - bool: true if the resource exists
 //   - error: Any error that occurred during the check
-func ExistsBootConfiguration(uid string) (bool, error) {
+func ExistsBootConfiguration(ctx context.Context, uid string) (bool, error) {
 	ensureBackend()
 
-	exists, err := Backend.Exists(context.Background(), "BootConfiguration", uid)
+	exists, err := Backend.Exists(ctx, "BootConfiguration", uid)
 	if err != nil {
 		return false, fmt.Errorf("failed to check BootConfiguration existence: %w", err)
 	}
@@ -205,13 +213,16 @@ func ExistsBootConfiguration(uid string) (bool, error) {
 
 // ListBootConfigurationUIDs returns UIDs of all BootConfiguration resources.
 //
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//
 // Returns:
 //   - []string: Array of BootConfiguration resource UIDs
 //   - error: Any error that occurred during listing
-func ListBootConfigurationUIDs() ([]string, error) {
+func ListBootConfigurationUIDs(ctx context.Context) ([]string, error) {
 	ensureBackend()
 
-	uids, err := Backend.List(context.Background(), "BootConfiguration")
+	uids, err := Backend.List(ctx, "BootConfiguration")
 	if err != nil {
 		return nil, fmt.Errorf("failed to list BootConfiguration UIDs: %w", err)
 	}
@@ -223,13 +234,16 @@ func ListBootConfigurationUIDs() ([]string, error) {
 
 // LoadAllNodes retrieves all Node resources.
 //
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//
 // Returns:
 //   - []*node.Node: Slice of Node resources
 //   - error: Any error that occurred during loading
-func LoadAllNodes() ([]*node.Node, error) {
+func LoadAllNodes(ctx context.Context) ([]*node.Node, error) {
 	ensureBackend()
 
-	rawData, err := Backend.LoadAll(context.Background(), "Node")
+	rawData, err := Backend.LoadAll(ctx, "Node")
 	if err != nil {
 		return nil, fmt.Errorf("failed to load all nodes: %w", err)
 	}
@@ -249,15 +263,16 @@ func LoadAllNodes() ([]*node.Node, error) {
 // LoadNode retrieves a single Node resource by UID.
 //
 // Parameters:
+//   - ctx: Context for cancellation and timeouts
 //   - uid: Unique identifier of the Node resource
 //
 // Returns:
 //   - *node.Node: The Node resource
 //   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
-func LoadNode(uid string) (*node.Node, error) {
+func LoadNode(ctx context.Context, uid string) (*node.Node, error) {
 	ensureBackend()
 
-	rawData, err := Backend.Load(context.Background(), "Node", uid)
+	rawData, err := Backend.Load(ctx, "Node", uid)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load Node %s: %w", uid, err)
 	}
@@ -273,11 +288,12 @@ func LoadNode(uid string) (*node.Node, error) {
 // SaveNode stores a Node resource.
 //
 // Parameters:
+//   - ctx: Context for cancellation and timeouts
 //   - node: The Node resource to save
 //
 // Returns:
 //   - error: Any error that occurred during saving
-func SaveNode(node *node.Node) error {
+func SaveNode(ctx context.Context, node *node.Node) error {
 	ensureBackend()
 
 	data, err := json.Marshal(node)
@@ -285,7 +301,7 @@ func SaveNode(node *node.Node) error {
 		return fmt.Errorf("failed to marshal Node: %w", err)
 	}
 
-	if err := Backend.Save(context.Background(), "Node", node.Metadata.UID, data); err != nil {
+	if err := Backend.Save(ctx, "Node", node.Metadata.UID, data); err != nil {
 		return fmt.Errorf("failed to save Node: %w", err)
 	}
 
@@ -295,15 +311,16 @@ func SaveNode(node *node.Node) error {
 // UpdateNode updates an existing Node resource.
 //
 // Parameters:
+//   - ctx: Context for cancellation and timeouts
 //   - node: The Node resource to update
 //
 // Returns:
 //   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
-func UpdateNode(node *node.Node) error {
+func UpdateNode(ctx context.Context, node *node.Node) error {
 	ensureBackend()
 
 	// Check if resource exists first
-	exists, err := Backend.Exists(context.Background(), "Node", node.Metadata.UID)
+	exists, err := Backend.Exists(ctx, "Node", node.Metadata.UID)
 	if err != nil {
 		return fmt.Errorf("failed to check Node existence: %w", err)
 	}
@@ -316,7 +333,7 @@ func UpdateNode(node *node.Node) error {
 		return fmt.Errorf("failed to marshal Node: %w", err)
 	}
 
-	if err := Backend.Save(context.Background(), "Node", node.Metadata.UID, data); err != nil {
+	if err := Backend.Save(ctx, "Node", node.Metadata.UID, data); err != nil {
 		return fmt.Errorf("failed to update Node: %w", err)
 	}
 
@@ -326,14 +343,15 @@ func UpdateNode(node *node.Node) error {
 // DeleteNode removes a Node resource by UID.
 //
 // Parameters:
+//   - ctx: Context for cancellation and timeouts
 //   - uid: Unique identifier of the Node resource
 //
 // Returns:
 //   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
-func DeleteNode(uid string) error {
+func DeleteNode(ctx context.Context, uid string) error {
 	ensureBackend()
 
-	if err := Backend.Delete(context.Background(), "Node", uid); err != nil {
+	if err := Backend.Delete(ctx, "Node", uid); err != nil {
 		return fmt.Errorf("failed to delete Node %s: %w", uid, err)
 	}
 
@@ -343,15 +361,16 @@ func DeleteNode(uid string) error {
 // ExistsNode checks if a Node resource exists.
 //
 // Parameters:
+//   - ctx: Context for cancellation and timeouts
 //   - uid: Unique identifier of the Node resource
 //
 // Returns:
 //   - bool: true if the resource exists
 //   - error: Any error that occurred during the check
-func ExistsNode(uid string) (bool, error) {
+func ExistsNode(ctx context.Context, uid string) (bool, error) {
 	ensureBackend()
 
-	exists, err := Backend.Exists(context.Background(), "Node", uid)
+	exists, err := Backend.Exists(ctx, "Node", uid)
 	if err != nil {
 		return false, fmt.Errorf("failed to check Node existence: %w", err)
 	}
@@ -361,13 +380,16 @@ func ExistsNode(uid string) (bool, error) {
 
 // ListNodeUIDs returns UIDs of all Node resources.
 //
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//
 // Returns:
 //   - []string: Array of Node resource UIDs
 //   - error: Any error that occurred during listing
-func ListNodeUIDs() ([]string, error) {
+func ListNodeUIDs(ctx context.Context) ([]string, error) {
 	ensureBackend()
 
-	uids, err := Backend.List(context.Background(), "Node")
+	uids, err := Backend.List(ctx, "Node")
 	if err != nil {
 		return nil, fmt.Errorf("failed to list Node UIDs: %w", err)
 	}

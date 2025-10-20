@@ -23,8 +23,8 @@
 //   - DELETE /resource/{uid} -> Delete resource
 //
 // To add middleware to routes:
-//  1. Modify RegisterGeneratedRoutes to accept middleware options
-//  2. Apply middleware in cmd/server/main.go before calling this function
+//  1. Apply middleware in cmd/server/main.go before calling RegisterGeneratedRoutes
+//  2. Use r.Use() calls in main.go, not in generated route functions
 //
 // To add custom routes:
 //  1. Create a separate RegisterCustomRoutes function
@@ -36,7 +36,9 @@ import (
 )
 
 // RegisterGeneratedRoutes registers all generated routes
+// Note: Middleware should be applied in main.go before calling this function
 func RegisterGeneratedRoutes(r chi.Router) {
+
 	// BootConfiguration routes
 	r.Route("/bootconfigurations", func(r chi.Router) {
 		r.Get("/", GetBootConfigurations)

@@ -45,7 +45,7 @@ import (
 // GetBootConfigurations returns all BootConfiguration resources
 func GetBootConfigurations(w http.ResponseWriter, r *http.Request) {
 
-	bootconfigurations, err := storage.LoadAllBootConfigurations()
+	bootconfigurations, err := storage.LoadAllBootConfigurations(r.Context())
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Errorf("failed to load bootconfigurations: %w", err))
 		return
@@ -66,7 +66,7 @@ func GetBootConfiguration(w http.ResponseWriter, r *http.Request) {
 	// Requested version: versionCtx.ServeVersion
 	// To enable: replace storage.LoadBootConfiguration() with version-aware function
 
-	bootConfiguration, err := storage.LoadBootConfiguration(uid)
+	bootConfiguration, err := storage.LoadBootConfiguration(r.Context(), uid)
 	if err != nil {
 		respondError(w, http.StatusNotFound, fmt.Errorf("BootConfiguration not found: %w", err))
 		return
@@ -125,7 +125,7 @@ func CreateBootConfiguration(w http.ResponseWriter, r *http.Request) {
 	// Set initial status
 
 	// Save (Layer 1: Ent validation happens automatically if using Ent storage)
-	if err := storage.SaveBootConfiguration(bootConfiguration); err != nil {
+	if err := storage.SaveBootConfiguration(r.Context(), bootConfiguration); err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Errorf("failed to save BootConfiguration: %w", err))
 		return
 	}
@@ -141,7 +141,7 @@ func UpdateBootConfiguration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bootConfiguration, err := storage.LoadBootConfiguration(uid)
+	bootConfiguration, err := storage.LoadBootConfiguration(r.Context(), uid)
 	if err != nil {
 		respondError(w, http.StatusNotFound, fmt.Errorf("BootConfiguration not found: %w", err))
 		return
@@ -171,7 +171,7 @@ func UpdateBootConfiguration(w http.ResponseWriter, r *http.Request) {
 
 	bootConfiguration.Touch()
 
-	if err := storage.SaveBootConfiguration(bootConfiguration); err != nil {
+	if err := storage.SaveBootConfiguration(r.Context(), bootConfiguration); err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Errorf("failed to save BootConfiguration: %w", err))
 		return
 	}
@@ -187,7 +187,7 @@ func DeleteBootConfiguration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := storage.DeleteBootConfiguration(uid); err != nil {
+	if err := storage.DeleteBootConfiguration(r.Context(), uid); err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Errorf("failed to delete BootConfiguration: %w", err))
 		return
 	}

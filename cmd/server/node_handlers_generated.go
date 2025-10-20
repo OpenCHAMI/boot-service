@@ -45,7 +45,7 @@ import (
 // GetNodes returns all Node resources
 func GetNodes(w http.ResponseWriter, r *http.Request) {
 
-	nodes, err := storage.LoadAllNodes()
+	nodes, err := storage.LoadAllNodes(r.Context())
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Errorf("failed to load nodes: %w", err))
 		return
@@ -66,7 +66,7 @@ func GetNode(w http.ResponseWriter, r *http.Request) {
 	// Requested version: versionCtx.ServeVersion
 	// To enable: replace storage.LoadNode() with version-aware function
 
-	node, err := storage.LoadNode(uid)
+	node, err := storage.LoadNode(r.Context(), uid)
 	if err != nil {
 		respondError(w, http.StatusNotFound, fmt.Errorf("Node not found: %w", err))
 		return
@@ -125,7 +125,7 @@ func CreateNode(w http.ResponseWriter, r *http.Request) {
 	// Set initial status
 
 	// Save (Layer 1: Ent validation happens automatically if using Ent storage)
-	if err := storage.SaveNode(node); err != nil {
+	if err := storage.SaveNode(r.Context(), node); err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Errorf("failed to save Node: %w", err))
 		return
 	}
@@ -141,7 +141,7 @@ func UpdateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	node, err := storage.LoadNode(uid)
+	node, err := storage.LoadNode(r.Context(), uid)
 	if err != nil {
 		respondError(w, http.StatusNotFound, fmt.Errorf("Node not found: %w", err))
 		return
@@ -171,7 +171,7 @@ func UpdateNode(w http.ResponseWriter, r *http.Request) {
 
 	node.Touch()
 
-	if err := storage.SaveNode(node); err != nil {
+	if err := storage.SaveNode(r.Context(), node); err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Errorf("failed to save Node: %w", err))
 		return
 	}
@@ -187,7 +187,7 @@ func DeleteNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := storage.DeleteNode(uid); err != nil {
+	if err := storage.DeleteNode(r.Context(), uid); err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Errorf("failed to delete Node: %w", err))
 		return
 	}
