@@ -4,7 +4,8 @@ package resources
 import (
 	"fmt"
 
-	"github.com/alexlovelltroy/fabrica/pkg/codegen"
+	"github.com/openchami/fabrica/pkg/codegen"
+	"github.com/openchami/boot-service/pkg/resources/bmc"
 	"github.com/openchami/boot-service/pkg/resources/bootconfiguration"
 	"github.com/openchami/boot-service/pkg/resources/node"
 )
@@ -12,6 +13,9 @@ import (
 // RegisterAllResources registers all discovered resources with the generator.
 // This file is auto-generated. Re-run 'fabrica codegen init' after adding resources.
 func RegisterAllResources(gen *codegen.Generator) error {
+	if err := gen.RegisterResource(&bmc.BMC{}); err != nil {
+		return fmt.Errorf("failed to register BMC: %w", err)
+	}
 	if err := gen.RegisterResource(&bootconfiguration.BootConfiguration{}); err != nil {
 		return fmt.Errorf("failed to register BootConfiguration: %w", err)
 	}

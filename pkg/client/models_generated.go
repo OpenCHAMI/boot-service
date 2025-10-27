@@ -34,9 +34,26 @@
 package client
 
 import (
+	"github.com/openchami/boot-service/pkg/resources/bmc"
 	"github.com/openchami/boot-service/pkg/resources/bootconfiguration"
 	"github.com/openchami/boot-service/pkg/resources/node"
 )
+
+// CreateBMCRequest represents a request to create a BMC
+type CreateBMCRequest struct {
+	bmc.BMCSpec `json:",inline"`
+	Name        string            `json:"name" validate:"required"`
+	Labels      map[string]string `json:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
+}
+
+// UpdateBMCRequest represents a request to update a BMC
+type UpdateBMCRequest struct {
+	bmc.BMCSpec `json:",inline,omitempty"`
+	Name        string            `json:"name,omitempty"`
+	Labels      map[string]string `json:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
+}
 
 // CreateBootConfigurationRequest represents a request to create a BootConfiguration
 type CreateBootConfigurationRequest struct {

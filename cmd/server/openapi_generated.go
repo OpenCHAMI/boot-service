@@ -25,6 +25,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3gen"
+	"github.com/openchami/boot-service/pkg/resources/bmc"
 	"github.com/openchami/boot-service/pkg/resources/bootconfiguration"
 	"github.com/openchami/boot-service/pkg/resources/node"
 )
@@ -89,7 +90,7 @@ func GenerateOpenAPISpec() *openapi3.T {
 			Version:     "1.0.0",
 			Contact: &openapi3.Contact{
 				Name: "OpenCHAMI Project",
-				URL:  "https://github.com/alexlovelltroy/inventory",
+				URL:  "https://github.com/openchami/inventory",
 			},
 		},
 		Servers: openapi3.Servers{
@@ -105,10 +106,162 @@ func GenerateOpenAPISpec() *openapi3.T {
 	}
 
 	// Register all resource paths
+	registerBMCPaths(spec)
 	registerBootConfigurationPaths(spec)
 	registerNodePaths(spec)
 
 	return spec
+}
+
+// registerBMCPaths registers OpenAPI paths for BMC resources
+func registerBMCPaths(spec *openapi3.T) {
+	// Generate schemas from Go types - NO ANNOTATIONS NEEDED
+	resourceSchema, _ := openapi3gen.NewSchemaRefForValue(&bmc.BMC{}, spec.Components.Schemas)
+	spec.Components.Schemas["BMC"] = resourceSchema
+
+	createReqSchema, _ := openapi3gen.NewSchemaRefForValue(&CreateBMCRequest{}, spec.Components.Schemas)
+	spec.Components.Schemas["CreateBMCRequest"] = createReqSchema
+
+	updateReqSchema, _ := openapi3gen.NewSchemaRefForValue(&UpdateBMCRequest{}, spec.Components.Schemas)
+	spec.Components.Schemas["UpdateBMCRequest"] = updateReqSchema
+
+	// Error response schema
+	if _, exists := spec.Components.Schemas["ErrorResponse"]; !exists {
+		errorSchema := openapi3.NewObjectSchema().
+			WithProperty("error", openapi3.NewStringSchema()).
+			WithRequired([]string{"error"})
+		spec.Components.Schemas["ErrorResponse"] = &openapi3.SchemaRef{Value: errorSchema}
+	}
+
+	// DELETE response schema
+	if _, exists := spec.Components.Schemas["DeleteResponse"]; !exists {
+		deleteSchema, _ := openapi3gen.NewSchemaRefForValue(&DeleteResponse{}, spec.Components.Schemas)
+		spec.Components.Schemas["DeleteResponse"] = deleteSchema
+	}
+
+	// List BMCs operation
+	listOp := openapi3.NewOperation()
+	listOp.OperationID = "listBMCs"
+	listOp.Summary = "List all BMC resources"
+	listOp.Description = "Returns a list of all BMC resources in the inventory"
+	listOp.Tags = []string{"BMC"}
+	listOp.Responses = openapi3.NewResponses()
+	arraySchema := openapi3.NewArraySchema()
+	arraySchema.Items = &openapi3.SchemaRef{Ref: "#/components/schemas/BMC"}
+	listOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Successful response").
+			WithJSONSchemaRef(&openapi3.SchemaRef{Value: arraySchema}),
+	})
+	listOp.Responses.Set("500", errorResponse())
+
+	// Create BMC operation
+	createOp := openapi3.NewOperation()
+	createOp.OperationID = "createBMC"
+	createOp.Summary = "Create a new BMC resource"
+	createOp.Description = "Creates a new BMC resource with the provided specification"
+	createOp.Tags = []string{"BMC"}
+	createOp.RequestBody = &openapi3.RequestBodyRef{
+		Value: openapi3.NewRequestBody().
+			WithRequired(true).
+			WithJSONSchemaRef(&openapi3.SchemaRef{
+				Ref: "#/components/schemas/CreateBMCRequest",
+			}),
+	}
+	createOp.Responses = openapi3.NewResponses()
+	createOp.Responses.Set("201", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Resource created successfully").
+			WithJSONSchemaRef(&openapi3.SchemaRef{
+				Ref: "#/components/schemas/BMC",
+			}),
+	})
+	createOp.Responses.Set("400", errorResponse())
+	createOp.Responses.Set("500", errorResponse())
+
+	// Get BMC operation
+	getOp := openapi3.NewOperation()
+	getOp.OperationID = "getBMC"
+	getOp.Summary = "Get a specific BMC resource"
+	getOp.Description = "Returns details of a specific BMC resource by UID"
+	getOp.Tags = []string{"BMC"}
+	getOp.Responses = openapi3.NewResponses()
+	getOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Successful response").
+			WithJSONSchemaRef(&openapi3.SchemaRef{
+				Ref: "#/components/schemas/BMC",
+			}),
+	})
+	getOp.Responses.Set("404", errorResponse())
+	getOp.Responses.Set("500", errorResponse())
+
+	// Update BMC operation
+	updateOp := openapi3.NewOperation()
+	updateOp.OperationID = "updateBMC"
+	updateOp.Summary = "Update a BMC resource"
+	updateOp.Description = "Updates an existing BMC resource with new values"
+	updateOp.Tags = []string{"BMC"}
+	updateOp.RequestBody = &openapi3.RequestBodyRef{
+		Value: openapi3.NewRequestBody().
+			WithRequired(true).
+			WithJSONSchemaRef(&openapi3.SchemaRef{
+				Ref: "#/components/schemas/UpdateBMCRequest",
+			}),
+	}
+	updateOp.Responses = openapi3.NewResponses()
+	updateOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Resource updated successfully").
+			WithJSONSchemaRef(&openapi3.SchemaRef{
+				Ref: "#/components/schemas/BMC",
+			}),
+	})
+	updateOp.Responses.Set("400", errorResponse())
+	updateOp.Responses.Set("404", errorResponse())
+	updateOp.Responses.Set("500", errorResponse())
+
+	// Delete BMC operation
+	deleteOp := openapi3.NewOperation()
+	deleteOp.OperationID = "deleteBMC"
+	deleteOp.Summary = "Delete a BMC resource"
+	deleteOp.Description = "Removes a BMC resource from the inventory"
+	deleteOp.Tags = []string{"BMC"}
+	deleteOp.Responses = openapi3.NewResponses()
+	deleteOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Resource deleted successfully").
+			WithJSONSchemaRef(&openapi3.SchemaRef{
+				Ref: "#/components/schemas/DeleteResponse",
+			}),
+	})
+	deleteOp.Responses.Set("400", errorResponse())
+	deleteOp.Responses.Set("404", errorResponse())
+	deleteOp.Responses.Set("500", errorResponse())
+
+	// Create path items
+	collectionPath := &openapi3.PathItem{
+		Get:  listOp,
+		Post: createOp,
+	}
+
+	uidParam := openapi3.NewPathParameter("uid").
+		WithDescription("Unique identifier of the BMC resource").
+		WithRequired(true).
+		WithSchema(openapi3.NewStringSchema())
+
+	itemPath := &openapi3.PathItem{
+		Get:    getOp,
+		Put:    updateOp,
+		Delete: deleteOp,
+		Parameters: []*openapi3.ParameterRef{
+			{Value: uidParam},
+		},
+	}
+
+	// Add paths to spec
+	spec.Paths.Set("/bmcs", collectionPath)
+	spec.Paths.Set("/bmcs/{uid}", itemPath)
 }
 
 // registerBootConfigurationPaths registers OpenAPI paths for BootConfiguration resources

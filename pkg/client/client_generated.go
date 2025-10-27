@@ -15,7 +15,10 @@
 //   - GetResources(ctx) - List all resources
 //   - GetResource(ctx, uid) - Get specific resource by UID
 //   - CreateResource(ctx, req) - Create new resource
-//   - UpdateResource(ctx, uid, req) - Update existing resource
+//   - UpdateResource(ctx, uid, req) - Update existing resource spec
+//   - PatchResource(ctx, uid, patchData, contentType) - Patch existing resource spec
+//   - UpdateResourceStatus(ctx, uid, status) - Update resource status only
+//   - PatchResourceStatus(ctx, uid, patchData) - Patch resource status only
 //   - DeleteResource(ctx, uid) - Delete resource
 //
 // Usage example:
@@ -52,6 +55,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/openchami/boot-service/pkg/resources/bmc"
 	"github.com/openchami/boot-service/pkg/resources/bootconfiguration"
 	"github.com/openchami/boot-service/pkg/resources/node"
 	"io"
@@ -158,6 +162,141 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 	return nil
 }
 
+// doPatchRequest performs a PATCH request with custom content type
+func (c *Client) doPatchRequest(ctx context.Context, endpoint string, patchData []byte, contentType string, result interface{}) error {
+	u := *c.baseURL
+	u.Path = path.Join(u.Path, endpoint)
+
+	req, err := http.NewRequestWithContext(ctx, "PATCH", u.String(), bytes.NewBuffer(patchData))
+	if err != nil {
+		return fmt.Errorf("failed to create patch request: %w", err)
+	}
+
+	// Set patch-specific Content-Type
+	req.Header.Set("Content-Type", contentType)
+
+	// Set Accept header with optional version
+	acceptType := "application/json"
+	if c.version != "" {
+		acceptType = fmt.Sprintf("application/json;version=%s", c.version)
+	}
+	req.Header.Set("Accept", acceptType)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("patch request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read patch response body: %w", err)
+	}
+
+	if resp.StatusCode >= 400 {
+		var errorResp ErrorResponse
+		if err := json.Unmarshal(respBody, &errorResp); err != nil {
+			return fmt.Errorf("PATCH HTTP error %d: %s", resp.StatusCode, string(respBody))
+		}
+		return fmt.Errorf("PATCH API error (%d): %s", resp.StatusCode, errorResp.Error)
+	}
+
+	if result != nil {
+		if err := json.Unmarshal(respBody, result); err != nil {
+			return fmt.Errorf("failed to unmarshal patch response: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// GetBMCs retrieves all bmcs
+func (c *Client) GetBMCs(ctx context.Context) ([]bmc.BMC, error) {
+	var response []bmc.BMC
+	if err := c.doRequest(ctx, "GET", "/bmcs", nil, &response); err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
+// GetBMC retrieves a specific BMC by UID
+func (c *Client) GetBMC(ctx context.Context, uid string) (*bmc.BMC, error) {
+	var result bmc.BMC
+	endpoint := fmt.Sprintf("/bmcs/%s", uid)
+	if err := c.doRequest(ctx, "GET", endpoint, nil, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// CreateBMC creates a new BMC
+func (c *Client) CreateBMC(ctx context.Context, req CreateBMCRequest) (*bmc.BMC, error) {
+	var result bmc.BMC
+	if err := c.doRequest(ctx, "POST", "/bmcs", req, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// UpdateBMC updates an existing BMC
+func (c *Client) UpdateBMC(ctx context.Context, uid string, req UpdateBMCRequest) (*bmc.BMC, error) {
+	var result bmc.BMC
+	endpoint := fmt.Sprintf("/bmcs/%s", uid)
+	if err := c.doRequest(ctx, "PUT", endpoint, req, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// PatchBMC patches an existing BMC spec with the specified patch data and content type
+func (c *Client) PatchBMC(ctx context.Context, uid string, patchData []byte, contentType string) (*bmc.BMC, error) {
+	var result bmc.BMC
+	endpoint := fmt.Sprintf("/bmcs/%s", uid)
+	if err := c.doPatchRequest(ctx, endpoint, patchData, contentType, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// UpdateBMCStatus updates only the status of an existing BMC
+// This method is intended for controllers, reconcilers, and monitoring systems.
+// It preserves the spec and only updates the status portion of the resource.
+func (c *Client) UpdateBMCStatus(ctx context.Context, uid string, status bmc.BMCStatus) (*bmc.BMC, error) {
+	var result bmc.BMC
+	endpoint := fmt.Sprintf("/bmcs/%s/status", uid)
+	if err := c.doRequest(ctx, "PUT", endpoint, status, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// PatchBMCStatus patches only the status of an existing BMC
+// Supports JSON Merge Patch by default. Use PatchBMCStatusWithType for other patch formats.
+func (c *Client) PatchBMCStatus(ctx context.Context, uid string, patchData []byte) (*bmc.BMC, error) {
+	return c.PatchBMCStatusWithType(ctx, uid, patchData, "application/merge-patch+json")
+}
+
+// PatchBMCStatusWithType patches status with a specific patch content type
+// Supported types: application/merge-patch+json, application/json-patch+json, application/fabrica-patch+json
+func (c *Client) PatchBMCStatusWithType(ctx context.Context, uid string, patchData []byte, contentType string) (*bmc.BMC, error) {
+	var result bmc.BMC
+	endpoint := fmt.Sprintf("/bmcs/%s/status", uid)
+	if err := c.doPatchRequest(ctx, endpoint, patchData, contentType, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// DeleteBMC deletes a BMC by UID
+func (c *Client) DeleteBMC(ctx context.Context, uid string) error {
+	endpoint := fmt.Sprintf("/bmcs/%s", uid)
+	var response DeleteResponse
+	if err := c.doRequest(ctx, "DELETE", endpoint, nil, &response); err != nil {
+		return err
+	}
+	return nil
+}
+
 // GetBootConfigurations retrieves all bootconfigurations
 func (c *Client) GetBootConfigurations(ctx context.Context) ([]bootconfiguration.BootConfiguration, error) {
 	var response []bootconfiguration.BootConfiguration
@@ -191,6 +330,45 @@ func (c *Client) UpdateBootConfiguration(ctx context.Context, uid string, req Up
 	var result bootconfiguration.BootConfiguration
 	endpoint := fmt.Sprintf("/bootconfigurations/%s", uid)
 	if err := c.doRequest(ctx, "PUT", endpoint, req, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// PatchBootConfiguration patches an existing BootConfiguration spec with the specified patch data and content type
+func (c *Client) PatchBootConfiguration(ctx context.Context, uid string, patchData []byte, contentType string) (*bootconfiguration.BootConfiguration, error) {
+	var result bootconfiguration.BootConfiguration
+	endpoint := fmt.Sprintf("/bootconfigurations/%s", uid)
+	if err := c.doPatchRequest(ctx, endpoint, patchData, contentType, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// UpdateBootConfigurationStatus updates only the status of an existing BootConfiguration
+// This method is intended for controllers, reconcilers, and monitoring systems.
+// It preserves the spec and only updates the status portion of the resource.
+func (c *Client) UpdateBootConfigurationStatus(ctx context.Context, uid string, status bootconfiguration.BootConfigurationStatus) (*bootconfiguration.BootConfiguration, error) {
+	var result bootconfiguration.BootConfiguration
+	endpoint := fmt.Sprintf("/bootconfigurations/%s/status", uid)
+	if err := c.doRequest(ctx, "PUT", endpoint, status, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// PatchBootConfigurationStatus patches only the status of an existing BootConfiguration
+// Supports JSON Merge Patch by default. Use PatchBootConfigurationStatusWithType for other patch formats.
+func (c *Client) PatchBootConfigurationStatus(ctx context.Context, uid string, patchData []byte) (*bootconfiguration.BootConfiguration, error) {
+	return c.PatchBootConfigurationStatusWithType(ctx, uid, patchData, "application/merge-patch+json")
+}
+
+// PatchBootConfigurationStatusWithType patches status with a specific patch content type
+// Supported types: application/merge-patch+json, application/json-patch+json, application/fabrica-patch+json
+func (c *Client) PatchBootConfigurationStatusWithType(ctx context.Context, uid string, patchData []byte, contentType string) (*bootconfiguration.BootConfiguration, error) {
+	var result bootconfiguration.BootConfiguration
+	endpoint := fmt.Sprintf("/bootconfigurations/%s/status", uid)
+	if err := c.doPatchRequest(ctx, endpoint, patchData, contentType, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -239,6 +417,45 @@ func (c *Client) UpdateNode(ctx context.Context, uid string, req UpdateNodeReque
 	var result node.Node
 	endpoint := fmt.Sprintf("/nodes/%s", uid)
 	if err := c.doRequest(ctx, "PUT", endpoint, req, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// PatchNode patches an existing Node spec with the specified patch data and content type
+func (c *Client) PatchNode(ctx context.Context, uid string, patchData []byte, contentType string) (*node.Node, error) {
+	var result node.Node
+	endpoint := fmt.Sprintf("/nodes/%s", uid)
+	if err := c.doPatchRequest(ctx, endpoint, patchData, contentType, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// UpdateNodeStatus updates only the status of an existing Node
+// This method is intended for controllers, reconcilers, and monitoring systems.
+// It preserves the spec and only updates the status portion of the resource.
+func (c *Client) UpdateNodeStatus(ctx context.Context, uid string, status node.NodeStatus) (*node.Node, error) {
+	var result node.Node
+	endpoint := fmt.Sprintf("/nodes/%s/status", uid)
+	if err := c.doRequest(ctx, "PUT", endpoint, status, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// PatchNodeStatus patches only the status of an existing Node
+// Supports JSON Merge Patch by default. Use PatchNodeStatusWithType for other patch formats.
+func (c *Client) PatchNodeStatus(ctx context.Context, uid string, patchData []byte) (*node.Node, error) {
+	return c.PatchNodeStatusWithType(ctx, uid, patchData, "application/merge-patch+json")
+}
+
+// PatchNodeStatusWithType patches status with a specific patch content type
+// Supported types: application/merge-patch+json, application/json-patch+json, application/fabrica-patch+json
+func (c *Client) PatchNodeStatusWithType(ctx context.Context, uid string, patchData []byte, contentType string) (*node.Node, error) {
+	var result node.Node
+	endpoint := fmt.Sprintf("/nodes/%s/status", uid)
+	if err := c.doPatchRequest(ctx, endpoint, patchData, contentType, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil

@@ -8,8 +8,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/alexlovelltroy/fabrica/pkg/resource"
 	"github.com/openchami/boot-service/pkg/validation"
+	"github.com/openchami/fabrica/pkg/resource"
 )
 
 // BootConfiguration represents a BootConfiguration resource

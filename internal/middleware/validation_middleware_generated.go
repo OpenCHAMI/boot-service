@@ -12,7 +12,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/alexlovelltroy/fabrica/pkg/validation"
+	"github.com/openchami/fabrica/pkg/validation"
 )
 
 // ValidationMode defines how validation failures are handled
@@ -59,9 +59,7 @@ func ValidationMiddleware(next http.Handler) http.Handler {
 //	    return // Response already sent
 //	}
 func ValidateAndRespond(w http.ResponseWriter, r *http.Request, resource interface{}) bool {
-	validator := validation.NewValidator()
-
-	if err := validator.ValidateResource(resource); err != nil {
+	if err := validation.ValidateResource(resource); err != nil {
 		if ValidationMode == "strict" {
 			// Return 400 Bad Request
 			w.Header().Set("Content-Type", "application/json")

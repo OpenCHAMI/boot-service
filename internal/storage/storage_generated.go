@@ -20,8 +20,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	fabricaStorage "github.com/alexlovelltroy/fabrica/pkg/storage"
+	"github.com/openchami/fabrica/pkg/reconcile"
+	fabricaStorage "github.com/openchami/fabrica/pkg/storage"
 
+	"github.com/openchami/boot-service/pkg/resources/bmc"
 	"github.com/openchami/boot-service/pkg/resources/bootconfiguration"
 	"github.com/openchami/boot-service/pkg/resources/node"
 )
@@ -61,6 +63,173 @@ func ensureBackend() {
 	if Backend == nil {
 		panic("storage backend not initialized: call storage.Init() or storage.InitFileBackend() in main.go")
 	}
+}
+
+// BMC storage operations
+
+// LoadAllBMCs retrieves all BMC resources.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//
+// Returns:
+//   - []*bmc.BMC: Slice of BMC resources
+//   - error: Any error that occurred during loading
+func LoadAllBMCs(ctx context.Context) ([]*bmc.BMC, error) {
+	ensureBackend()
+
+	rawData, err := Backend.LoadAll(ctx, "BMC")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load all bmcs: %w", err)
+	}
+
+	bmcs := make([]*bmc.BMC, 0, len(rawData))
+	for _, raw := range rawData {
+		bMC := &bmc.BMC{}
+		if err := json.Unmarshal(raw, bMC); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal BMC: %w", err)
+		}
+		bmcs = append(bmcs, bMC)
+	}
+
+	return bmcs, nil
+}
+
+// LoadBMC retrieves a single BMC resource by UID.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - uid: Unique identifier of the BMC resource
+//
+// Returns:
+//   - *bmc.BMC: The BMC resource
+//   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
+func LoadBMC(ctx context.Context, uid string) (*bmc.BMC, error) {
+	ensureBackend()
+
+	rawData, err := Backend.Load(ctx, "BMC", uid)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load BMC %s: %w", uid, err)
+	}
+
+	bMC := &bmc.BMC{}
+	if err := json.Unmarshal(rawData, bMC); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal BMC: %w", err)
+	}
+
+	return bMC, nil
+}
+
+// SaveBMC stores a BMC resource.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - bMC: The BMC resource to save
+//
+// Returns:
+//   - error: Any error that occurred during saving
+func SaveBMC(ctx context.Context, bMC *bmc.BMC) error {
+	ensureBackend()
+
+	data, err := json.Marshal(bMC)
+	if err != nil {
+		return fmt.Errorf("failed to marshal BMC: %w", err)
+	}
+
+	if err := Backend.Save(ctx, "BMC", bMC.Metadata.UID, data); err != nil {
+		return fmt.Errorf("failed to save BMC: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateBMC updates an existing BMC resource.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - bMC: The BMC resource to update
+//
+// Returns:
+//   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
+func UpdateBMC(ctx context.Context, bMC *bmc.BMC) error {
+	ensureBackend()
+
+	// Check if resource exists first
+	exists, err := Backend.Exists(ctx, "BMC", bMC.Metadata.UID)
+	if err != nil {
+		return fmt.Errorf("failed to check BMC existence: %w", err)
+	}
+	if !exists {
+		return fabricaStorage.ErrNotFound
+	}
+
+	data, err := json.Marshal(bMC)
+	if err != nil {
+		return fmt.Errorf("failed to marshal BMC: %w", err)
+	}
+
+	if err := Backend.Save(ctx, "BMC", bMC.Metadata.UID, data); err != nil {
+		return fmt.Errorf("failed to update BMC: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteBMC removes a BMC resource by UID.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - uid: Unique identifier of the BMC resource
+//
+// Returns:
+//   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
+func DeleteBMC(ctx context.Context, uid string) error {
+	ensureBackend()
+
+	if err := Backend.Delete(ctx, "BMC", uid); err != nil {
+		return fmt.Errorf("failed to delete BMC %s: %w", uid, err)
+	}
+
+	return nil
+}
+
+// ExistsBMC checks if a BMC resource exists.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - uid: Unique identifier of the BMC resource
+//
+// Returns:
+//   - bool: true if the resource exists
+//   - error: Any error that occurred during the check
+func ExistsBMC(ctx context.Context, uid string) (bool, error) {
+	ensureBackend()
+
+	exists, err := Backend.Exists(ctx, "BMC", uid)
+	if err != nil {
+		return false, fmt.Errorf("failed to check BMC existence: %w", err)
+	}
+
+	return exists, nil
+}
+
+// ListBMCUIDs returns UIDs of all BMC resources.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//
+// Returns:
+//   - []string: Array of BMC resource UIDs
+//   - error: Any error that occurred during listing
+func ListBMCUIDs(ctx context.Context) ([]string, error) {
+	ensureBackend()
+
+	uids, err := Backend.List(ctx, "BMC")
+	if err != nil {
+		return nil, fmt.Errorf("failed to list BMC UIDs: %w", err)
+	}
+
+	return uids, nil
 }
 
 // BootConfiguration storage operations
@@ -395,4 +564,173 @@ func ListNodeUIDs(ctx context.Context) ([]string, error) {
 	}
 
 	return uids, nil
+}
+
+// StorageClient wraps a StorageBackend to implement reconcile.ClientInterface.
+//
+// This adapter allows reconcilers to use the storage backend through a
+// standard interface that provides typed resource access.
+type StorageClient struct {
+	backend fabricaStorage.StorageBackend
+}
+
+// Compile-time check that StorageClient implements reconcile.ClientInterface
+var _ reconcile.ClientInterface = (*StorageClient)(nil)
+
+// NewStorageClient creates a new storage client that wraps the configured backend.
+//
+// This is used by the reconciliation system to provide reconcilers with
+// access to resource storage.
+//
+// Returns:
+//   - *StorageClient: Client that implements reconcile.ClientInterface
+func NewStorageClient() *StorageClient {
+	ensureBackend()
+	return &StorageClient{backend: Backend}
+}
+
+// Get retrieves a resource by kind and UID.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - kind: Resource kind (e.g., "Device", "Rack")
+//   - uid: Unique identifier
+//
+// Returns:
+//   - interface{}: The resource (type-specific)
+//   - error: Any error that occurred
+func (c *StorageClient) Get(ctx context.Context, kind, uid string) (interface{}, error) {
+	rawData, err := c.backend.Load(ctx, kind, uid)
+	if err != nil {
+		return nil, err
+	}
+
+	// Unmarshal based on kind
+	switch kind {
+	case "BMC":
+		var resource bmc.BMC
+		if err := json.Unmarshal(rawData, &resource); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal BMC: %w", err)
+		}
+		return &resource, nil
+	case "BootConfiguration":
+		var resource bootconfiguration.BootConfiguration
+		if err := json.Unmarshal(rawData, &resource); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal BootConfiguration: %w", err)
+		}
+		return &resource, nil
+	case "Node":
+		var resource node.Node
+		if err := json.Unmarshal(rawData, &resource); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal Node: %w", err)
+		}
+		return &resource, nil
+	default:
+		return nil, fmt.Errorf("unknown resource kind: %s", kind)
+	}
+}
+
+// List retrieves all resources of a given kind.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - kind: Resource kind (e.g., "Device", "Rack")
+//
+// Returns:
+//   - []interface{}: Slice of resources
+//   - error: Any error that occurred
+func (c *StorageClient) List(ctx context.Context, kind string) ([]interface{}, error) {
+	rawData, err := c.backend.LoadAll(ctx, kind)
+	if err != nil {
+		return nil, err
+	}
+
+	// Unmarshal based on kind
+	switch kind {
+	case "BMC":
+		result := make([]interface{}, 0, len(rawData))
+		for _, raw := range rawData {
+			var resource bmc.BMC
+			if err := json.Unmarshal(raw, &resource); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal BMC: %w", err)
+			}
+			result = append(result, &resource)
+		}
+		return result, nil
+	case "BootConfiguration":
+		result := make([]interface{}, 0, len(rawData))
+		for _, raw := range rawData {
+			var resource bootconfiguration.BootConfiguration
+			if err := json.Unmarshal(raw, &resource); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal BootConfiguration: %w", err)
+			}
+			result = append(result, &resource)
+		}
+		return result, nil
+	case "Node":
+		result := make([]interface{}, 0, len(rawData))
+		for _, raw := range rawData {
+			var resource node.Node
+			if err := json.Unmarshal(raw, &resource); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal Node: %w", err)
+			}
+			result = append(result, &resource)
+		}
+		return result, nil
+	default:
+		return nil, fmt.Errorf("unknown resource kind: %s", kind)
+	}
+}
+
+// Update updates an existing resource.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - resource: The resource to update
+//
+// Returns:
+//   - error: Any error that occurred
+func (c *StorageClient) Update(ctx context.Context, resource interface{}) error {
+	data, err := json.Marshal(resource)
+	if err != nil {
+		return fmt.Errorf("failed to marshal resource: %w", err)
+	}
+
+	// Extract kind and UID based on type
+	switch res := resource.(type) {
+	case *bmc.BMC:
+		return c.backend.Save(ctx, "BMC", res.Metadata.UID, data)
+	case *bootconfiguration.BootConfiguration:
+		return c.backend.Save(ctx, "BootConfiguration", res.Metadata.UID, data)
+	case *node.Node:
+		return c.backend.Save(ctx, "Node", res.Metadata.UID, data)
+	default:
+		return fmt.Errorf("unknown resource type: %T", resource)
+	}
+}
+
+// Create creates a new resource.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - resource: The resource to create
+//
+// Returns:
+//   - error: Any error that occurred
+func (c *StorageClient) Create(ctx context.Context, resource interface{}) error {
+	// For storage backend, Create is the same as Update (Save handles both)
+	return c.Update(ctx, resource)
+}
+
+// Delete deletes a resource by kind and UID.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - kind: Resource kind
+//   - uid: Unique identifier
+//
+// Returns:
+//   - error: Any error that occurred
+func (c *StorageClient) Delete(ctx context.Context, kind, uid string) error {
+	return c.backend.Delete(ctx, kind, uid)
 }

@@ -8,8 +8,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/alexlovelltroy/fabrica/pkg/resource"
 	"github.com/openchami/boot-service/pkg/validation"
+	"github.com/openchami/fabrica/pkg/resource"
 )
 
 // Node represents a Node resource
@@ -21,13 +21,20 @@ type Node struct {
 
 // NodeSpec defines the desired state of Node
 type NodeSpec struct {
-	XName    string   `json:"xname"`
-	NID      int32    `json:"nid,omitempty"`
-	BootMAC  string   `json:"bootMac,omitempty"`
-	Role     string   `json:"role,omitempty"`
-	SubRole  string   `json:"subRole,omitempty"`
-	Hostname string   `json:"hostname,omitempty"`
-	Groups   []string `json:"groups,omitempty"` // Groups from inventory service
+	XName      string      `json:"xname"`
+	NID        int32       `json:"nid,omitempty"`
+	BootMAC    string      `json:"bootMac,omitempty"`
+	Role       string      `json:"role,omitempty"`
+	SubRole    string      `json:"subRole,omitempty"`
+	Hostname   string      `json:"hostname,omitempty"`
+	Interfaces []Interface `json:"interfaces,omitempty"`
+	Groups     []string    `json:"groups,omitempty"` // Groups from inventory service
+}
+
+type Interface struct {
+	MAC  string `json:"mac,omitempty"`
+	IP   string `json:"ip,omitempty"`
+	Type string `json:"type,omitempty"` // e.g., "management", "data"
 }
 
 // NodeStatus defines the observed state of Node
