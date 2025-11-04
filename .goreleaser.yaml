@@ -1,0 +1,110 @@
+version: 2
+
+# GoReleaser v2.12 configuration
+# Docs: https://goreleaser.com/customization/
+
+project_name: boot-service
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: boot-service
+    main: ./cmd/server
+    binary: boot-service
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: boot-service-archives
+    builds:
+      - boot-service
+    format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+      - LICENSE*
+      - docs/**
+      - config.example.yaml
+
+checksum:
+  name_template: "checksums_{{ .Version }}.txt"
+
+changelog:
+  sort: asc
+  use: git
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+
+release:
+  draft: false
+  prerelease: auto
+
+dockers:
+  - id: boot-service-amd64
+    ids: [boot-service]
+    image_templates:
+      - "ghcr.io/openchami/boot-service:{{ .Version }}-amd64"
+      - "ghcr.io/openchami/boot-service:latest-amd64"
+    use: buildx
+    goos: linux
+    goarch: amd64
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--pull"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.description=A microservice for managing node boot configurations in OpenCHAMI"
+      - "--label=org.opencontainers.image.url={{ .GitURL }}"
+      - "--label=org.opencontainers.image.source={{ .GitURL }}"
+      - "--label=org.opencontainers.image.revision={{ .Commit }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+    extra_files:
+      - config.example.yaml
+
+  - id: boot-service-arm64
+    ids: [boot-service]
+    image_templates:
+      - "ghcr.io/openchami/boot-service:{{ .Version }}-arm64"
+      - "ghcr.io/openchami/boot-service:latest-arm64"
+    use: buildx
+    goos: linux
+    goarch: arm64
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--pull"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.description=A microservice for managing node boot configurations in OpenCHAMI"
+      - "--label=org.opencontainers.image.url={{ .GitURL }}"
+      - "--label=org.opencontainers.image.source={{ .GitURL }}"
+      - "--label=org.opencontainers.image.revision={{ .Commit }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+    extra_files:
+      - config.example.yaml
+
+docker_manifests:
+  - id: boot-service-manifest-version
+    name_template: "ghcr.io/openchami/boot-service:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/openchami/boot-service:{{ .Version }}-amd64"
+      - "ghcr.io/openchami/boot-service:{{ .Version }}-arm64"
+  - id: boot-service-manifest-latest
+    name_template: "ghcr.io/openchami/boot-service:latest"
+    image_templates:
+      - "ghcr.io/openchami/boot-service:latest-amd64"
+      - "ghcr.io/openchami/boot-service:latest-arm64"
+

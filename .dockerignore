@@ -1,0 +1,27 @@
+# VCS
+.git
+.gitignore
+
+# Go build cache and output
+bin/
+dist/
+build/
+coverage/
+
+# Local data and logs
+data/
+*.log
+
+# OS files
+.DS_Store
+
+# IDE/editor
+.vscode/
+.idea/
+
+# Test artifacts
+*.out
+*.test
+
+# Ignore local config, keep example
+config.yaml
