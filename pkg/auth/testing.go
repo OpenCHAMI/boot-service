@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: MIT
 
-// Testing utilities for authentication integration
 package auth
 
 import (

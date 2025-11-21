@@ -46,7 +46,7 @@ func TestHSMClient_GetComponents(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		json.NewEncoder(w).Encode(response) //nolint:errcheck
 	}))
 	defer server.Close()
 
@@ -100,7 +100,7 @@ func TestHSMClient_GetComponent(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(component)
+		json.NewEncoder(w).Encode(component) //nolint:errcheck
 	}))
 	defer server.Close()
 
@@ -153,7 +153,7 @@ func TestHSMClient_GetEthernetInterfaces(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		json.NewEncoder(w).Encode(response) //nolint:errcheck
 	}))
 	defer server.Close()
 
@@ -203,7 +203,7 @@ func TestHSMClient_GetComponentByMAC(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+			json.NewEncoder(w).Encode(response) //nolint:errcheck
 
 		case "/hsm/v2/State/Components/x1000c0s0b0n0":
 			component := HSMComponent{
@@ -215,7 +215,7 @@ func TestHSMClient_GetComponentByMAC(t *testing.T) {
 				NID:     123,
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(component)
+			json.NewEncoder(w).Encode(component) //nolint:errcheck
 
 		default:
 			t.Errorf("Unexpected path: %s", r.URL.Path)
@@ -254,7 +254,7 @@ func TestHSMClient_Cache(t *testing.T) {
 	callCount := 0
 
 	// Mock HSM server that tracks calls
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { //nolint:revive
 		callCount++
 
 		response := HSMResponse{
@@ -271,7 +271,7 @@ func TestHSMClient_Cache(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		json.NewEncoder(w).Encode(response) //nolint:errcheck
 	}))
 	defer server.Close()
 
@@ -330,7 +330,7 @@ func TestHSMClient_Health(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		w.Write([]byte("OK")) //nolint:errcheck
 	}))
 	defer server.Close()
 

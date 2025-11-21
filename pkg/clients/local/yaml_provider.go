@@ -2,14 +2,14 @@
 //
 // SPDX-License-Identifier: MIT
 
-// Local YAML node provider for development and standalone deployments
+// Package local provides a local YAML node provider for development and standalone deployments
 package local
 
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -76,14 +76,20 @@ func NewYAMLNodeProvider(filePath string, autoReload bool, logger *log.Logger) (
 
 // loadNodes loads node data from the YAML file
 func (p *YAMLNodeProvider) loadNodes() error {
-	// Check if file needs reloading
-	if p.autoReload {
-		// For simplicity, we'll reload on every call when autoReload is true
-		// In production, you might want to check file modification time
+	// Check if file needs reloading by comparing modification time
+	fileInfo, err := os.Stat(p.filePath)
+	if err != nil {
+		return fmt.Errorf("checking file stats: %w", err)
+	}
+
+	// Skip reload if auto-reload is enabled and file hasn't changed
+	if p.autoReload && !p.lastModified.IsZero() && !fileInfo.ModTime().After(p.lastModified) {
+		// File hasn't been modified since last load
+		return nil
 	}
 
 	// Read YAML file
-	data, err := ioutil.ReadFile(p.filePath)
+	data, err := os.ReadFile(p.filePath)
 	if err != nil {
 		return fmt.Errorf("reading YAML file: %w", err)
 	}
@@ -126,13 +132,19 @@ func (p *YAMLNodeProvider) loadNodes() error {
 		}
 	}
 
-	p.lastModified = time.Now()
+	// Update last modified time to the actual file modification time
+	if fileInfo, statErr := os.Stat(p.filePath); statErr == nil {
+		p.lastModified = fileInfo.ModTime()
+	} else {
+		p.lastModified = time.Now()
+	}
+
 	p.logger.Printf("Loaded %d nodes from YAML file, indexed %d entries", len(yamlFile.Nodes), len(p.nodes))
 	return nil
 }
 
 // GetNodeByIdentifier retrieves a node by any identifier (ID, XName, MAC, NID)
-func (p *YAMLNodeProvider) GetNodeByIdentifier(ctx context.Context, identifier string) (*YAMLNode, error) {
+func (p *YAMLNodeProvider) GetNodeByIdentifier(ctx context.Context, identifier string) (*YAMLNode, error) { //nolint:revive
 	// Reload if auto-reload is enabled
 	if p.autoReload {
 		if err := p.loadNodes(); err != nil {
@@ -158,7 +170,7 @@ func (p *YAMLNodeProvider) GetNodeByIdentifier(ctx context.Context, identifier s
 }
 
 // GetAllNodes returns all nodes from the YAML file
-func (p *YAMLNodeProvider) GetAllNodes(ctx context.Context) ([]YAMLNode, error) {
+func (p *YAMLNodeProvider) GetAllNodes(ctx context.Context) ([]YAMLNode, error) { //nolint:revive
 	// Reload if auto-reload is enabled
 	if p.autoReload {
 		if err := p.loadNodes(); err != nil {
@@ -201,7 +213,7 @@ func (p *YAMLNodeProvider) GetNodesByRole(ctx context.Context, role string) ([]Y
 }
 
 // HealthCheck verifies the YAML file is readable and contains valid data
-func (p *YAMLNodeProvider) HealthCheck(ctx context.Context) error {
+func (p *YAMLNodeProvider) HealthCheck(ctx context.Context) error { //nolint:revive
 	// Try to reload data
 	err := p.loadNodes()
 	if err != nil {
@@ -220,7 +232,7 @@ func (p *YAMLNodeProvider) HealthCheck(ctx context.Context) error {
 }
 
 // GetStats returns statistics about the loaded nodes
-func (p *YAMLNodeProvider) GetStats(ctx context.Context) map[string]interface{} {
+func (p *YAMLNodeProvider) GetStats(ctx context.Context) map[string]interface{} { //nolint:revive
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
 
@@ -249,6 +261,6 @@ func (p *YAMLNodeProvider) GetStats(ctx context.Context) map[string]interface{} 
 }
 
 // Reload forces a reload of the YAML file
-func (p *YAMLNodeProvider) Reload(ctx context.Context) error {
+func (p *YAMLNodeProvider) Reload(ctx context.Context) error { //nolint:revive
 	return p.loadNodes()
 }

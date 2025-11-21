@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: MIT
 
-// Flexible boot script controller with pluggable node providers
 package bootscript
 
 import (
@@ -39,8 +38,8 @@ type FlexibleBootScriptController struct {
 
 // ProviderConfig holds configuration for different provider types
 type ProviderConfig struct {
-	Type      string                  `yaml:"type"`      // "hsm" or "yaml"
-	HSMConfig *hsm.IntegrationConfig  `yaml:"hsm_config,omitempty"`
+	Type       string                   `yaml:"type"` // "hsm" or "yaml"
+	HSMConfig  *hsm.IntegrationConfig   `yaml:"hsm_config,omitempty"`
 	YAMLConfig *local.IntegrationConfig `yaml:"yaml_config,omitempty"`
 }
 
@@ -51,8 +50,8 @@ func NewFlexibleBootScriptController(bootClient client.Client, config ProviderCo
 
 	controller := &FlexibleBootScriptController{
 		BootScriptController: baseController,
-		providerType:        config.Type,
-		logger:              logger,
+		providerType:         config.Type,
+		logger:               logger,
 	}
 
 	// Initialize the specified provider
@@ -98,7 +97,7 @@ func (c *FlexibleBootScriptController) GenerateBootScriptWithFallback(ctx contex
 	c.logger.Printf("Generating boot script for identifier: %s (provider: %s)", identifier, c.providerType)
 
 	// First try the standard resolution
-	script, err := c.BootScriptController.GenerateBootScript(ctx, identifier)
+	script, err := c.GenerateBootScript(ctx, identifier)
 	if err == nil {
 		return script, nil
 	}
@@ -122,7 +121,7 @@ func (c *FlexibleBootScriptController) GenerateBootScriptWithFallback(ctx contex
 	c.logger.Printf("%s provider resolved node %s for identifier %s", c.providerType, node.Spec.XName, identifier)
 
 	// Now try to generate script with the resolved node
-	script, err = c.BootScriptController.GenerateBootScript(ctx, node.Spec.XName)
+	script, err = c.GenerateBootScript(ctx, node.Spec.XName)
 	if err != nil {
 		c.logger.Printf("Failed to generate script for %s-resolved node %s: %v", c.providerType, node.Spec.XName, err)
 		return c.generateMinimalScript(identifier), nil
@@ -137,7 +136,7 @@ func (c *FlexibleBootScriptController) StartBackgroundSync(ctx context.Context) 
 		c.logger.Printf("Provider %s does not support background sync", c.providerType)
 		return
 	}
-	
+
 	c.logger.Printf("Starting background sync with %s provider", c.providerType)
 	c.syncProvider.StartSyncWorker(ctx)
 }
@@ -146,7 +145,7 @@ func (c *FlexibleBootScriptController) StartBackgroundSync(ctx context.Context) 
 func (c *FlexibleBootScriptController) GetProviderStats(ctx context.Context) map[string]interface{} {
 	if c.nodeProvider == nil {
 		return map[string]interface{}{
-			"provider_type": c.providerType,
+			"provider_type":       c.providerType,
 			"provider_configured": false,
 		}
 	}
@@ -164,7 +163,7 @@ func (c *FlexibleBootScriptController) HealthCheck(ctx context.Context) error {
 	if c.nodeProvider == nil {
 		return nil // No external provider to check
 	}
-	
+
 	return c.nodeProvider.HealthCheck(ctx)
 }
 
@@ -179,13 +178,13 @@ func NewHSMController(bootClient client.Client, hsmConfig hsm.IntegrationConfig,
 		Type:      "hsm",
 		HSMConfig: &hsmConfig,
 	}
-	
+
 	controller, err := NewFlexibleBootScriptController(bootClient, config, logger)
 	if err != nil {
 		logger.Printf("Failed to create HSM controller: %v", err)
 		return nil
 	}
-	
+
 	return controller
 }
 
@@ -195,12 +194,12 @@ func NewYAMLController(bootClient client.Client, yamlConfig local.IntegrationCon
 		Type:       "yaml",
 		YAMLConfig: &yamlConfig,
 	}
-	
+
 	controller, err := NewFlexibleBootScriptController(bootClient, config, logger)
 	if err != nil {
 		logger.Printf("Failed to create YAML controller: %v", err)
 		return nil
 	}
-	
+
 	return controller
 }

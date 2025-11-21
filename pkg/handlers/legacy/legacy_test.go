@@ -17,14 +17,38 @@ import (
 
 const testServerURL = "http://localhost:8080"
 
+// checkServerAvailable checks if the test server is running
+func checkServerAvailable(t *testing.T) {
+	t.Helper()
+
+	// Skip if running in short mode
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	// Try to connect to the server
+	client := &http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get(testServerURL + "/health")
+	if err != nil {
+		t.Skipf("Test server not available at %s: %v", testServerURL, err)
+	}
+	resp.Body.Close() //nolint:errcheck
+
+	if resp.StatusCode != http.StatusOK {
+		t.Skipf("Test server not healthy at %s: status %d", testServerURL, resp.StatusCode)
+	}
+}
+
 // TestLegacyServiceEndpoints tests the legacy service status and version endpoints
 func TestLegacyServiceEndpoints(t *testing.T) {
+	checkServerAvailable(t)
+
 	t.Run("Service Status", func(t *testing.T) {
 		resp, err := http.Get(testServerURL + "/boot/v1/service/status")
 		if err != nil {
 			t.Fatalf("Failed to call service status: %v", err)
 		}
-		defer resp.Body.Close()
+		defer resp.Body.Close() //nolint:errcheck //nolint:errcheck
 
 		if resp.StatusCode != http.StatusOK {
 			t.Errorf("Expected status 200, got %d", resp.StatusCode)
@@ -51,7 +75,7 @@ func TestLegacyServiceEndpoints(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to call service version: %v", err)
 		}
-		defer resp.Body.Close()
+		defer resp.Body.Close() //nolint:errcheck //nolint:errcheck
 
 		if resp.StatusCode != http.StatusOK {
 			t.Errorf("Expected status 200, got %d", resp.StatusCode)
@@ -76,12 +100,14 @@ func TestLegacyServiceEndpoints(t *testing.T) {
 
 // TestLegacyBootParameters tests the boot parameters CRUD operations
 func TestLegacyBootParameters(t *testing.T) {
+	checkServerAvailable(t)
+
 	t.Run("Get Boot Parameters", func(t *testing.T) {
 		resp, err := http.Get(testServerURL + "/boot/v1/bootparameters")
 		if err != nil {
 			t.Fatalf("Failed to get boot parameters: %v", err)
 		}
-		defer resp.Body.Close()
+		defer resp.Body.Close() //nolint:errcheck
 
 		if resp.StatusCode != http.StatusOK {
 			t.Errorf("Expected status 200, got %d", resp.StatusCode)
@@ -129,7 +155,7 @@ func TestLegacyBootParameters(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to create boot parameters: %v", err)
 		}
-		defer resp.Body.Close()
+		defer resp.Body.Close() //nolint:errcheck
 
 		if resp.StatusCode != http.StatusCreated {
 			body, _ := io.ReadAll(resp.Body)
@@ -156,6 +182,8 @@ func TestLegacyBootParameters(t *testing.T) {
 
 // TestLegacyBootScript tests the boot script generation endpoint
 func TestLegacyBootScript(t *testing.T) {
+	checkServerAvailable(t)
+
 	testCases := []struct {
 		name       string
 		queryParam string
@@ -174,7 +202,7 @@ func TestLegacyBootScript(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to get boot script: %v", err)
 			}
-			defer resp.Body.Close()
+			defer resp.Body.Close() //nolint:errcheck
 
 			if resp.StatusCode != http.StatusOK {
 				body, _ := io.ReadAll(resp.Body)
@@ -219,7 +247,7 @@ func TestLegacyBootScript(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to get boot script for unknown node: %v", err)
 		}
-		defer resp.Body.Close()
+		defer resp.Body.Close() //nolint:errcheck
 
 		if resp.StatusCode != http.StatusOK {
 			t.Errorf("Expected status 200 even for unknown node, got %d", resp.StatusCode)
@@ -247,7 +275,7 @@ func TestLegacyBootScript(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to make request: %v", err)
 		}
-		defer resp.Body.Close()
+		defer resp.Body.Close() //nolint:errcheck
 
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Errorf("Expected status 400 for missing identifier, got %d", resp.StatusCode)
@@ -265,6 +293,8 @@ func TestLegacyBootScript(t *testing.T) {
 
 // TestLegacyAPICompatibility tests overall API compatibility with legacy BSS
 func TestLegacyAPICompatibility(t *testing.T) {
+	checkServerAvailable(t)
+
 	// Test that we can perform a typical legacy BSS workflow
 	t.Run("Legacy Workflow", func(t *testing.T) {
 		// 1. Check service status
@@ -272,7 +302,7 @@ func TestLegacyAPICompatibility(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to check service status: %v", err)
 		}
-		statusResp.Body.Close()
+		statusResp.Body.Close() //nolint:errcheck
 
 		if statusResp.StatusCode != http.StatusOK {
 			t.Fatalf("Service status check failed: %d", statusResp.StatusCode)
@@ -283,7 +313,7 @@ func TestLegacyAPICompatibility(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to get boot parameters: %v", err)
 		}
-		paramsResp.Body.Close()
+		paramsResp.Body.Close() //nolint:errcheck
 
 		if paramsResp.StatusCode != http.StatusOK {
 			t.Fatalf("Boot parameters retrieval failed: %d", paramsResp.StatusCode)
@@ -294,7 +324,7 @@ func TestLegacyAPICompatibility(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to generate boot script: %v", err)
 		}
-		scriptResp.Body.Close()
+		scriptResp.Body.Close() //nolint:errcheck
 
 		if scriptResp.StatusCode != http.StatusOK {
 			t.Fatalf("Boot script generation failed: %d", scriptResp.StatusCode)
@@ -311,7 +341,7 @@ func TestLegacyAPICompatibility(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to get boot script: %v", err)
 		}
-		resp.Body.Close()
+		resp.Body.Close() //nolint:errcheck
 
 		duration := time.Since(start)
 
@@ -326,12 +356,14 @@ func TestLegacyAPICompatibility(t *testing.T) {
 
 // TestLegacyErrorHandling tests error scenarios and responses
 func TestLegacyErrorHandling(t *testing.T) {
+	checkServerAvailable(t)
+
 	t.Run("Invalid JSON in POST", func(t *testing.T) {
 		resp, err := http.Post(testServerURL+"/boot/v1/bootparameters", "application/json", strings.NewReader("{invalid json"))
 		if err != nil {
 			t.Fatalf("Failed to make request: %v", err)
 		}
-		defer resp.Body.Close()
+		defer resp.Body.Close() //nolint:errcheck
 
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Errorf("Expected status 400 for invalid JSON, got %d", resp.StatusCode)
@@ -348,7 +380,7 @@ func TestLegacyErrorHandling(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to make request: %v", err)
 		}
-		defer resp.Body.Close()
+		defer resp.Body.Close() //nolint:errcheck
 
 		if resp.StatusCode != http.StatusNotFound {
 			t.Errorf("Expected status 404 for nonexistent endpoint, got %d", resp.StatusCode)

@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
+// Package bootscript handles iPXE boot script generation for nodes
 package bootscript
 
 import (
@@ -20,7 +21,7 @@ import (
 )
 
 // BootScriptController handles iPXE boot script generation
-type BootScriptController struct {
+type BootScriptController struct { //nolint:revive
 	client client.Client
 	logger *log.Logger
 	cache  *ScriptCache
@@ -44,6 +45,7 @@ type NodeIdentifier struct {
 // IdentifierType represents the type of node identifier
 type IdentifierType int
 
+// Different identifier types
 const (
 	IdentifierXName IdentifierType = iota
 	IdentifierNID

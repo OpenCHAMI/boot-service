@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+
+SPDX-License-Identifier: MIT
+-->
+
 # Authentication with OpenCHAMI TokenSmith
 
 This document describes how the OpenCHAMI boot service integrates with the [OpenCHAMI TokenSmith](https://github.com/OpenCHAMI/tokensmith) middleware for JWT-based authentication and authorization.
@@ -7,7 +13,7 @@ This document describes how the OpenCHAMI boot service integrates with the [Open
 The boot service uses the OpenCHAMI TokenSmith middleware to provide:
 
 - **JWT Token Validation**: Support for RSA and ECDSA signed tokens
-- **JWKS Integration**: Automatic key rotation via JSON Web Key Sets  
+- **JWKS Integration**: Automatic key rotation via JSON Web Key Sets
 - **Scope-based Authorization**: Fine-grained access control
 - **Service-to-Service Authentication**: Internal service communication
 - **Flexible Configuration**: Multiple deployment scenarios
@@ -205,7 +211,7 @@ func bootHandler(w http.ResponseWriter, r *http.Request) {
     clusterID := claims.ClusterID
 
     // Use claims for business logic
-    log.Printf("Boot request from user %s (%s) with scopes %v", 
+    log.Printf("Boot request from user %s (%s) with scopes %v",
                userID, email, scopes)
 }
 ```
@@ -217,7 +223,7 @@ The TokenSmith middleware expects tokens with the following claims structure:
 ### Standard JWT Claims (RFC 7519)
 
 - **`iss`** (issuer): Token issuer
-- **`sub`** (subject): User or service identifier  
+- **`sub`** (subject): User or service identifier
 - **`aud`** (audience): Intended recipients
 - **`exp`** (expiration): Token expiration time
 - **`iat`** (issued at): Token issuance time
@@ -368,8 +374,8 @@ This logs authentication failures without blocking requests, useful for troubles
    ```go
    // Old
    customAuth := myapp.CreateAuthMiddleware(config)
-   
-   // New  
+
+   // New
    authConfig := auth.DefaultConfig()
    tokensmithAuth := authConfig.CreateMiddleware(logger)
    ```

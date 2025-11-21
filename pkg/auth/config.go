@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-// Authentication configuration for OpenCHAMI boot service using tokensmith
+// Package auth handles authentication configuration for OpenCHAMI boot service using tokensmith
 package auth
 
 import (

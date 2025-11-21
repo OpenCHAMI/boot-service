@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
+// Package bootconfiguration defines the BootConfiguration resource
 package bootconfiguration
 
 import (
@@ -20,7 +21,7 @@ type BootConfiguration struct {
 }
 
 // BootConfigurationSpec defines the desired state of BootConfiguration
-type BootConfigurationSpec struct {
+type BootConfigurationSpec struct { // nolint:revive
 	// Node identification (one or more required)
 	Hosts  []string `json:"hosts,omitempty"`
 	MACs   []string `json:"macs,omitempty"`
@@ -37,7 +38,7 @@ type BootConfigurationSpec struct {
 }
 
 // BootConfigurationStatus defines the observed state of BootConfiguration
-type BootConfigurationStatus struct {
+type BootConfigurationStatus struct { // nolint:revive
 	Phase       string   `json:"phase,omitempty"`       // Active, Pending, Failed
 	LastUpdated string   `json:"lastUpdated,omitempty"` // RFC3339 timestamp
 	AppliedTo   []string `json:"appliedTo,omitempty"`   // List of nodes using this config
@@ -45,7 +46,7 @@ type BootConfigurationStatus struct {
 }
 
 // Validate implements custom validation logic for BootConfiguration
-func (r *BootConfiguration) Validate(ctx context.Context) error {
+func (r *BootConfiguration) Validate(ctx context.Context) error { //nolint:revive
 	// Kernel is required
 	if r.Spec.Kernel == "" {
 		return errors.New("kernel field is required")

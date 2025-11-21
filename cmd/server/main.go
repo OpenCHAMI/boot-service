@@ -1,3 +1,8 @@
+// SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+//
+// SPDX-License-Identifier: MIT
+
+// Main entry point for the OpenCHAMI Boot Service
 package main
 
 import (
@@ -7,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -17,6 +23,7 @@ import (
 
 	"github.com/openchami/boot-service/internal/storage"
 	"github.com/openchami/boot-service/pkg/client"
+	"github.com/openchami/boot-service/pkg/clients/hsm"
 	"github.com/openchami/boot-service/pkg/handlers/legacy"
 )
 
@@ -84,29 +91,29 @@ func init() {
 	// Server configuration flags
 	serveCmd.Flags().Int("port", 8080, "Port to listen on")
 	serveCmd.Flags().String("host", "0.0.0.0", "Host to bind to")
-	serveCmd.Flags().Int("read_timeout", 30, "Read timeout in seconds")
-	serveCmd.Flags().Int("write_timeout", 30, "Write timeout in seconds")
-	serveCmd.Flags().Int("idle_timeout", 120, "Idle timeout in seconds")
+	serveCmd.Flags().Int("read-timeout", 30, "Read timeout in seconds")
+	serveCmd.Flags().Int("write-timeout", 30, "Write timeout in seconds")
+	serveCmd.Flags().Int("idle-timeout", 120, "Idle timeout in seconds")
 
 	// Storage configuration flags
-	serveCmd.Flags().String("data_dir", "./data", "Directory for file storage")
-	serveCmd.Flags().String("storage_type", "file", "Storage backend: file or database")
+	serveCmd.Flags().String("data-dir", "./data", "Directory for file storage")
+	serveCmd.Flags().String("storage-type", "file", "Storage backend: file or database")
 
 	// Feature flags
-	serveCmd.Flags().Bool("enable_auth", false, "Enable authentication with TokenSmith")
-	serveCmd.Flags().Bool("enable_metrics", false, "Enable Prometheus metrics")
-	serveCmd.Flags().Bool("enable_legacy_api", true, "Enable legacy BSS API compatibility")
-	serveCmd.Flags().Int("metrics_port", 9090, "Port for metrics endpoint")
+	serveCmd.Flags().Bool("enable-auth", false, "Enable authentication with TokenSmith")
+	serveCmd.Flags().Bool("enable-metrics", false, "Enable Prometheus metrics")
+	serveCmd.Flags().Bool("enable-legacy-api", true, "Enable legacy BSS API compatibility")
+	serveCmd.Flags().Int("metrics-port", 9090, "Port for metrics endpoint")
 
 	// Authentication configuration flags
 	serveCmd.Flags().String("tokensmith_url", "", "TokenSmith service URL for authentication")
-	serveCmd.Flags().String("jwks_endpoint", "", "JWKS endpoint for JWT validation")
+	serveCmd.Flags().String("jwks-endpoint", "", "JWKS endpoint for JWT validation")
 
 	// Hardware State Manager configuration flags
-	serveCmd.Flags().String("hsm_url", "", "Hardware State Manager service URL (enables HSM when provided)")
+	serveCmd.Flags().String("hsm-url", "", "Hardware State Manager service URL (enables HSM when provided)")
 
 	// Bind flags to viper
-	viper.BindPFlags(serveCmd.Flags())
+	viper.BindPFlags(serveCmd.Flags()) //nolint:errcheck
 
 	// Add commands
 	rootCmd.AddCommand(serveCmd)
@@ -122,7 +129,11 @@ func main() {
 
 	// Enable environment variable overrides
 	viper.SetEnvPrefix("BOOT_SERVICE")
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
+
+	// Register aliases for flags with dashes to work with mapstructure tags that use underscores
+	viper.RegisterAlias("hsm_url", "hsm-url")
 
 	// Read config file if present
 	if err := viper.ReadInConfig(); err != nil {
@@ -136,14 +147,12 @@ func main() {
 	}
 }
 
-func runServe(cmd *cobra.Command, args []string) error {
+func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 	// Load configuration
 	config := DefaultConfig()
 	if err := viper.Unmarshal(&config); err != nil {
 		return fmt.Errorf("failed to unmarshal config: %v", err)
-	}
-
-	// Validate configuration
+	} // Validate configuration
 	if err := validateConfig(config); err != nil {
 		return fmt.Errorf("invalid configuration: %v", err)
 	}
@@ -160,6 +169,29 @@ func runServe(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize storage: %v", err)
 	}
 
+	// Initialize HSM client if configured
+	var hsmClient *hsm.HSMClient
+	if config.HSMURL != "" {
+		hsmConfig := hsm.DefaultHSMConfig()
+		hsmConfig.BaseURL = config.HSMURL
+		if config.TokenSmithURL != "" {
+			hsmConfig.AuthToken = config.TokenSmithURL // TODO: Get actual token from TokenSmith
+		}
+
+		hsmLogger := log.New(os.Stdout, "hsm: ", log.LstdFlags)
+		hsmClient = hsm.NewHSMClient(hsmConfig, hsmLogger)
+
+		// Test HSM connectivity
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := hsmClient.Health(ctx); err != nil {
+			log.Printf("Warning: HSM health check failed: %v", err)
+			log.Printf("HSM integration will be available but may not be functional")
+		} else {
+			log.Printf("HSM integration enabled and healthy at: %s", config.HSMURL)
+		}
+	}
+
 	// Setup router
 	r := chi.NewRouter()
 
@@ -171,10 +203,10 @@ func runServe(cmd *cobra.Command, args []string) error {
 	r.Use(middleware.Timeout(time.Duration(config.ReadTimeout) * time.Second))
 
 	// Register health check
-	r.Get("/health", func(w http.ResponseWriter, req *http.Request) {
+	r.Get("/health", func(w http.ResponseWriter, req *http.Request) { //nolint:revive
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok","service":"boot-service"}`))
+		w.Write([]byte(`{"status":"ok","service":"boot-service"}`)) //nolint:errcheck
 	})
 
 	// Setup metrics endpoint if enabled (before other routes)
@@ -202,7 +234,12 @@ func runServe(cmd *cobra.Command, args []string) error {
 		logger := log.New(os.Stdout, "legacy: ", log.LstdFlags)
 		legacyHandler := legacy.NewLegacyHandler(*bootClient, logger)
 		legacyHandler.RegisterRoutes(r)
-		log.Println("Legacy BSS API enabled at: /boot/v1/")
+
+		if hsmClient != nil {
+			log.Println("Legacy BSS API enabled with HSM integration at: /boot/v1/")
+		} else {
+			log.Println("Legacy BSS API enabled at: /boot/v1/")
+		}
 	}
 
 	// Configure server
@@ -268,9 +305,9 @@ func startMetricsServer(config Config) {
 	}
 }
 
-func metricsHandler(w http.ResponseWriter, r *http.Request) {
+func metricsHandler(w http.ResponseWriter, r *http.Request) { //nolint:revive
 	// TODO: Implement Prometheus metrics here
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("# Metrics endpoint - implementation pending\n"))
+	w.Write([]byte("# Metrics endpoint - implementation pending\n")) //nolint:errcheck
 }

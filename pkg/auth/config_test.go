@@ -48,9 +48,9 @@ func TestCreateMiddleware(t *testing.T) {
 		middleware := config.CreateMiddleware(nil)
 
 		// Test that disabled auth allows all requests through
-		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { //nolint:revive
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("success"))
+			w.Write([]byte("success")) //nolint:errcheck
 		})
 
 		req := httptest.NewRequest("GET", "/test", nil)
@@ -66,9 +66,9 @@ func TestCreateMiddleware(t *testing.T) {
 		config := DefaultConfig()
 		middleware := config.CreateMiddleware(nil)
 
-		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { //nolint:revive
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("success"))
+			w.Write([]byte("success")) //nolint:errcheck
 		})
 
 		req := httptest.NewRequest("GET", "/test", nil)
@@ -85,7 +85,7 @@ func TestScopeMiddleware(t *testing.T) {
 	t.Run("NoScopesRequired", func(t *testing.T) {
 		middleware := CreateScopeMiddleware()
 
-		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { //nolint:revive
 			w.WriteHeader(http.StatusOK)
 		})
 

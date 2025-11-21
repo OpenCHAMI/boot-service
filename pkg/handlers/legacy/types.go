@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-// Legacy BSS API types for backward compatibility
+// Package legacy implements the legacy BSS API types for backward compatibility
 // This file defines the exact request/response formats expected by legacy BSS clients
 package legacy
 

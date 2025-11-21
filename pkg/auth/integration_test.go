@@ -27,9 +27,9 @@ func TestAuthenticationIntegration(t *testing.T) {
 		config := NonEnforcingConfig()
 		middleware := config.CreateMiddleware(nil)
 
-		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { //nolint:revive
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("success"))
+			w.Write([]byte("success")) //nolint:errcheck
 		})
 
 		// Test without token - should succeed in non-enforcing mode
@@ -60,7 +60,7 @@ func TestAuthenticationIntegration(t *testing.T) {
 			assert.Contains(t, claims.Scope, "read") // Check for simple "read" scope
 
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("authenticated"))
+			w.Write([]byte("authenticated")) //nolint:errcheck
 		})
 
 		req := httptest.NewRequest("GET", "/test", nil)
@@ -93,9 +93,9 @@ func TestAuthenticationIntegration(t *testing.T) {
 		readScopeMiddleware := CreateScopeMiddleware("read")
 		writeScopeMiddleware := CreateScopeMiddleware("write")
 
-		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { //nolint:revive
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("authorized"))
+			w.Write([]byte("authorized")) //nolint:errcheck
 		})
 
 		// Test read scope access
@@ -160,7 +160,7 @@ func TestAuthenticationIntegration(t *testing.T) {
 			assert.Contains(t, claims.Scope, "service:boot")
 
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("service authenticated"))
+			w.Write([]byte("service authenticated")) //nolint:errcheck
 		})
 
 		req := httptest.NewRequest("GET", "/internal/stats", nil)
@@ -200,7 +200,7 @@ func TestAuthenticationIntegration(t *testing.T) {
 		config.NonEnforcing = false
 		middleware := config.CreateMiddleware(nil)
 
-		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { //nolint:revive
 			w.WriteHeader(http.StatusOK)
 		})
 
@@ -219,7 +219,7 @@ func TestAuthenticationIntegration(t *testing.T) {
 		config.NonEnforcing = false
 		middleware := config.CreateMiddleware(nil)
 
-		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { //nolint:revive
 			w.WriteHeader(http.StatusOK)
 		})
 

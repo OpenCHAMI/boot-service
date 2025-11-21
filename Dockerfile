@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+#
+# SPDX-License-Identifier: MIT
+
 FROM gcr.io/distroless/static-debian12:nonroot
 
 WORKDIR /app

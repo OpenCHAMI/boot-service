@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-// HSM integration service for boot script service
+// Package hsm handles the HSM integration service for boot script service
 package hsm
 
 import (
@@ -197,11 +197,7 @@ func (s *IntegrationService) needsUpdate(comp HSMComponent, macMap map[string]st
 
 	// Check if MAC address changed
 	bootMAC := macMap[comp.ID]
-	if bootMAC != existing.Spec.BootMAC {
-		return true
-	}
-
-	return false
+	return bootMAC != existing.Spec.BootMAC
 }
 
 // ResolveNodeByIdentifier resolves a node using HSM as fallback

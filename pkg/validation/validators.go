@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
+// Package validation provides validation utilities for resources
 package validation
 
 import (

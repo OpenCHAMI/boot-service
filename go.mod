@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+//
+// SPDX-License-Identifier: MIT
+
 module github.com/openchami/boot-service
 
 go 1.24.0

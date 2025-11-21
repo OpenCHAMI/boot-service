@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+#
+# SPDX-License-Identifier: MIT
+
 # OpenCHAMI Boot Service Configuration Example
 #
 # This is a comprehensive example configuration file for the OpenCHAMI boot service.
@@ -20,7 +24,7 @@
 port: 8082                    # Port to listen on
 host: "0.0.0.0"              # Interface to bind to (0.0.0.0 for all interfaces)
 read_timeout: 30             # HTTP read timeout in seconds
-write_timeout: 30            # HTTP write timeout in seconds  
+write_timeout: 30            # HTTP write timeout in seconds
 idle_timeout: 120            # HTTP idle timeout in seconds
 
 # =============================================================================
@@ -68,11 +72,11 @@ auth:
   enabled: false             # Must match enable_auth above
 
   # JWT validation method (choose one):
-  
+
   # Option 1: JWKS URL (recommended for production)
   jwks_url: "https://auth.openchami.org/.well-known/jwks.json"
   jwks_refresh_interval: "1h"  # How often to refresh JWKS cache
-  
+
   # Option 2: Static RSA public key (for development/testing)
   # jwt_public_key: |
   #   -----BEGIN PUBLIC KEY-----
@@ -116,7 +120,7 @@ hsm_url: "http://localhost:27779"  # URL of the HSM service
 tokensmith:
   url: "http://localhost:8080"                    # TokenSmith service URL
   timeout: 30                                    # Request timeout in seconds
-  
+
   # Service-to-service authentication
   service_auth:
     enabled: false                               # Enable service tokens

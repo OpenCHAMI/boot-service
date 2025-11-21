@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-// Legacy BSS API handlers for backward compatibility
+// Package legacy provides legacy BSS API handlers for backward compatibility
 package legacy
 
 import (
@@ -20,7 +20,7 @@ import (
 )
 
 // LegacyHandler handles legacy BSS API requests
-type LegacyHandler struct {
+type LegacyHandler struct { //nolint:revive
 	client     client.Client
 	controller *bootscript.BootScriptController
 	logger     *log.Logger
@@ -112,7 +112,7 @@ func (h *LegacyHandler) CreateBootParameters(w http.ResponseWriter, r *http.Requ
 	name := h.generateConfigName(req)
 
 	// Convert to modern BootConfiguration
-	config := ConvertLegacyRequestToBootConfiguration(req, name)
+	config := ConvertLegacyRequestToBootConfiguration(req)
 	config.Metadata.Name = name
 
 	// Create the configuration
@@ -156,9 +156,7 @@ func (h *LegacyHandler) UpdateBootParameters(w http.ResponseWriter, r *http.Requ
 
 	// Find configurations that match any of the provided identifiers
 	identifiers := append(req.Hosts, req.Macs...)
-	for _, nid := range req.Nids {
-		identifiers = append(identifiers, nid)
-	}
+	identifiers = append(identifiers, req.Nids...)
 
 	matchingConfigs := h.filterConfigurationsByIdentifiers(configs, identifiers)
 
@@ -286,17 +284,17 @@ func (h *LegacyHandler) GetBootScript(w http.ResponseWriter, r *http.Request) {
 	// Return the script as plain text (iPXE format)
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(script))
+	w.Write([]byte(script)) //nolint:errcheck
 }
 
 // GetServiceStatus handles GET /boot/v1/service/status
-func (h *LegacyHandler) GetServiceStatus(w http.ResponseWriter, r *http.Request) {
+func (h *LegacyHandler) GetServiceStatus(w http.ResponseWriter, r *http.Request) { //nolint:revive
 	status := CreateServiceStatus("2.0.0-fabrica")
 	h.writeJSON(w, http.StatusOK, status)
 }
 
 // GetServiceVersion handles GET /boot/v1/service/version
-func (h *LegacyHandler) GetServiceVersion(w http.ResponseWriter, r *http.Request) {
+func (h *LegacyHandler) GetServiceVersion(w http.ResponseWriter, r *http.Request) { //nolint:revive
 	version := CreateServiceVersion("2.0.0-fabrica", "2025-10-08", "main")
 	h.writeJSON(w, http.StatusOK, version)
 }

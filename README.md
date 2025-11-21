@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+
+SPDX-License-Identifier: MIT
+-->
+
 # boot-service
 
 Resource-based REST API with Fabrica created with Fabrica.

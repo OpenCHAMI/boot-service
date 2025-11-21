@@ -43,7 +43,7 @@ nodes:
       cluster: "test-cluster"
       rack: "rack1"
 
-  - id: "x2000c0s0b0n0" 
+  - id: "x2000c0s0b0n0"
     xname: "x2000c0s0b0n0"
     type: "Node"
     role: "Compute"
@@ -78,11 +78,11 @@ nodes:
 }
 
 // createMockBootService creates a mock boot service for testing
-func createMockBootService(t *testing.T) *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func createMockBootService(t *testing.T) *httptest.Server { //nolint:revive
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { //nolint:revive
 		// Mock boot service always returns "not found" so fallback is tested
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"error": "node not found"}`))
+		w.Write([]byte(`{"error": "node not found"}`)) //nolint:errcheck
 	}))
 }
 
@@ -92,7 +92,7 @@ func createMockHSMService(t *testing.T) *httptest.Server {
 		switch r.URL.Path {
 		case "/hsm/v2/service/ready":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("OK"))
+			w.Write([]byte("OK")) //nolint:errcheck
 
 		case "/hsm/v2/State/Components":
 			response := hsm.HSMResponse{
@@ -108,7 +108,7 @@ func createMockHSMService(t *testing.T) *httptest.Server {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+			json.NewEncoder(w).Encode(response) //nolint:errcheck
 
 		case "/hsm/v2/State/Components/x3000c0s0b0n0":
 			component := hsm.HSMComponent{
@@ -120,7 +120,7 @@ func createMockHSMService(t *testing.T) *httptest.Server {
 				NID:     789,
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(component)
+			json.NewEncoder(w).Encode(component) //nolint:errcheck
 
 		default:
 			t.Logf("Unhandled HSM path: %s", r.URL.Path)

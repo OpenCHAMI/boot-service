@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-// Local integration service for YAML-based node management
+// Package local provides a local integration service for YAML-based node management
 package local
 
 import (
@@ -217,11 +217,7 @@ func (s *IntegrationService) shouldUpdateNode(existing *node.Node, yamlNode YAML
 		existingNID = existing.Spec.NID
 	}
 	yamlNID := int32(yamlNode.NID)
-	if existingNID != yamlNID {
-		return true
-	}
-
-	return false
+	return existingNID != yamlNID
 }
 
 // ReloadYAML forces a reload of the YAML file

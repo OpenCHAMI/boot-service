@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+
+SPDX-License-Identifier: MIT
+-->
+
 # Boot Service Controllers
 
 This package contains the core controller implementations for the OpenCHAMI Boot Service Phase 2.

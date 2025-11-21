@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+#
+# SPDX-License-Identifier: MIT
+
 version: 2
 
 # GoReleaser v2.12 configuration
@@ -107,4 +111,3 @@ docker_manifests:
     image_templates:
       - "ghcr.io/openchami/boot-service:latest-amd64"
       - "ghcr.io/openchami/boot-service:latest-arm64"
-

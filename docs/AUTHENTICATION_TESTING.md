@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+
+SPDX-License-Identifier: MIT
+-->
+
 # Authentication Testing Framework
 
 This document describes the comprehensive authentication testing framework built for the OpenCHAMI boot service using TokenSmith middleware.
@@ -6,7 +12,7 @@ This document describes the comprehensive authentication testing framework built
 
 ### ✅ TokenSmith Integration
 - **Complete middleware integration** with OpenCHAMI TokenSmith
-- **RSA key parsing** from PEM format for static key validation  
+- **RSA key parsing** from PEM format for static key validation
 - **NIST-compliant JWT tokens** with all required claims (auth_level, auth_factors, etc.)
 - **Multiple authentication modes**: disabled, non-enforcing, enforcing
 - **Scope-based authorization** with granular permissions
@@ -136,7 +142,7 @@ writeMiddleware := auth.CreateScopeMiddleware("read", "write")
 
 The example server (`examples/auth-testing/main.go`) provides:
 - **Generated test tokens** for immediate use
-- **Multiple auth configurations** (dev, non-enforcing, enforcing)  
+- **Multiple auth configurations** (dev, non-enforcing, enforcing)
 - **Sample curl commands** for manual testing
 - **Different route protections** demonstrating scope requirements
 
@@ -145,7 +151,7 @@ Run with: `go run examples/auth-testing/main.go`
 ## Files Created/Modified
 
 - `pkg/auth/config.go` - RSA key parsing fixes
-- `pkg/auth/testing.go` - Test utilities and token generation  
+- `pkg/auth/testing.go` - Test utilities and token generation
 - `pkg/auth/integration_test.go` - Comprehensive integration tests
 - `examples/auth-testing/main.go` - Practical demonstration server
 

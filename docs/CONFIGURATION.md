@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+
+SPDX-License-Identifier: MIT
+-->
+
 # Configuration Guide
 
 This document explains how to configure the OpenCHAMI boot service.
@@ -63,7 +69,7 @@ Useful for quick testing and overrides:
 
 ```yaml
 port: 8082                    # HTTP server port
-host: "0.0.0.0"              # Bind interface  
+host: "0.0.0.0"              # Bind interface
 read_timeout: 30             # Request read timeout (seconds)
 write_timeout: 30            # Response write timeout (seconds)
 idle_timeout: 120            # Connection idle timeout (seconds)

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-// HSM client for Hardware State Manager integration
+// Package hsm provides a client for Hardware State Manager integration
 package hsm
 
 import (
@@ -16,7 +16,7 @@ import (
 )
 
 // HSMComponent represents a component from HSM
-type HSMComponent struct {
+type HSMComponent struct { //nolint:revive
 	ID              string            `json:"ID"`
 	Type            string            `json:"Type"`
 	State           string            `json:"State"`
@@ -33,12 +33,12 @@ type HSMComponent struct {
 }
 
 // HSMResponse represents the response from HSM components endpoint
-type HSMResponse struct {
+type HSMResponse struct { //nolint:revive
 	Components []HSMComponent `json:"Components"`
 }
 
 // HSMEthernetInterface represents network interface information from HSM
-type HSMEthernetInterface struct {
+type HSMEthernetInterface struct { //nolint:revive
 	MACAddress  string `json:"MACAddress"`
 	IPAddress   string `json:"IPAddress,omitempty"`
 	ComponentID string `json:"ComponentID"`
@@ -48,12 +48,12 @@ type HSMEthernetInterface struct {
 }
 
 // HSMEthernetResponse represents the response from HSM ethernet interfaces endpoint
-type HSMEthernetResponse struct {
+type HSMEthernetResponse struct { //nolint:revive
 	EthernetInterfaces []HSMEthernetInterface `json:"EthernetInterfaces"`
 }
 
 // HSMConfig holds configuration for HSM client
-type HSMConfig struct {
+type HSMConfig struct { //nolint:revive
 	BaseURL              string        `json:"baseURL"`
 	Timeout              time.Duration `json:"timeout"`
 	RetryAttempts        int           `json:"retryAttempts"`
@@ -76,16 +76,15 @@ func DefaultHSMConfig() HSMConfig {
 }
 
 // HSMClient provides an interface to Hardware State Manager
-type HSMClient struct {
+type HSMClient struct { //nolint:revive
 	config     HSMConfig
 	httpClient *http.Client
 	logger     *log.Logger
 	cache      *HSMCache
-	mu         sync.RWMutex
 }
 
 // HSMCache provides caching for HSM responses to reduce load
-type HSMCache struct {
+type HSMCache struct { //nolint:revive
 	components         map[string]*CacheEntry
 	ethernetInterfaces map[string]*CacheEntry
 	mu                 sync.RWMutex
@@ -107,12 +106,12 @@ func NewHSMCache(expiry time.Duration) *HSMCache {
 	}
 }
 
-// Get retrieves an item from cache if not expired
-func (c *HSMCache) Get(key string, cacheMap map[string]*CacheEntry) (interface{}, bool) {
+// GetComponent retrieves a component from cache if not expired
+func (c *HSMCache) GetComponent(key string) (interface{}, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	entry, exists := cacheMap[key]
+	entry, exists := c.components[key]
 	if !exists || time.Now().After(entry.ExpiresAt) {
 		return nil, false
 	}
@@ -120,12 +119,36 @@ func (c *HSMCache) Get(key string, cacheMap map[string]*CacheEntry) (interface{}
 	return entry.Data, true
 }
 
-// Set stores an item in cache with expiration
-func (c *HSMCache) Set(key string, data interface{}, cacheMap map[string]*CacheEntry) {
+// GetEthernet retrieves an ethernet interface from cache if not expired
+func (c *HSMCache) GetEthernet(key string) (interface{}, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	entry, exists := c.ethernetInterfaces[key]
+	if !exists || time.Now().After(entry.ExpiresAt) {
+		return nil, false
+	}
+
+	return entry.Data, true
+}
+
+// SetComponent stores a component in cache with expiration
+func (c *HSMCache) SetComponent(key string, data interface{}) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	cacheMap[key] = &CacheEntry{
+	c.components[key] = &CacheEntry{
+		Data:      data,
+		ExpiresAt: time.Now().Add(c.expiry),
+	}
+}
+
+// SetEthernet stores an ethernet interface in cache with expiration
+func (c *HSMCache) SetEthernet(key string, data interface{}) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.ethernetInterfaces[key] = &CacheEntry{
 		Data:      data,
 		ExpiresAt: time.Now().Add(c.expiry),
 	}
@@ -159,7 +182,7 @@ func NewHSMClient(config HSMConfig, logger *log.Logger) *HSMClient {
 // GetComponents retrieves all components from HSM
 func (c *HSMClient) GetComponents(ctx context.Context) ([]HSMComponent, error) {
 	// Check cache first
-	if data, found := c.cache.Get("all_components", c.cache.components); found {
+	if data, found := c.cache.GetComponent("all_components"); found {
 		c.logger.Printf("HSM components cache hit")
 		return data.([]HSMComponent), nil
 	}
@@ -180,7 +203,7 @@ func (c *HSMClient) GetComponents(ctx context.Context) ([]HSMComponent, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to call HSM: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck //nolint:errcheck
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HSM returned status %d", resp.StatusCode)
@@ -192,7 +215,7 @@ func (c *HSMClient) GetComponents(ctx context.Context) ([]HSMComponent, error) {
 	}
 
 	// Cache the result
-	c.cache.Set("all_components", hsmResp.Components, c.cache.components)
+	c.cache.SetComponent("all_components", hsmResp.Components)
 
 	c.logger.Printf("Retrieved %d components from HSM", len(hsmResp.Components))
 	return hsmResp.Components, nil
@@ -202,7 +225,7 @@ func (c *HSMClient) GetComponents(ctx context.Context) ([]HSMComponent, error) {
 func (c *HSMClient) GetComponent(ctx context.Context, componentID string) (*HSMComponent, error) {
 	// Check cache first
 	cacheKey := fmt.Sprintf("component_%s", componentID)
-	if data, found := c.cache.Get(cacheKey, c.cache.components); found {
+	if data, found := c.cache.GetComponent(cacheKey); found {
 		c.logger.Printf("HSM component cache hit for %s", componentID)
 		return data.(*HSMComponent), nil
 	}
@@ -223,7 +246,7 @@ func (c *HSMClient) GetComponent(ctx context.Context, componentID string) (*HSMC
 	if err != nil {
 		return nil, fmt.Errorf("failed to call HSM: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck //nolint:errcheck
 
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, fmt.Errorf("component %s not found in HSM", componentID)
@@ -239,7 +262,7 @@ func (c *HSMClient) GetComponent(ctx context.Context, componentID string) (*HSMC
 	}
 
 	// Cache the result
-	c.cache.Set(cacheKey, &component, c.cache.components)
+	c.cache.SetComponent(cacheKey, &component)
 
 	c.logger.Printf("Retrieved component %s from HSM", componentID)
 	return &component, nil
@@ -248,7 +271,7 @@ func (c *HSMClient) GetComponent(ctx context.Context, componentID string) (*HSMC
 // GetEthernetInterfaces retrieves all ethernet interfaces from HSM
 func (c *HSMClient) GetEthernetInterfaces(ctx context.Context) ([]HSMEthernetInterface, error) {
 	// Check cache first
-	if data, found := c.cache.Get("all_ethernet", c.cache.ethernetInterfaces); found {
+	if data, found := c.cache.GetEthernet("all_ethernet"); found {
 		c.logger.Printf("HSM ethernet interfaces cache hit")
 		return data.([]HSMEthernetInterface), nil
 	}
@@ -269,7 +292,7 @@ func (c *HSMClient) GetEthernetInterfaces(ctx context.Context) ([]HSMEthernetInt
 	if err != nil {
 		return nil, fmt.Errorf("failed to call HSM: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck //nolint:errcheck
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HSM returned status %d", resp.StatusCode)
@@ -281,7 +304,7 @@ func (c *HSMClient) GetEthernetInterfaces(ctx context.Context) ([]HSMEthernetInt
 	}
 
 	// Cache the result
-	c.cache.Set("all_ethernet", hsmResp.EthernetInterfaces, c.cache.ethernetInterfaces)
+	c.cache.SetEthernet("all_ethernet", hsmResp.EthernetInterfaces)
 
 	c.logger.Printf("Retrieved %d ethernet interfaces from HSM", len(hsmResp.EthernetInterfaces))
 	return hsmResp.EthernetInterfaces, nil
@@ -325,7 +348,7 @@ func (c *HSMClient) Health(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("HSM health check failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck //nolint:errcheck
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("HSM health check returned status %d", resp.StatusCode)
@@ -346,7 +369,7 @@ func (c *HSMClient) ClearCache() {
 }
 
 // GetStats returns client statistics
-func (c *HSMClient) GetStats(ctx context.Context) map[string]interface{} {
+func (c *HSMClient) GetStats(ctx context.Context) map[string]interface{} { //nolint:revive
 	stats := map[string]interface{}{
 		"hsm_base_url":    c.config.BaseURL,
 		"cache_enabled":   c.cache != nil,

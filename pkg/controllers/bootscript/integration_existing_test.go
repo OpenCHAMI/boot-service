@@ -1,7 +1,12 @@
+// SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+//
+// SPDX-License-Identifier: MIT
+
 package bootscript
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -76,19 +81,10 @@ func TestBootLogicWithExistingData(t *testing.T) {
 
 				// Test generation by NID if available
 				if node.Spec.NID > 0 {
-					nidStr := string(rune(node.Spec.NID + '0'))
-					if node.Spec.NID >= 10 {
-						nidStr = string(rune(node.Spec.NID/10+'0')) + string(rune(node.Spec.NID%10+'0'))
-					}
-					if node.Spec.NID >= 100 {
-						// For larger NIDs, use proper string conversion
-						nidStr = string(rune(node.Spec.NID + '0'))
-					}
-					// Use a simple approach for NID conversion
-					nidStr = "123" // Use the known test NID
-
-					scriptByNID, err := controller.GenerateBootScript(ctx, nidStr)
-					if err == nil && scriptByNID == scriptByXName {
+					scriptByNID, err := controller.GenerateBootScript(ctx, fmt.Sprintf("%d", node.Spec.NID))
+					if err != nil {
+						t.Logf("Failed to generate script by NID %d: %v", node.Spec.NID, err)
+					} else if scriptByNID == scriptByXName {
 						t.Logf("✅ Successfully generated identical script by NID and XName for %s", node.Spec.XName)
 					}
 				}
@@ -96,7 +92,9 @@ func TestBootLogicWithExistingData(t *testing.T) {
 				// Test generation by MAC if available
 				if node.Spec.BootMAC != "" {
 					scriptByMAC, err := controller.GenerateBootScript(ctx, node.Spec.BootMAC)
-					if err == nil && scriptByMAC == scriptByXName {
+					if err != nil {
+						t.Logf("Failed to generate script by MAC %s: %v", node.Spec.BootMAC, err)
+					} else if scriptByMAC == scriptByXName {
 						t.Logf("✅ Successfully generated identical script by MAC and XName for %s", node.Spec.XName)
 					}
 				}

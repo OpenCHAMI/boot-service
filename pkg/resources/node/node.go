@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
+// Package node defines the Node resource
 package node
 
 import (
@@ -20,7 +21,7 @@ type Node struct {
 }
 
 // NodeSpec defines the desired state of Node
-type NodeSpec struct {
+type NodeSpec struct { // nolint:revive
 	XName      string      `json:"xname"`
 	NID        int32       `json:"nid,omitempty"`
 	BootMAC    string      `json:"bootMac,omitempty"`
@@ -31,6 +32,7 @@ type NodeSpec struct {
 	Groups     []string    `json:"groups,omitempty"` // Groups from inventory service
 }
 
+// Interface represents a network interface
 type Interface struct {
 	MAC  string `json:"mac,omitempty"`
 	IP   string `json:"ip,omitempty"`
@@ -38,7 +40,7 @@ type Interface struct {
 }
 
 // NodeStatus defines the observed state of Node
-type NodeStatus struct {
+type NodeStatus struct { // nolint:revive
 	LastBoot          string `json:"lastBoot,omitempty"`          // RFC3339 timestamp
 	BootConfiguration string `json:"bootConfiguration,omitempty"` // Reference to active config
 	State             string `json:"state,omitempty"`             // Ready, Booting, Failed
@@ -47,7 +49,7 @@ type NodeStatus struct {
 }
 
 // Validate implements custom validation logic for Node
-func (r *Node) Validate(ctx context.Context) error {
+func (r *Node) Validate(ctx context.Context) error { //nolint:revive
 	// Validate XName format
 	if !validation.ValidateXName(r.Spec.XName) {
 		return errors.New("invalid XName format: " + r.Spec.XName)

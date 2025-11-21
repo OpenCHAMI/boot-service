@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+//
+// SPDX-License-Identifier: MIT
+
 package bootscript
 
 import (
@@ -169,7 +173,7 @@ func TestTemplateVariablePreparation(t *testing.T) {
 }
 
 // createTestController creates a minimal controller for testing
-func createTestController(t *testing.T) *BootScriptController {
+func createTestController(t *testing.T) *BootScriptController { //nolint:revive
 	return &BootScriptController{
 		cache: NewScriptCache(5 * time.Minute),
 	}

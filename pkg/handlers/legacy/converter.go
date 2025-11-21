@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: MIT
 
-// Conversion utilities between modern resources and legacy BSS API formats
 package legacy
 
 import (
@@ -67,7 +66,7 @@ func ConvertBootConfigurationToLegacy(config *bootconfiguration.BootConfiguratio
 }
 
 // ConvertLegacyToBootConfiguration converts legacy BootParameters to modern BootConfiguration
-func ConvertLegacyToBootConfiguration(legacy BootParameters, name string) *bootconfiguration.BootConfiguration {
+func ConvertLegacyToBootConfiguration(legacy BootParameters) *bootconfiguration.BootConfiguration {
 	// Convert string NIDs to int32
 	var nids []int32
 	for _, nidStr := range legacy.Nids {
@@ -89,7 +88,7 @@ func ConvertLegacyToBootConfiguration(legacy BootParameters, name string) *bootc
 }
 
 // ConvertLegacyRequestToBootConfiguration converts a legacy request to modern BootConfiguration
-func ConvertLegacyRequestToBootConfiguration(req BootParametersRequest, name string) *bootconfiguration.BootConfiguration {
+func ConvertLegacyRequestToBootConfiguration(req BootParametersRequest) *bootconfiguration.BootConfiguration {
 	// Convert string NIDs to int32
 	var nids []int32
 	for _, nidStr := range req.Nids {

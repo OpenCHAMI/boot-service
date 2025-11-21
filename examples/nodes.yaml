@@ -1,6 +1,10 @@
+# SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+#
+# SPDX-License-Identifier: MIT
+
 # Example YAML node configuration for OpenCHAMI boot service
 # This file demonstrates how to configure nodes for local YAML-based node resolution
-# 
+#
 # Usage:
 #   1. Save this file as nodes.yaml (or any name you prefer)
 #   2. Configure the boot service to use YAML provider with this file
@@ -149,7 +153,7 @@ nodes:
       environment: "development"
 
 # Configuration notes:
-# 
+#
 # Required fields:
 #   - id: Unique identifier (usually same as xname)
 #   - xname: Component name in HSM format (x<cabinet>c<chassis>s<slot>b<blade>n<node>)
@@ -167,7 +171,7 @@ nodes:
 #
 # The boot service will index nodes by:
 #   - id
-#   - xname  
+#   - xname
 #   - nid (if present)
 #   - boot_mac (if present)
 #   - All ethernet interface MAC addresses

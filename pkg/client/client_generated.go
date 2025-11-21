@@ -55,13 +55,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/openchami/boot-service/pkg/resources/bmc"
-	"github.com/openchami/boot-service/pkg/resources/bootconfiguration"
-	"github.com/openchami/boot-service/pkg/resources/node"
 	"io"
 	"net/http"
 	"net/url"
 	"path"
+
+	"github.com/openchami/boot-service/pkg/resources/bmc"
+	"github.com/openchami/boot-service/pkg/resources/bootconfiguration"
+	"github.com/openchami/boot-service/pkg/resources/node"
 )
 
 // Client provides access to the inventory API
@@ -138,7 +139,7 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -186,7 +187,7 @@ func (c *Client) doPatchRequest(ctx context.Context, endpoint string, patchData 
 	if err != nil {
 		return fmt.Errorf("patch request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {

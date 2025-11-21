@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+#
+# SPDX-License-Identifier: MIT
+
 # Demo script to showcase the boot logic functionality
 
 echo "🚀 Boot Logic Integration Demo"
@@ -36,17 +41,17 @@ TEST_MAC=$(go run cmd/client/main.go node list -o json | jq -r '.[0].spec.bootMa
 
 if [ -n "$TEST_XNAME" ]; then
     echo "🎯 Testing with node: $TEST_XNAME"
-    
+
     # Test XName resolution
     echo "   By XName ($TEST_XNAME):"
     go run ./examples/boot_script_demo.go "$TEST_XNAME" 2>/dev/null | head -5 | sed 's/^/     /'
-    
+
     # Test NID resolution
     if [ -n "$TEST_NID" ] && [ "$TEST_NID" != "null" ]; then
         echo "   By NID ($TEST_NID):"
         go run ./examples/boot_script_demo.go "$TEST_NID" 2>/dev/null | head -5 | sed 's/^/     /'
     fi
-    
+
     # Test MAC resolution
     if [ -n "$TEST_MAC" ] && [ "$TEST_MAC" != "null" ]; then
         echo "   By MAC ($TEST_MAC):"
