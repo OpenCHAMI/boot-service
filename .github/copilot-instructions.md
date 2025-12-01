@@ -212,22 +212,28 @@ Environment variables use prefix `BOOT_SERVICE_` (e.g., `BOOT_SERVICE_PORT=8082`
 
 ### HSM (Hardware State Manager)
 
-**Auto-enabled** when `--hsm-url` flag is provided or `hsm_url` is set in config. The service uses HSM as the primary node data source.
+**Auto-enabled** when `--hsm-url` flag is provided or `hsm_url` is set in config.
+
+**Current Status**: HSM client is initialized and validates connectivity, but not yet fully integrated into the boot script generation pipeline.
 
 **Implementation**:
-- HSM client: `pkg/clients/hsm/client.go` - HTTP client for HSM v2 API
-- Node provider: `pkg/controllers/bootscript/node_provider.go` - Interface for switching between HSM and local storage
-- Three provider types:
-  - `LocalNodeProvider` - Uses file storage backend
-  - `HSMNodeProvider` - Queries HSM for node data
-  - `HybridNodeProvider` - Tries HSM first, falls back to local storage
+- HSM client: `pkg/clients/hsm/client.go` - HTTP client for HSM v2 API with caching
+- Integration service: `pkg/clients/hsm/integration.go` - Wraps HSM client with node provider interface
+- Flexible controller: `pkg/controllers/bootscript/flexible_controller.go` - Supports pluggable node providers
 
-**Node resolution with HSM**:
-- XName lookups: Direct HSM component query
-- MAC lookups: Queries HSM ethernet interfaces endpoint
+**Integration Options** (see TODOs in `cmd/server/main.go`):
+1. **FlexibleBootScriptController**: Use `NewFlexibleBootScriptController` with HSM provider config
+2. **Controller-level**: Add NodeProvider parameter to BootScriptController
+3. **Storage-level**: Add HSM fallback in storage.GetNode() for transparent integration
+
+**Node resolution with HSM** (when integrated):
+- XName lookups: Direct HSM component query (`/hsm/v2/State/Components/{xname}`)
+- MAC lookups: Queries HSM ethernet interfaces endpoint (`/hsm/v2/Inventory/EthernetInterfaces`)
 - NID lookups: Falls back to retrieving all components and searching
 
 **Caching**: HSM responses are cached (default: 5 minutes) to reduce load on HSM service.
+
+**Current Limitation**: Legacy BSS API handlers use standard BootScriptController which queries local storage only. To enable HSM for boot scripts, modify handlers to accept controller interface and pass FlexibleBootScriptController instance.
 
 ### TokenSmith
 

@@ -6,6 +6,7 @@
 package legacy
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -19,16 +20,30 @@ import (
 	"github.com/openchami/boot-service/pkg/resources/bootconfiguration"
 )
 
+// BootController interface for boot script generation
+type BootController interface {
+	GenerateBootScript(ctx context.Context, identifier string) (string, error)
+}
+
 // LegacyHandler handles legacy BSS API requests
 type LegacyHandler struct { //nolint:revive
 	client     client.Client
-	controller *bootscript.BootScriptController
+	controller BootController
 	logger     *log.Logger
 }
 
-// NewLegacyHandler creates a new legacy API handler
+// NewLegacyHandler creates a new legacy API handler with standard controller
 func NewLegacyHandler(c client.Client, logger *log.Logger) *LegacyHandler {
 	controller := bootscript.NewBootScriptController(c, logger)
+	return &LegacyHandler{
+		client:     c,
+		controller: controller,
+		logger:     logger,
+	}
+}
+
+// NewLegacyHandlerWithController creates a new legacy API handler with a custom controller
+func NewLegacyHandlerWithController(c client.Client, controller BootController, logger *log.Logger) *LegacyHandler {
 	return &LegacyHandler{
 		client:     c,
 		controller: controller,

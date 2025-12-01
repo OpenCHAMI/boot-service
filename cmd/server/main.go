@@ -24,6 +24,7 @@ import (
 	"github.com/openchami/boot-service/internal/storage"
 	"github.com/openchami/boot-service/pkg/client"
 	"github.com/openchami/boot-service/pkg/clients/hsm"
+	"github.com/openchami/boot-service/pkg/controllers/bootscript"
 	"github.com/openchami/boot-service/pkg/handlers/legacy"
 )
 
@@ -170,6 +171,8 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 	}
 
 	// Initialize HSM client if configured
+	// When HSM URL is provided, the service will use FlexibleBootScriptController
+	// with HSM as the node provider for boot script generation
 	var hsmClient *hsm.HSMClient
 	if config.HSMURL != "" {
 		hsmConfig := hsm.DefaultHSMConfig()
@@ -232,14 +235,36 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 		}
 
 		logger := log.New(os.Stdout, "legacy: ", log.LstdFlags)
-		legacyHandler := legacy.NewLegacyHandler(*bootClient, logger)
-		legacyHandler.RegisterRoutes(r)
+
+		var legacyHandler *legacy.LegacyHandler
 
 		if hsmClient != nil {
+			// Use FlexibleBootScriptController with HSM provider
+			hsmIntegrationConfig := hsm.DefaultIntegrationConfig()
+			hsmIntegrationConfig.HSMConfig.BaseURL = config.HSMURL
+			hsmIntegrationConfig.HSMConfig.Timeout = 30 * time.Second
+			hsmIntegrationConfig.SyncEnabled = false // Disable auto-sync for now
+
+			providerConfig := bootscript.ProviderConfig{
+				Type:      "hsm",
+				HSMConfig: &hsmIntegrationConfig,
+			}
+
+			controllerLogger := log.New(os.Stdout, "bootscript: ", log.LstdFlags)
+			flexController, err := bootscript.NewFlexibleBootScriptController(*bootClient, providerConfig, controllerLogger)
+			if err != nil {
+				return fmt.Errorf("failed to create flexible controller with HSM: %v", err)
+			}
+
+			legacyHandler = legacy.NewLegacyHandlerWithController(*bootClient, flexController, logger)
 			log.Println("Legacy BSS API enabled with HSM integration at: /boot/v1/")
 		} else {
+			// Use standard controller with local storage
+			legacyHandler = legacy.NewLegacyHandler(*bootClient, logger)
 			log.Println("Legacy BSS API enabled at: /boot/v1/")
 		}
+
+		legacyHandler.RegisterRoutes(r)
 	}
 
 	// Configure server
