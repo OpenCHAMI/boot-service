@@ -52,7 +52,9 @@ type Config struct {
 	JWKSEndpoint  string `mapstructure:"jwks_endpoint"`
 
 	// Hardware State Manager Configuration (when enabled)
-	HSMURL string `mapstructure:"hsm_url"`
+	HSMURL          string `mapstructure:"hsm_url"`
+	HSMSyncEnabled  bool   `mapstructure:"hsm_sync_enabled"`
+	HSMSyncInterval int    `mapstructure:"hsm_sync_interval"` // in minutes
 }
 
 // DefaultConfig returns a configuration with sensible defaults
@@ -72,6 +74,8 @@ func DefaultConfig() Config {
 		TokenSmithURL:   "",
 		JWKSEndpoint:    "",
 		HSMURL:          "",
+		HSMSyncEnabled:  true,
+		HSMSyncInterval: 5, // 5 minutes
 	}
 }
 
@@ -112,6 +116,8 @@ func init() {
 
 	// Hardware State Manager configuration flags
 	serveCmd.Flags().String("hsm-url", "", "Hardware State Manager service URL (enables HSM when provided)")
+	serveCmd.Flags().Bool("hsm-sync-enabled", true, "Enable background sync with HSM")
+	serveCmd.Flags().Int("hsm-sync-interval", 5, "HSM sync interval in minutes")
 
 	// Bind flags to viper
 	viper.BindPFlags(serveCmd.Flags()) //nolint:errcheck
@@ -135,6 +141,8 @@ func main() {
 
 	// Register aliases for flags with dashes to work with mapstructure tags that use underscores
 	viper.RegisterAlias("hsm_url", "hsm-url")
+	viper.RegisterAlias("hsm_sync_enabled", "hsm-sync-enabled")
+	viper.RegisterAlias("hsm_sync_interval", "hsm-sync-interval")
 
 	// Read config file if present
 	if err := viper.ReadInConfig(); err != nil {
@@ -195,6 +203,10 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 		}
 	}
 
+	// Setup graceful shutdown context early so it can be used for background workers
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	// Setup router
 	r := chi.NewRouter()
 
@@ -243,7 +255,8 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 			hsmIntegrationConfig := hsm.DefaultIntegrationConfig()
 			hsmIntegrationConfig.HSMConfig.BaseURL = config.HSMURL
 			hsmIntegrationConfig.HSMConfig.Timeout = 30 * time.Second
-			hsmIntegrationConfig.SyncEnabled = false // Disable auto-sync for now
+			hsmIntegrationConfig.SyncEnabled = config.HSMSyncEnabled
+			hsmIntegrationConfig.SyncInterval = time.Duration(config.HSMSyncInterval) * time.Minute
 
 			providerConfig := bootscript.ProviderConfig{
 				Type:      "hsm",
@@ -254,6 +267,12 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 			flexController, err := bootscript.NewFlexibleBootScriptController(*bootClient, providerConfig, controllerLogger)
 			if err != nil {
 				return fmt.Errorf("failed to create flexible controller with HSM: %v", err)
+			}
+
+			// Start background sync worker if enabled
+			if config.HSMSyncEnabled {
+				go flexController.StartBackgroundSync(ctx)
+				log.Printf("HSM background sync enabled (interval: %d minutes)", config.HSMSyncInterval)
 			}
 
 			legacyHandler = legacy.NewLegacyHandlerWithController(*bootClient, flexController, logger)
@@ -276,9 +295,7 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 		IdleTimeout:  time.Duration(config.IdleTimeout) * time.Second,
 	}
 
-	// Setup graceful shutdown
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	// Setup graceful shutdown handler
 
 	go func() {
 		sigChan := make(chan os.Signal, 1)
