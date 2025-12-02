@@ -282,10 +282,16 @@ func (s *IntegrationService) StartSyncWorker(ctx context.Context) {
 
 	s.logger.Printf("Starting HSM sync worker (interval: %v)", s.syncInterval)
 
+	// Wait for HSM to be ready before starting sync loop
+	if !s.waitForHSMReady(ctx) {
+		s.logger.Printf("HSM sync worker stopped - context cancelled while waiting for HSM")
+		return
+	}
+
 	ticker := time.NewTicker(s.syncInterval)
 	defer ticker.Stop()
 
-	// Do initial sync
+	// Do initial sync (HSM is now ready)
 	if err := s.SyncNodesFromHSM(ctx); err != nil {
 		s.logger.Printf("Initial HSM sync failed: %v", err)
 	}
@@ -302,6 +308,46 @@ func (s *IntegrationService) StartSyncWorker(ctx context.Context) {
 			}
 		}
 	}
+}
+
+// waitForHSMReady waits for HSM to become available with exponential backoff
+func (s *IntegrationService) waitForHSMReady(ctx context.Context) bool {
+	maxRetries := 10
+	baseDelay := 2 * time.Second
+	maxDelay := 2 * time.Minute
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		// Check if HSM is ready
+		healthCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		err := s.hsmClient.Health(healthCtx)
+		cancel()
+
+		if err == nil {
+			s.logger.Printf("HSM is ready, starting sync operations")
+			return true
+		}
+
+		// Calculate backoff delay with exponential increase
+		delay := baseDelay * time.Duration(1<<uint(attempt))
+		if delay > maxDelay {
+			delay = maxDelay
+		}
+
+		s.logger.Printf("HSM not ready (attempt %d/%d): %v - retrying in %v",
+			attempt+1, maxRetries, err, delay)
+
+		// Wait with context cancellation support
+		select {
+		case <-ctx.Done():
+			return false
+		case <-time.After(delay):
+			continue
+		}
+	}
+
+	s.logger.Printf("HSM failed to become ready after %d attempts, continuing with limited functionality", maxRetries)
+	// Continue anyway - subsequent sync attempts will log errors but won't crash
+	return true
 }
 
 // GetHSMStats returns detailed HSM integration statistics
