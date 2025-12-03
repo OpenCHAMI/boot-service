@@ -298,16 +298,16 @@ func (c *HSMClient) GetEthernetInterfaces(ctx context.Context) ([]HSMEthernetInt
 		return nil, fmt.Errorf("HSM returned status %d", resp.StatusCode)
 	}
 
-	var hsmResp HSMEthernetResponse
+	var hsmResp []HSMEthernetInterface
 	if err := json.NewDecoder(resp.Body).Decode(&hsmResp); err != nil {
 		return nil, fmt.Errorf("failed to decode HSM response: %w", err)
 	}
 
 	// Cache the result
-	c.cache.SetEthernet("all_ethernet", hsmResp.EthernetInterfaces)
+	c.cache.SetEthernet("all_ethernet", hsmResp)
 
-	c.logger.Printf("Retrieved %d ethernet interfaces from HSM", len(hsmResp.EthernetInterfaces))
-	return hsmResp.EthernetInterfaces, nil
+	c.logger.Printf("Retrieved %d ethernet interfaces from HSM", len(hsmResp))
+	return hsmResp, nil
 }
 
 // GetComponentByMAC finds a component by its MAC address
