@@ -75,7 +75,9 @@ release:
 
 dockers:
   - id: boot-service-amd64
-    ids: [boot-service]
+    ids:
+      - boot-service-server
+      - boot-service-client
     image_templates:
       - "ghcr.io/openchami/boot-service:{{ .Version }}-amd64"
       - "ghcr.io/openchami/boot-service:latest-amd64"
@@ -96,7 +98,9 @@ dockers:
       - config.example.yaml
 
   - id: boot-service-arm64
-    ids: [boot-service]
+    ids:
+      - boot-service-server
+      - boot-service-client
     image_templates:
       - "ghcr.io/openchami/boot-service:{{ .Version }}-arm64"
       - "ghcr.io/openchami/boot-service:latest-arm64"

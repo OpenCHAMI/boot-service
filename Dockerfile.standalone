@@ -34,12 +34,19 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go build -trimpath \
       -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}" \
       -o /out/boot-service ./cmd/server
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -trimpath \
+      -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}" \
+      -o /out/boot-service-client ./cmd/client
 
 ## Runtime: minimal distroless image
 FROM gcr.io/distroless/static-debian12:nonroot
 
 WORKDIR /app
 COPY --from=builder /out/boot-service /usr/local/bin/boot-service
+COPY --from=builder /out/boot-service-client /usr/local/bin/boot-service
 COPY config.example.yaml /etc/boot-service/config.example.yaml
 
 USER nonroot:nonroot

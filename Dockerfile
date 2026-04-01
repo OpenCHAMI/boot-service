@@ -9,6 +9,7 @@ WORKDIR /app
 # GoReleaser will build the binary and place it in the Docker build context
 # as 'boot-service' for each target platform.
 COPY boot-service /usr/local/bin/boot-service
+COPY boot-service-client /usr/local/bin/boot-service-client
 
 # Include an example config for reference (not used by default runtime)
 COPY config.example.yaml /etc/boot-service/config.example.yaml
