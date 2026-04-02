@@ -14,7 +14,7 @@ require (
 	github.com/getkin/kin-openapi v0.133.0
 	github.com/go-chi/chi/v5 v5.2.3
 	github.com/golang-jwt/jwt/v5 v5.3.0
-	github.com/openchami/fabrica v0.3.0
+	github.com/openchami/fabrica v0.4.0
 	github.com/openchami/tokensmith v0.0.0
 	github.com/openchami/tokensmith/middleware v0.0.0-20251003170515-01ea62651ef0
 	github.com/spf13/cobra v1.10.1

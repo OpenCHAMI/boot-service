@@ -1,0 +1,19 @@
+# Marvin execution tracker
+
+Source of truth for plan progress, since naturally it did not exist when required.
+
+## Steps
+
+- [x] Step 1: Inspect repository, generation boundaries, and automation entrypoints
+- [x] Step 2: Update module definitions and generation sources for target versions
+- [ ] Step 3: Regenerate artifacts and normalize generated outputs
+- [ ] Step 4: Repair integration points and preserve legacy compatibility behavior
+- [ ] Step 5: Reconcile tests and add targeted compatibility coverage
+- [ ] Step 6: Run CI-equivalent validation from a clean state
+- [ ] Step 7: Update documentation and prepare final migration summary
+
+## Notes
+
+- `boot-service` was missing `plan/` artifacts entirely at start.
+- The repository did not contain modern Fabrica inputs (`.fabrica.yaml`, `apis.yaml`, `apis/`), so step 2 introduces them as migration sources of truth.
+- Existing handwritten `pkg/resources/*` and legacy handlers remain in place until regeneration and integration reconciliation steps.
