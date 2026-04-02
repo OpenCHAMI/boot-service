@@ -14,9 +14,8 @@ import (
 	"strings"
 	"time"
 
+	apiv1 "github.com/openchami/boot-service/apis/boot.openchami.io/v1"
 	"github.com/openchami/boot-service/pkg/client"
-	"github.com/openchami/boot-service/pkg/resources/bootconfiguration"
-	"github.com/openchami/boot-service/pkg/resources/node"
 	"github.com/openchami/boot-service/pkg/validation"
 )
 
@@ -88,7 +87,7 @@ func (c *BootScriptController) GenerateBootScript(ctx context.Context, identifie
 	// Cache the result
 	configName := ""
 	if config != nil {
-		configName = config.GetName()
+		configName = config.Metadata.Name
 	}
 	cacheKey = c.generateCacheKey(identifier, configName)
 	c.cache.Set(cacheKey, script, node.Spec.XName, configName)
@@ -118,7 +117,7 @@ func (c *BootScriptController) parseNodeIdentifier(identifier string) NodeIdenti
 }
 
 // resolveNode finds a node based on the identifier
-func (c *BootScriptController) resolveNode(ctx context.Context, identifier NodeIdentifier) (*node.Node, error) {
+func (c *BootScriptController) resolveNode(ctx context.Context, identifier NodeIdentifier) (*apiv1.Node, error) {
 	// Get all nodes
 	nodes, err := c.client.GetNodes(ctx)
 	if err != nil {
@@ -148,7 +147,7 @@ func (c *BootScriptController) resolveNode(ctx context.Context, identifier NodeI
 }
 
 // findBootConfiguration finds the best matching configuration for a node
-func (c *BootScriptController) findBootConfiguration(ctx context.Context, node *node.Node) (*bootconfiguration.BootConfiguration, error) {
+func (c *BootScriptController) findBootConfiguration(ctx context.Context, node *apiv1.Node) (*apiv1.BootConfiguration, error) {
 	// Get all boot configurations
 	configs, err := c.client.GetBootConfigurations(ctx)
 	if err != nil {
@@ -161,7 +160,7 @@ func (c *BootScriptController) findBootConfiguration(ctx context.Context, node *
 
 	// Score each configuration against the node
 	type configCandidate struct {
-		config *bootconfiguration.BootConfiguration
+		config *apiv1.BootConfiguration
 		score  int
 	}
 
@@ -191,7 +190,7 @@ func (c *BootScriptController) findBootConfiguration(ctx context.Context, node *
 }
 
 // calculateConfigScore determines how well a configuration matches a node
-func (c *BootScriptController) calculateConfigScore(config *bootconfiguration.BootConfiguration, node *node.Node) int {
+func (c *BootScriptController) calculateConfigScore(config *apiv1.BootConfiguration, node *apiv1.Node) int {
 	score := 0
 
 	// Host/XName pattern matching

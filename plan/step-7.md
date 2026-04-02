@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 OpenCHAMI Contributors
+
+SPDX-License-Identifier: MIT
+-->
+
 # Step 7 - Update documentation and prepare final migration summary
 
 ## Goal

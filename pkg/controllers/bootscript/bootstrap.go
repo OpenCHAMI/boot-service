@@ -180,8 +180,7 @@ nodes to boot even during partial service degradation.
 This package integrates with several other boot service components:
 
   - pkg/client: REST API client for boot configuration management
-  - pkg/resources/node: Node resource definitions
-  - pkg/resources/bootconfiguration: Boot configuration resources
+  - apis/boot.openchami.io/v1: Node and boot configuration resource definitions
   - pkg/clients/hsm: Hardware State Manager integration
   - pkg/clients/local: Local file-based node provider
   - pkg/handlers/legacy: Legacy BSS API compatibility

@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 OpenCHAMI Contributors
+
+SPDX-License-Identifier: MIT
+-->
+
 # Step 4 - Repair integration points and preserve legacy compatibility behavior
 
 ## Goal

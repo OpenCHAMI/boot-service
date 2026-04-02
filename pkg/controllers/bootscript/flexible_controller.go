@@ -8,15 +8,15 @@ import (
 	"context"
 	"log"
 
+	apiv1 "github.com/openchami/boot-service/apis/boot.openchami.io/v1"
 	"github.com/openchami/boot-service/pkg/client"
 	"github.com/openchami/boot-service/pkg/clients/hsm"
 	"github.com/openchami/boot-service/pkg/clients/local"
-	"github.com/openchami/boot-service/pkg/resources/node"
 )
 
 // NodeProvider interface for different node resolution backends
 type NodeProvider interface {
-	ResolveNodeByIdentifier(ctx context.Context, identifier string) (*node.Node, error)
+	ResolveNodeByIdentifier(ctx context.Context, identifier string) (*apiv1.Node, error)
 	HealthCheck(ctx context.Context) error
 	GetStats(ctx context.Context) map[string]interface{}
 }

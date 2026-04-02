@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 OpenCHAMI Contributors
+
+SPDX-License-Identifier: MIT
+-->
+
 # Step 2 - Update module definitions and generation sources
 
 ## Goal

@@ -3,10 +3,10 @@
 #
 # SPDX-License-Identifier: MIT
 
-.PHONY: help build test lint clean install run docker-build docker-run release-test
+.PHONY: help build test lint clean install run docker-build docker-run release-test check-no-pkg-resources-imports
 
 # Variables
-BINARY_NAME=ex-bootstrap
+BINARY_NAME=boot-service
 GO=go
 GOFLAGS=-v
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -24,6 +24,15 @@ build:
 
 test: ## Run tests
 	$(GO) test $(GOFLAGS) -race -coverprofile=coverage.out -covermode=atomic $$(go list ./... 2>/dev/null | grep -v /examples/)
+
+check-no-pkg-resources-imports: ## Fail if non-generated code imports deprecated pkg/resources
+	@matches=$$(grep -R --include='*.go' -n 'pkg/resources/' cmd internal pkg apis | grep -v '_generated.go' | grep -v '^pkg/resources/' || true); \
+	if [ -n "$$matches" ]; then \
+		echo "Deprecated pkg/resources imports found in non-generated code:"; \
+		echo "$$matches"; \
+		exit 1; \
+	fi; \
+	echo "No deprecated pkg/resources imports found in non-generated code."
 
 test-coverage: test ## Run tests with coverage report
 	$(GO) tool cover -html=coverage.out -o coverage.html

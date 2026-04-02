@@ -11,8 +11,8 @@ import (
 	"log"
 	"time"
 
+	apiv1 "github.com/openchami/boot-service/apis/boot.openchami.io/v1"
 	"github.com/openchami/boot-service/pkg/client"
-	"github.com/openchami/boot-service/pkg/resources/node"
 )
 
 // IntegrationService provides local YAML-based node management
@@ -58,7 +58,7 @@ func NewIntegrationService(config IntegrationConfig, bootClient client.Client, l
 }
 
 // ResolveNodeByIdentifier resolves a node identifier using the YAML file
-func (s *IntegrationService) ResolveNodeByIdentifier(ctx context.Context, identifier string) (*node.Node, error) {
+func (s *IntegrationService) ResolveNodeByIdentifier(ctx context.Context, identifier string) (*apiv1.Node, error) {
 	s.logger.Printf("Resolving node identifier %s using YAML file", identifier)
 
 	// Get node from YAML
@@ -68,14 +68,14 @@ func (s *IntegrationService) ResolveNodeByIdentifier(ctx context.Context, identi
 	}
 
 	// Create and return node resource
-	nodeResource := &node.Node{
-		Spec: node.NodeSpec{
+	nodeResource := &apiv1.Node{
+		Spec: apiv1.NodeSpec{
 			XName:   yamlNode.XName,
 			Role:    yamlNode.Role,
 			SubRole: yamlNode.SubRole,
 			BootMAC: yamlNode.BootMAC,
 		},
-		Status: node.NodeStatus{
+		Status: apiv1.NodeStatus{
 			State: yamlNode.State,
 		},
 	}
@@ -109,15 +109,15 @@ func (s *IntegrationService) SyncNodesFromYAML(ctx context.Context) error {
 		if err != nil {
 			// Node doesn't exist, create it
 			createReq := client.CreateNodeRequest{
-				NodeSpec: node.NodeSpec{
+				Spec: apiv1.NodeSpec{
 					XName:   yamlNode.XName,
 					Role:    yamlNode.Role,
 					SubRole: yamlNode.SubRole,
 					BootMAC: yamlNode.BootMAC,
 					NID:     int32(yamlNode.NID),
 				},
-				Name: yamlNode.XName,
 			}
+			createReq.Metadata.Name = yamlNode.XName
 
 			_, err = s.bootClient.CreateNode(ctx, createReq)
 			if err != nil {
@@ -130,14 +130,13 @@ func (s *IntegrationService) SyncNodesFromYAML(ctx context.Context) error {
 			// Node exists, update if different
 			if s.shouldUpdateNode(existingNode, yamlNode) {
 				updateReq := client.UpdateNodeRequest{
-					NodeSpec: node.NodeSpec{
+					Spec: apiv1.NodeSpec{
 						XName:   yamlNode.XName,
 						Role:    yamlNode.Role,
 						SubRole: yamlNode.SubRole,
 						BootMAC: yamlNode.BootMAC,
 						NID:     int32(yamlNode.NID),
 					},
-					Name: yamlNode.XName,
 				}
 
 				_, err = s.bootClient.UpdateNode(ctx, yamlNode.XName, updateReq)
@@ -202,7 +201,7 @@ func (s *IntegrationService) GetStats(ctx context.Context) map[string]interface{
 }
 
 // shouldUpdateNode determines if a node needs to be updated
-func (s *IntegrationService) shouldUpdateNode(existing *node.Node, yamlNode YAMLNode) bool {
+func (s *IntegrationService) shouldUpdateNode(existing *apiv1.Node, yamlNode YAMLNode) bool {
 	// Compare key fields
 	if existing.Spec.Role != yamlNode.Role ||
 		existing.Spec.SubRole != yamlNode.SubRole ||

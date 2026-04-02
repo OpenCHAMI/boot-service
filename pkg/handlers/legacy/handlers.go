@@ -15,9 +15,9 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	apiv1 "github.com/openchami/boot-service/apis/boot.openchami.io/v1"
 	"github.com/openchami/boot-service/pkg/client"
 	"github.com/openchami/boot-service/pkg/controllers/bootscript"
-	"github.com/openchami/boot-service/pkg/resources/bootconfiguration"
 )
 
 // BootController interface for boot script generation
@@ -91,7 +91,7 @@ func (h *LegacyHandler) GetBootParameters(w http.ResponseWriter, r *http.Request
 	}
 
 	// Filter configurations based on query parameters
-	var filteredConfigs []bootconfiguration.BootConfiguration
+	var filteredConfigs []apiv1.BootConfiguration
 	if host != "" || mac != "" || nid != "" || name != "" {
 		identifiers := ParseNodeIdentifiersFromQuery(host, mac, nid, name)
 		filteredConfigs = h.filterConfigurationsByIdentifiers(configs, identifiers)
@@ -132,9 +132,9 @@ func (h *LegacyHandler) CreateBootParameters(w http.ResponseWriter, r *http.Requ
 
 	// Create the configuration
 	createReq := client.CreateBootConfigurationRequest{
-		Name:                  name,
-		BootConfigurationSpec: config.Spec,
+		Spec: config.Spec,
 	}
+	createReq.Metadata.Name = name
 
 	createdConfig, err := h.client.CreateBootConfiguration(ctx, createReq)
 	if err != nil {
@@ -183,7 +183,7 @@ func (h *LegacyHandler) UpdateBootParameters(w http.ResponseWriter, r *http.Requ
 	// Update the first matching configuration (simplified approach)
 	configToUpdate := matchingConfigs[0]
 	updateReq := client.UpdateBootConfigurationRequest{
-		BootConfigurationSpec: bootconfiguration.BootConfigurationSpec{
+		Spec: apiv1.BootConfigurationSpec{
 			Hosts:    req.Hosts,
 			MACs:     req.Macs,
 			Groups:   configToUpdate.Spec.Groups, // Preserve existing groups
@@ -197,7 +197,7 @@ func (h *LegacyHandler) UpdateBootParameters(w http.ResponseWriter, r *http.Requ
 	// Convert string NIDs to int32
 	for _, nidStr := range req.Nids {
 		if nid, err := strconv.Atoi(nidStr); err == nil {
-			updateReq.NIDs = append(updateReq.NIDs, int32(nid))
+			updateReq.Spec.NIDs = append(updateReq.Spec.NIDs, int32(nid))
 		}
 	}
 
@@ -343,8 +343,8 @@ func (h *LegacyHandler) generateConfigName(req BootParametersRequest) string {
 	return fmt.Sprintf("legacy-config-%d", len(req.Hosts)+len(req.Macs)+len(req.Nids))
 }
 
-func (h *LegacyHandler) filterConfigurationsByIdentifiers(configs []bootconfiguration.BootConfiguration, identifiers []string) []bootconfiguration.BootConfiguration {
-	var matching []bootconfiguration.BootConfiguration
+func (h *LegacyHandler) filterConfigurationsByIdentifiers(configs []apiv1.BootConfiguration, identifiers []string) []apiv1.BootConfiguration {
+	var matching []apiv1.BootConfiguration
 
 	for _, config := range configs {
 		if h.configMatchesIdentifiers(config, identifiers) {
@@ -355,7 +355,7 @@ func (h *LegacyHandler) filterConfigurationsByIdentifiers(configs []bootconfigur
 	return matching
 }
 
-func (h *LegacyHandler) configMatchesIdentifiers(config bootconfiguration.BootConfiguration, identifiers []string) bool {
+func (h *LegacyHandler) configMatchesIdentifiers(config apiv1.BootConfiguration, identifiers []string) bool {
 	for _, identifier := range identifiers {
 		// Check hosts
 		for _, host := range config.Spec.Hosts {

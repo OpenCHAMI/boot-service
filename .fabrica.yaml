@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 OpenCHAMI Contributors
+#
+# SPDX-License-Identifier: MIT
+
 project:
   name: boot-service
   module: github.com/openchami/boot-service

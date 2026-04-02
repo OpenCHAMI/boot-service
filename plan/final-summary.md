@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 OpenCHAMI Contributors
+
+SPDX-License-Identifier: MIT
+-->
+
 # Final migration summary
 
 ## Scope completed
