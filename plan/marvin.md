@@ -9,7 +9,7 @@ Source of truth for plan progress, since naturally it did not exist when require
 - [x] Step 3: Regenerate artifacts and normalize generated outputs (inputs normalized; direct CLI regeneration blocked by session tool limits)
 - [x] Step 4: Repair integration points and preserve legacy compatibility behavior
 - [x] Step 5: Reconcile tests and add targeted compatibility coverage
-- [ ] Step 6: Run CI-equivalent validation from a clean state
+- [x] Step 6: Run CI-equivalent validation from a clean state
 - [ ] Step 7: Update documentation and prepare final migration summary
 
 ## Notes

@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
+// Package v1 defines the boot.openchami.io/v1 Fabrica API resource types.
 package v1
 
 import (
