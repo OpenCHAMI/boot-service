@@ -24,9 +24,19 @@ cp config.example.yaml config.yaml
 
 ### Generate Handlers
 
+This repository now keeps Fabrica source inputs in:
+
+- `.fabrica.yaml`
+- `apis.yaml`
+- `apis/boot.openchami.io/v1/*_types.go`
+
+Regenerate handlers and related generated artifacts with:
+
 ```bash
-fabrica generate
+go run github.com/openchami/fabrica/cmd/fabrica generate
 ```
+
+Note: this migration session updated the Fabrica source inputs and integration boundaries, but direct CLI regeneration was not performed in-session because the available execution tools did not provide a generic command runner.
 
 ### Run the Server
 
