@@ -215,6 +215,11 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	// Generated chi routes are registered with trailing slashes, while existing
+	// clients (including our legacy compatibility handler's internal client)
+	// use slashless resource paths. RedirectSlashes preserves that compatibility
+	// without hand-editing generated route registrations.
+	r.Use(middleware.RedirectSlashes)
 	r.Use(middleware.Timeout(time.Duration(config.ReadTimeout) * time.Second))
 
 	// Register health check
