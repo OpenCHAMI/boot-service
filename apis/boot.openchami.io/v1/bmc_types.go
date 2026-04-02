@@ -12,9 +12,11 @@ import (
 
 // BMC represents a BMC resource.
 type BMC struct {
-	resource.Resource
-	Spec   BMCSpec   `json:"spec" validate:"required"`
-	Status BMCStatus `json:"status,omitempty"`
+	APIVersion string            `json:"apiVersion"`
+	Kind       string            `json:"kind"`
+	Metadata   resource.Metadata `json:"metadata"`
+	Spec       BMCSpec           `json:"spec" validate:"required"`
+	Status     BMCStatus         `json:"status,omitempty"`
 }
 
 // BMCSpec defines the desired state of BMC.

@@ -14,9 +14,11 @@ import (
 
 // BootConfiguration represents a BootConfiguration resource.
 type BootConfiguration struct {
-	resource.Resource
-	Spec   BootConfigurationSpec   `json:"spec"`
-	Status BootConfigurationStatus `json:"status,omitempty"`
+	APIVersion string                  `json:"apiVersion"`
+	Kind       string                  `json:"kind"`
+	Metadata   resource.Metadata       `json:"metadata"`
+	Spec       BootConfigurationSpec   `json:"spec"`
+	Status     BootConfigurationStatus `json:"status,omitempty"`
 }
 
 // BootConfigurationSpec defines the desired state of BootConfiguration.

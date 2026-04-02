@@ -14,9 +14,11 @@ import (
 
 // Node represents a Node resource.
 type Node struct {
-	resource.Resource
-	Spec   NodeSpec   `json:"spec"`
-	Status NodeStatus `json:"status,omitempty"`
+	APIVersion string            `json:"apiVersion"`
+	Kind       string            `json:"kind"`
+	Metadata   resource.Metadata `json:"metadata"`
+	Spec       NodeSpec          `json:"spec"`
+	Status     NodeStatus        `json:"status,omitempty"`
 }
 
 // NodeSpec defines the desired state of Node.
