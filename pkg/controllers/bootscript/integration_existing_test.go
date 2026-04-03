@@ -313,7 +313,7 @@ func reserveFreePort(t *testing.T) int {
 	if err != nil {
 		t.Fatalf("failed to reserve free port: %v", err)
 	}
-	defer ln.Close()
+	defer ln.Close() // nolint:errcheck
 
 	addr, ok := ln.Addr().(*net.TCPAddr)
 	if !ok {
@@ -361,7 +361,7 @@ func findRepoRoot(t *testing.T) string {
 	}
 }
 
-func seedIntegrationData(t *testing.T, bootClient *client.Client, ctx context.Context) {
+func seedIntegrationData(t *testing.T, bootClient *client.Client, ctx context.Context) { //nolint:revive
 	t.Helper()
 
 	nodeName := "x0c0s0b0n0"

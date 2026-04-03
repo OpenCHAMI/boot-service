@@ -193,7 +193,11 @@ func GetClaimsFromRequest(r *http.Request) (*token.TSClaims, error) {
 	return tsmiddleware.GetClaimsFromContext(r.Context())
 }
 
-// GetRawClaimsFromRequest is a convenience function to extract raw claims from request context
+// GetRawClaimsFromRequest is a compatibility helper that returns request claims.
+//
+// Deprecated: Prefer GetClaimsFromRequest and map claims into an authz principal.
+// This function intentionally delegates to GetClaimsFromRequest to avoid depending
+// on deprecated tokensmith raw-claims APIs.
 func GetRawClaimsFromRequest(r *http.Request) (*token.TSClaims, error) {
-	return tsmiddleware.GetRawClaimsFromContext(r.Context())
+	return GetClaimsFromRequest(r)
 }
