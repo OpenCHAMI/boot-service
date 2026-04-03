@@ -6,75 +6,152 @@ SPDX-License-Identifier: MIT
 
 # boot-service
 
-Resource-based REST API with Fabrica created with Fabrica.
+OpenCHAMI Boot Service is a Fabrica-generated REST API for managing node boot
+configuration in HPC environments, with legacy BSS-compatible endpoints.
 
 ## Quick Start
 
-### Configuration
+### Prerequisites
 
-Set up your configuration file:
+- Go 1.24+
+- GNU Make
+- `pre-commit` (optional, for local CI-style checks)
+
+### Configure
 
 ```bash
-# Copy the example configuration
 cp config.example.yaml config.yaml
-
-# Edit the configuration for your environment
-# See config.example.yaml for detailed documentation of all options
 ```
 
-### Generate Handlers
+Configuration precedence (highest to lowest):
 
-This repository now keeps Fabrica source inputs in:
+1. Command-line flags
+2. Environment variables (prefix `BOOT_SERVICE_`)
+3. `config.yaml`
+4. Built-in defaults
+
+### Build
+
+```bash
+make build
+```
+
+Build artifacts:
+
+- `bin/server`
+- `bin/client`
+
+### Run
+
+```bash
+# Run from source
+go run ./cmd/server serve
+
+# Run built binary
+./bin/server serve
+
+# Example overrides
+./bin/server serve --port 8082 --enable-auth --hsm-url http://localhost:27779
+```
+
+## API Surface
+
+### Health and Docs
+
+- `GET /health`
+- `GET /openapi.json`
+- `GET /docs`
+
+### Resource APIs
+
+Generated CRUD/status endpoints for:
+
+- `/bmcs`
+- `/bootconfigurations`
+- `/nodes`
+
+Routes are generated with trailing slashes and normalized by Chi middleware.
+
+### Legacy BSS Compatibility
+
+When `enable_legacy_api: true`, legacy routes are available under `/boot/v1/`.
+
+## Development Workflow
+
+### Fabrica Generation
+
+Resource definitions live in:
 
 - `.fabrica.yaml`
 - `apis.yaml`
 - `apis/boot.openchami.io/v1/*_types.go`
 
-Regenerate handlers and related generated artifacts with:
+Regenerate handlers/storage/client/openapi after API changes:
 
 ```bash
-go run github.com/openchami/fabrica/cmd/fabrica generate
+go run github.com/openchami/fabrica/cmd/fabrica generate --handlers --storage --openapi --client
 ```
 
-Note: this migration session updated the Fabrica source inputs and integration boundaries, but direct CLI regeneration was not performed in-session because the available execution tools did not provide a generic command runner.
+Do not edit `*_generated.go` files manually.
 
-### Run the Server
+### Tests
 
 ```bash
-# Using configuration file
-go run cmd/server/main.go
+# Main unit/integration-safe suite (examples excluded)
+make test
 
-# Or with command-line flags
-go run cmd/server/main.go --port 8082 --enable-auth --hsm-url http://localhost:27779
+# Bootscript integration test (opt-in)
+make test-integration
+
+# Override test timeout
+make test TEST_TIMEOUT=4m
 ```
 
-## Configuration
+`make test-integration` sets `BOOT_SERVICE_RUN_INTEGRATION=1` and runs:
 
-The boot service supports configuration via:
+- `TestBootLogicWithExistingData`
 
-1. **Configuration file** (`config.yaml`) - Recommended for most deployments
-2. **Environment variables** - Useful for containerized deployments
-3. **Command-line flags** - Quick testing and overrides
+### Lint and Local CI
 
-### Example Configurations
+```bash
+make lint
+make pre-commit-run
+```
 
-See `config.example.yaml` for comprehensive configuration examples including:
+Useful setup:
 
-- Development environment (authentication disabled)
-- Production environment (full authentication and validation)
-- Kubernetes/container deployments
-- External service integration (HSM, TokenSmith, BSS)
+```bash
+make setup-dev
+```
 
-For detailed configuration documentation, see [Configuration Guide](docs/CONFIGURATION.md).
+## Configuration Notes
 
-### Key Configuration Options
+Key settings are documented in `config.example.yaml` and in
+`docs/CONFIGURATION.md`.
 
-- **Authentication**: Enable/disable JWT authentication with TokenSmith
-- **Storage**: Configure data storage backend (file system, future database support)
-- **External Services**: HSM (Hardware State Manager), BSS (Boot Script Service)
-- **Performance**: Timeouts, rate limiting, connection pooling
-- **Monitoring**: Metrics, logging, health checks
+Common environment variable examples:
+
+```bash
+export BOOT_SERVICE_PORT=8082
+export BOOT_SERVICE_ENABLE_AUTH=true
+export BOOT_SERVICE_HSM_URL=http://localhost:27779
+./bin/server serve
+```
+
+## Docker
+
+- `Dockerfile`: runtime image expecting a prebuilt binary
+- `Dockerfile.standalone`: multi-stage standalone build
+
+## Troubleshooting
+
+- If building with local Fabrica replacements and hitting module proxy issues,
+  try: `GOPROXY=direct go build -o bin/server ./cmd/server`
+- If a legacy test appears to require an externally running server, use
+  `make test-integration` instead of `make test`.
 
 ## Documentation
 
-See [docs/](docs/) for detailed documentation:
+- `docs/CONFIGURATION.md`
+- `docs/AUTHENTICATION.md`
+- `docs/AUTHENTICATION_TESTING.md`

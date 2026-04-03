@@ -37,7 +37,7 @@ type BootConfigurationSpec struct { // nolint:revive
 
 // BootConfigurationStatus defines the observed state of BootConfiguration.
 type BootConfigurationStatus struct { // nolint:revive
-	Phase       string   `json:"phase,omitempty"`
+	Phase       string   `json:"phase,omitempty"` // Active, Pending, Failed
 	LastUpdated string   `json:"lastUpdated,omitempty"`
 	AppliedTo   []string `json:"appliedTo,omitempty"`
 	Error       string   `json:"error,omitempty"`

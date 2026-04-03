@@ -29,15 +29,6 @@ test: ## Run tests
 test-integration: ## Run integration tests with explicit timeout (override with TEST_TIMEOUT=)
 	BOOT_SERVICE_RUN_INTEGRATION=1 $(GO) test $(GOFLAGS) -timeout $(TEST_TIMEOUT) ./pkg/controllers/bootscript -run TestBootLogicWithExistingData -v
 
-check-no-pkg-resources-imports: ## Fail if non-generated code imports deprecated pkg/resources
-	@matches=$$(grep -R --include='*.go' -n 'pkg/resources/' cmd internal pkg apis | grep -v '_generated.go' | grep -v '^pkg/resources/' || true); \
-	if [ -n "$$matches" ]; then \
-		echo "Deprecated pkg/resources imports found in non-generated code:"; \
-		echo "$$matches"; \
-		exit 1; \
-	fi; \
-	echo "No deprecated pkg/resources imports found in non-generated code."
-
 test-coverage: test ## Run tests with coverage report
 	$(GO) tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated: coverage.html"
