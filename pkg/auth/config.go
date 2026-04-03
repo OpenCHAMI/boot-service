@@ -136,20 +136,51 @@ func (c Config) CreateMiddleware(logger *log.Logger) func(http.Handler) http.Han
 	return jwtMiddleware
 }
 
-// CreateScopeMiddleware creates a middleware that requires specific scopes
+// CreateScopeMiddleware creates a middleware that requires specific scopes.
+// Returns 403 Forbidden when a valid token lacks the required scope, since the
+// request is authenticated but not authorized.
+//
+// NOTE: This is implemented locally rather than delegating to
+// tsmiddleware.RequireScope / tsmiddleware.RequireScopes because those
+// functions incorrectly return 401 Unauthorized for missing scopes in all
+// current releases of github.com/openchami/tokensmith/middleware. Once that
+// bug is fixed upstream, this function body can be replaced with:
+//
+//	if len(scopes) == 1 { return tsmiddleware.RequireScope(scopes[0]) }
+//	return tsmiddleware.RequireScopes(scopes)
 func CreateScopeMiddleware(scopes ...string) func(http.Handler) http.Handler {
 	if len(scopes) == 0 {
-		// No scopes required, return pass-through
 		return func(next http.Handler) http.Handler {
 			return next
 		}
 	}
-
-	if len(scopes) == 1 {
-		return tsmiddleware.RequireScope(scopes[0])
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			claims, err := tsmiddleware.GetClaimsFromContext(r.Context())
+			if err != nil {
+				// No claims in context means the auth middleware did not run or
+				// the token was invalid — treat as unauthenticated.
+				http.Error(w, "invalid token", http.StatusUnauthorized)
+				return
+			}
+			for _, required := range scopes {
+				found := false
+				for _, s := range claims.Scope {
+					if s == required {
+						found = true
+						break
+					}
+				}
+				if !found {
+					// Token is valid but lacks the required scope — authenticated,
+					// not authorized.
+					http.Error(w, "insufficient scope", http.StatusForbidden)
+					return
+				}
+			}
+			next.ServeHTTP(w, r)
+		})
 	}
-
-	return tsmiddleware.RequireScopes(scopes)
 }
 
 // CreateServiceTokenMiddleware creates middleware for service-to-service authentication

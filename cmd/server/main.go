@@ -240,6 +240,11 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 		go startMetricsServer(config)
 	}
 
+	// Register UID prefixes used by generated handlers when creating resources.
+	if err := registerResourcePrefixes(); err != nil {
+		return fmt.Errorf("failed to register resource prefixes: %w", err)
+	}
+
 	// Register generated routes (modern API) - middleware already applied above
 	RegisterGeneratedRoutes(r)
 

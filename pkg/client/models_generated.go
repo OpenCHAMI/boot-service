@@ -30,14 +30,12 @@
 // To add validation:
 //  1. Add validate tags (e.g., validate:"required,min=3")
 //  2. Use go-playground/validator in client before sending
-
-// Package client defines request and response models for the boot service client.
 package client
 
 import (
 	"github.com/openchami/fabrica/pkg/fabrica"
 
-	v1 "github.com/openchami/boot-service/apis/boot.openchami.io/v1"
+	"github.com/openchami/boot-service/apis/boot.openchami.io/v1"
 )
 
 // CreateBMCRequest represents a request to create a BMC

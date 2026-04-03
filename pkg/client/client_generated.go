@@ -61,7 +61,7 @@ import (
 	"net/url"
 	"path"
 
-	v1 "github.com/openchami/boot-service/apis/boot.openchami.io/v1"
+	"github.com/openchami/boot-service/apis/boot.openchami.io/v1"
 )
 
 // Client provides access to the inventory API

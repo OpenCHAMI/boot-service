@@ -3,12 +3,13 @@
 #
 # SPDX-License-Identifier: MIT
 
-.PHONY: help build test lint clean install run docker-build docker-run release-test check-no-pkg-resources-imports
+.PHONY: help build test test-integration lint clean install run docker-build docker-run release-test check-no-pkg-resources-imports
 
 # Variables
 BINARY_NAME=boot-service
 GO=go
 GOFLAGS=-v
+TEST_TIMEOUT ?= 5m
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -23,7 +24,10 @@ build:
 	go build -o bin/client ./cmd/client/
 
 test: ## Run tests
-	$(GO) test $(GOFLAGS) -race -coverprofile=coverage.out -covermode=atomic $$(go list ./... 2>/dev/null | grep -v /examples/)
+	$(GO) test $(GOFLAGS) -timeout $(TEST_TIMEOUT) -race -coverprofile=coverage.out -covermode=atomic $$(go list ./... 2>/dev/null | grep -v /examples/)
+
+test-integration: ## Run integration tests with explicit timeout (override with TEST_TIMEOUT=)
+	BOOT_SERVICE_RUN_INTEGRATION=1 $(GO) test $(GOFLAGS) -timeout $(TEST_TIMEOUT) ./pkg/controllers/bootscript -run TestBootLogicWithExistingData -v
 
 check-no-pkg-resources-imports: ## Fail if non-generated code imports deprecated pkg/resources
 	@matches=$$(grep -R --include='*.go' -n 'pkg/resources/' cmd internal pkg apis | grep -v '_generated.go' | grep -v '^pkg/resources/' || true); \
