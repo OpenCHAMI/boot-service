@@ -53,6 +53,8 @@ github.com/google/go-cmp v0.7.0/go.mod h1:pXiqmnSA92OHEEa9HXL2W4E7lf9JzCmGVUdgjX
 github.com/google/gofuzz v1.0.0/go.mod h1:dBl0BpW6vV/+mYPU4Po3pmUjxk6FQPldtuIdl/M65Eg=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
 github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+github.com/hashicorp/golang-lru/v2 v2.0.7 h1:a+bsQ5rvGLjzHuww6tVxozPZFVghXaHOwFs4luLUK2k=
+github.com/hashicorp/golang-lru/v2 v2.0.7/go.mod h1:QeFd9opnmA6QUJc5vARoKUSoFhyfM2/ZepoAG6RGpeM=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/josharian/intern v1.0.0 h1:vlS4z54oSdjm0bgjRigI+G1HpF+tI+9rE5LLzOg8HmY=
@@ -87,8 +89,8 @@ github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 h1:bQx3WeLcUWy+RletI
 github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90/go.mod h1:y5+oSEHCPT/DGrS++Wc/479ERge0zTFxaF8PbGKcg2o=
 github.com/openchami/fabrica v0.4.0 h1:qlObadRCEEeRrw3DYjg4pjQJ+4gt0izs2Kg76cBsuQ0=
 github.com/openchami/fabrica v0.4.0/go.mod h1:8iRKnxePWWL85d0qsJJ8a+YiZCjxz2hMZrl3B5fLPT0=
-github.com/openchami/tokensmith v0.0.2 h1:Nh/6X/0KPcAD6Hb9xmSh64ktDzlDYHCmU+s7C+qG/iU=
-github.com/openchami/tokensmith v0.0.2/go.mod h1:L4ZCMX/vPGwXUUn9otw+UdfFTbarv+ZVO/FjhZmoOAE=
+github.com/openchami/tokensmith v0.3.0 h1:OdP1sQo4dXfGzWC4NEtUvfOcRxLdqR91P2yy0gRyAXQ=
+github.com/openchami/tokensmith v0.3.0/go.mod h1:L4ZCMX/vPGwXUUn9otw+UdfFTbarv+ZVO/FjhZmoOAE=
 github.com/openchami/tokensmith/middleware v0.0.2 h1:9H9hHhbcUj4BK6kIsVtzPrQt+qysJYqJVysEDSe5WRU=
 github.com/openchami/tokensmith/middleware v0.0.2/go.mod h1:8vjSQT2TyyhREqMCMLZshkgo1MrYbhaDFw4nidOMU/s=
 github.com/pelletier/go-toml/v2 v2.2.4 h1:mye9XuhQ6gvn5h28+VilKrrPoQVanw5PMw/TB0t5Ec4=
