@@ -106,6 +106,16 @@ auth:
 hsm_url: "http://localhost:27779"  # URL of the HSM service
                                    # Set to your HSM endpoint
 
+# TokenSmith-backed HSM service authentication
+# When both hsm_url and tokensmith_url are configured, boot-service exchanges a
+# bootstrap token for short-lived service tokens and adds them to HSM requests.
+tokensmith_url: "http://localhost:8080"
+tokensmith_target_service: "hsm"
+tokensmith_scopes: "hsm:read"
+tokensmith_refresh_skew_sec: 120
+# tokensmith_bootstrap_token: "<bootstrap-jwt>"  # Prefer env var for secrets
+# Environment fallback: TOKENSMITH_BOOTSTRAP_TOKEN
+
 # HSM authentication (when HSM requires auth)
 # hsm_auth:
 #   type: "service_token"      # Authentication type for HSM

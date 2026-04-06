@@ -112,6 +112,23 @@ tokensmith:
   timeout: 30
 ```
 
+### HSM Service-Token Auth (TokenSmith)
+
+When both `hsm_url` and `tokensmith_url` are set, boot-service performs a
+bootstrap-token exchange against TokenSmith (`POST /service/token`) and uses the
+short-lived service token for HSM API calls.
+
+```yaml
+tokensmith_url: "http://localhost:8080"
+tokensmith_target_service: "hsm"
+tokensmith_scopes: "hsm:read"
+tokensmith_refresh_skew_sec: 120
+# tokensmith_bootstrap_token: "<bootstrap-jwt>"   # Prefer env var
+```
+
+`tokensmith_bootstrap_token` may be provided via config, or by environment
+variable `TOKENSMITH_BOOTSTRAP_TOKEN`.
+
 ## Environment-Specific Examples
 
 ### Development

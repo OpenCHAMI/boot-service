@@ -18,7 +18,13 @@ features:
     enabled: true
     etag_algorithm: sha256
   auth:
-    enabled: false
+    enabled: true
+  security:
+    authn:
+      enabled: true
+    authz:
+      enabled: false
+      mode: enforce
   storage:
     enabled: true
     type: file

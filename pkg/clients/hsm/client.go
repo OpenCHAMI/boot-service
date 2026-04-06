@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -54,13 +55,15 @@ type HSMEthernetResponse struct { //nolint:revive
 
 // HSMConfig holds configuration for HSM client
 type HSMConfig struct { //nolint:revive
-	BaseURL              string        `json:"baseURL"`
-	Timeout              time.Duration `json:"timeout"`
-	RetryAttempts        int           `json:"retryAttempts"`
-	RetryDelay           time.Duration `json:"retryDelay"`
-	CacheExpiry          time.Duration `json:"cacheExpiry"`
-	AuthToken            string        `json:"authToken,omitempty"`
-	EnableCircuitBreaker bool          `json:"enableCircuitBreaker"`
+	BaseURL                string                                `json:"baseURL"`
+	Timeout                time.Duration                         `json:"timeout"`
+	RetryAttempts          int                                   `json:"retryAttempts"`
+	RetryDelay             time.Duration                         `json:"retryDelay"`
+	CacheExpiry            time.Duration                         `json:"cacheExpiry"`
+	AuthToken              string                                `json:"authToken,omitempty"`
+	AuthTokenProvider      func(context.Context) (string, error) `json:"-"`
+	AuthTokenStatsProvider func() map[string]interface{}         `json:"-"`
+	EnableCircuitBreaker   bool                                  `json:"enableCircuitBreaker"`
 }
 
 // DefaultHSMConfig returns a default HSM configuration
@@ -194,9 +197,8 @@ func (c *HSMClient) GetComponents(ctx context.Context) ([]HSMComponent, error) {
 		return nil, fmt.Errorf("failed to create HSM request: %w", err)
 	}
 
-	// Add authentication if provided
-	if c.config.AuthToken != "" {
-		req.Header.Set("Authorization", "Bearer "+c.config.AuthToken)
+	if err := c.addAuthHeader(ctx, req); err != nil {
+		return nil, err
 	}
 
 	resp, err := c.httpClient.Do(req)
@@ -237,9 +239,8 @@ func (c *HSMClient) GetComponent(ctx context.Context, componentID string) (*HSMC
 		return nil, fmt.Errorf("failed to create HSM request: %w", err)
 	}
 
-	// Add authentication if provided
-	if c.config.AuthToken != "" {
-		req.Header.Set("Authorization", "Bearer "+c.config.AuthToken)
+	if err := c.addAuthHeader(ctx, req); err != nil {
+		return nil, err
 	}
 
 	resp, err := c.httpClient.Do(req)
@@ -283,9 +284,8 @@ func (c *HSMClient) GetEthernetInterfaces(ctx context.Context) ([]HSMEthernetInt
 		return nil, fmt.Errorf("failed to create HSM request: %w", err)
 	}
 
-	// Add authentication if provided
-	if c.config.AuthToken != "" {
-		req.Header.Set("Authorization", "Bearer "+c.config.AuthToken)
+	if err := c.addAuthHeader(ctx, req); err != nil {
+		return nil, err
 	}
 
 	resp, err := c.httpClient.Do(req)
@@ -344,6 +344,10 @@ func (c *HSMClient) Health(ctx context.Context) error {
 		return fmt.Errorf("failed to create HSM health request: %w", err)
 	}
 
+	if err := c.addAuthHeader(ctx, req); err != nil {
+		return err
+	}
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("HSM health check failed: %w", err)
@@ -373,7 +377,7 @@ func (c *HSMClient) GetStats(ctx context.Context) map[string]interface{} { //nol
 	stats := map[string]interface{}{
 		"hsm_base_url":    c.config.BaseURL,
 		"cache_enabled":   c.cache != nil,
-		"authenticated":   c.config.AuthToken != "",
+		"authenticated":   c.config.AuthToken != "" || c.config.AuthTokenProvider != nil,
 		"cache_expiry":    c.cache.expiry.String(),
 		"request_timeout": c.config.Timeout.String(),
 	}
@@ -389,5 +393,27 @@ func (c *HSMClient) GetStats(ctx context.Context) map[string]interface{} { //nol
 		stats["cached_interfaces"] = interfaceCount
 	}
 
+	if c.config.AuthTokenStatsProvider != nil {
+		stats["auth_token_stats"] = c.config.AuthTokenStatsProvider()
+	}
+
 	return stats
+}
+
+func (c *HSMClient) addAuthHeader(ctx context.Context, req *http.Request) error {
+	token := strings.TrimSpace(c.config.AuthToken)
+
+	if c.config.AuthTokenProvider != nil {
+		providerToken, err := c.config.AuthTokenProvider(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to resolve HSM auth token: %w", err)
+		}
+		token = strings.TrimSpace(providerToken)
+	}
+
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	return nil
 }

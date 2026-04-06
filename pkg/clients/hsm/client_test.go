@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -385,4 +387,177 @@ func TestHSMClient_ErrorHandling(t *testing.T) {
 	}
 
 	t.Logf("✅ Error handling working correctly")
+}
+
+func TestHSMClient_AuthTokenProvider(t *testing.T) {
+	var receivedAuthHeader string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedAuthHeader = r.Header.Get("Authorization")
+
+		response := HSMResponse{
+			Components: []HSMComponent{},
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response) //nolint:errcheck
+	}))
+	defer server.Close()
+
+	config := DefaultHSMConfig()
+	config.BaseURL = server.URL
+	config.AuthTokenProvider = func(context.Context) (string, error) {
+		return "dynamic-token", nil
+	}
+
+	client := NewHSMClient(config, log.New(os.Stdout, "test: ", log.LstdFlags))
+
+	if _, err := client.GetComponents(context.Background()); err != nil {
+		t.Fatalf("GetComponents failed: %v", err)
+	}
+
+	if receivedAuthHeader != "Bearer dynamic-token" {
+		t.Fatalf("expected Authorization header %q, got %q", "Bearer dynamic-token", receivedAuthHeader)
+	}
+}
+
+func TestServiceTokenManager_GetTokenAndRefresh(t *testing.T) {
+	var callCount int32
+	var firstRequest serviceTokenRequest
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/service/token" {
+			t.Fatalf("expected /service/token, got %s", r.URL.Path)
+		}
+		if r.Method != http.MethodPost {
+			t.Fatalf("expected POST, got %s", r.Method)
+		}
+
+		var req serviceTokenRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Fatalf("failed to decode request body: %v", err)
+		}
+		if atomic.LoadInt32(&callCount) == 0 {
+			firstRequest = req
+		}
+
+		count := atomic.AddInt32(&callCount, 1)
+		resp := serviceTokenResponse{
+			Token:     "token-" + time.Now().Format("150405") + "-" + strings.Repeat("x", int(count)),
+			ExpiresAt: time.Now().Add(500 * time.Millisecond),
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp) //nolint:errcheck
+	}))
+	defer server.Close()
+
+	cfg := DefaultTokenExchangeConfig()
+	cfg.TokenSmithURL = server.URL
+	cfg.BootstrapToken = "bootstrap-jwt"
+	cfg.TargetService = "hsm"
+	cfg.Scopes = []string{"hsm:read"}
+	cfg.RefreshBefore = 100 * time.Millisecond
+
+	manager := NewServiceTokenManager(cfg, log.New(os.Stdout, "test: ", log.LstdFlags))
+
+	token1, err := manager.GetToken(context.Background())
+	if err != nil {
+		t.Fatalf("first GetToken failed: %v", err)
+	}
+	if token1 == "" {
+		t.Fatal("expected non-empty token")
+	}
+
+	if firstRequest.BootstrapToken != "bootstrap-jwt" {
+		t.Fatalf("expected bootstrap token in request, got %q", firstRequest.BootstrapToken)
+	}
+	if firstRequest.TargetService != "hsm" {
+		t.Fatalf("expected target service 'hsm', got %q", firstRequest.TargetService)
+	}
+
+	time.Sleep(450 * time.Millisecond)
+	token2, err := manager.GetToken(context.Background())
+	if err != nil {
+		t.Fatalf("second GetToken failed: %v", err)
+	}
+
+	if token2 == token1 {
+		t.Fatal("expected refreshed token to differ from first token")
+	}
+
+	if atomic.LoadInt32(&callCount) < 2 {
+		t.Fatalf("expected at least 2 token exchange calls, got %d", atomic.LoadInt32(&callCount))
+	}
+
+	stats := manager.Stats()
+	if stats["refresh_success_count"].(uint64) < 2 {
+		t.Fatalf("expected refresh_success_count >= 2, got %v", stats["refresh_success_count"])
+	}
+	if stats["refresh_failure_count"].(uint64) != 0 {
+		t.Fatalf("expected refresh_failure_count == 0, got %v", stats["refresh_failure_count"])
+	}
+}
+
+func TestServiceTokenManager_InitializeRetriesThenSucceeds(t *testing.T) {
+	var callCount int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		count := atomic.AddInt32(&callCount, 1)
+		if count < 3 {
+			http.Error(w, "temporary", http.StatusServiceUnavailable)
+			return
+		}
+
+		resp := serviceTokenResponse{
+			Token:     "token-after-retry",
+			ExpiresAt: time.Now().Add(10 * time.Minute),
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp) //nolint:errcheck
+	}))
+	defer server.Close()
+
+	cfg := DefaultTokenExchangeConfig()
+	cfg.TokenSmithURL = server.URL
+	cfg.BootstrapToken = "bootstrap-jwt"
+	cfg.BootstrapMaxAttempts = 5
+	cfg.BootstrapInitialBackoff = 10 * time.Millisecond
+	cfg.BootstrapMaxBackoff = 20 * time.Millisecond
+
+	manager := NewServiceTokenManager(cfg, log.New(os.Stdout, "test: ", log.LstdFlags))
+
+	if err := manager.Initialize(context.Background()); err != nil {
+		t.Fatalf("Initialize failed: %v", err)
+	}
+
+	if atomic.LoadInt32(&callCount) != 3 {
+		t.Fatalf("expected exactly 3 attempts, got %d", atomic.LoadInt32(&callCount))
+	}
+
+	stats := manager.Stats()
+	if stats["refresh_failure_count"].(uint64) < 2 {
+		t.Fatalf("expected refresh_failure_count >= 2, got %v", stats["refresh_failure_count"])
+	}
+}
+
+func TestHSMClient_GetStatsIncludesAuthTokenStats(t *testing.T) {
+	config := DefaultHSMConfig()
+	config.AuthTokenProvider = func(context.Context) (string, error) { return "t", nil }
+	config.AuthTokenStatsProvider = func() map[string]interface{} {
+		return map[string]interface{}{"refresh_success_count": uint64(7)}
+	}
+
+	client := NewHSMClient(config, log.New(os.Stdout, "test: ", log.LstdFlags))
+	stats := client.GetStats(context.Background())
+
+	authStats, ok := stats["auth_token_stats"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected auth_token_stats map in stats, got %#v", stats["auth_token_stats"])
+	}
+
+	if authStats["refresh_success_count"].(uint64) != 7 {
+		t.Fatalf("expected refresh_success_count 7, got %v", authStats["refresh_success_count"])
+	}
 }

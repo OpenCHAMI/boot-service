@@ -1,0 +1,71 @@
+# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: 2025-2026 OpenCHAMI a Series of LF Projects, LLC
+# Starter policy for Fabrica-generated services.
+#
+# TokenSmith evaluates the caller's normalized roles using Casbin subjects in the
+# form role:<name>. Start simple, then tailor these tuples for your deployment.
+
+# BMC
+p, role:viewer, /bmcs, GET
+p, role:viewer, /bmcs/{uid}, GET
+
+p, role:editor, /bmcs, GET
+p, role:editor, /bmcs/{uid}, GET
+p, role:editor, /bmcs, POST
+p, role:editor, /bmcs/{uid}, PUT
+p, role:editor, /bmcs/{uid}, PATCH
+p, role:editor, /bmcs/{uid}/status, PUT
+p, role:editor, /bmcs/{uid}/status, PATCH
+
+p, role:admin, /bmcs, GET
+p, role:admin, /bmcs/{uid}, GET
+p, role:admin, /bmcs, POST
+p, role:admin, /bmcs/{uid}, PUT
+p, role:admin, /bmcs/{uid}, PATCH
+p, role:admin, /bmcs/{uid}, DELETE
+p, role:admin, /bmcs/{uid}/status, PUT
+p, role:admin, /bmcs/{uid}/status, PATCH
+
+# BootConfiguration
+p, role:viewer, /bootconfigurations, GET
+p, role:viewer, /bootconfigurations/{uid}, GET
+
+p, role:editor, /bootconfigurations, GET
+p, role:editor, /bootconfigurations/{uid}, GET
+p, role:editor, /bootconfigurations, POST
+p, role:editor, /bootconfigurations/{uid}, PUT
+p, role:editor, /bootconfigurations/{uid}, PATCH
+p, role:editor, /bootconfigurations/{uid}/status, PUT
+p, role:editor, /bootconfigurations/{uid}/status, PATCH
+
+p, role:admin, /bootconfigurations, GET
+p, role:admin, /bootconfigurations/{uid}, GET
+p, role:admin, /bootconfigurations, POST
+p, role:admin, /bootconfigurations/{uid}, PUT
+p, role:admin, /bootconfigurations/{uid}, PATCH
+p, role:admin, /bootconfigurations/{uid}, DELETE
+p, role:admin, /bootconfigurations/{uid}/status, PUT
+p, role:admin, /bootconfigurations/{uid}/status, PATCH
+
+# Node
+p, role:viewer, /nodes, GET
+p, role:viewer, /nodes/{uid}, GET
+
+p, role:editor, /nodes, GET
+p, role:editor, /nodes/{uid}, GET
+p, role:editor, /nodes, POST
+p, role:editor, /nodes/{uid}, PUT
+p, role:editor, /nodes/{uid}, PATCH
+p, role:editor, /nodes/{uid}/status, PUT
+p, role:editor, /nodes/{uid}/status, PATCH
+
+p, role:admin, /nodes, GET
+p, role:admin, /nodes/{uid}, GET
+p, role:admin, /nodes, POST
+p, role:admin, /nodes/{uid}, PUT
+p, role:admin, /nodes/{uid}, PATCH
+p, role:admin, /nodes/{uid}, DELETE
+p, role:admin, /nodes/{uid}/status, PUT
+p, role:admin, /nodes/{uid}/status, PATCH
+
+# Add deployment-specific tuples below.
