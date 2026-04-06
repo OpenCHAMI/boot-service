@@ -561,3 +561,25 @@ func TestHSMClient_GetStatsIncludesAuthTokenStats(t *testing.T) {
 		t.Fatalf("expected refresh_success_count 7, got %v", authStats["refresh_success_count"])
 	}
 }
+
+func TestServiceTokenManager_ErrorIncludesEndpoint(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	}))
+	defer server.Close()
+
+	cfg := DefaultTokenExchangeConfig()
+	cfg.TokenSmithURL = server.URL
+	cfg.BootstrapToken = "bootstrap-jwt"
+	cfg.BootstrapMaxAttempts = 1
+
+	manager := NewServiceTokenManager(cfg, log.New(os.Stdout, "test: ", log.LstdFlags))
+	err := manager.Initialize(context.Background())
+	if err == nil {
+		t.Fatal("expected initialize to fail")
+	}
+
+	if !strings.Contains(err.Error(), server.URL+"/service/token") {
+		t.Fatalf("expected error to include endpoint, got: %v", err)
+	}
+}

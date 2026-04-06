@@ -207,12 +207,14 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 		hsmConfig := hsm.DefaultHSMConfig()
 		hsmConfig.BaseURL = config.HSMURL
 
-		hsmLogger := log.New(os.Stdout, "hsm: ", log.LstdFlags)
+		hsmLogger := log.New(os.Stdout, "smd: ", log.LstdFlags)
 
 		if strings.TrimSpace(config.TokenSmithURL) != "" {
 			bootstrapToken := strings.TrimSpace(config.TokenSmithBootstrapToken)
+			bootstrapSource := "config"
 			if bootstrapToken == "" {
 				bootstrapToken = strings.TrimSpace(os.Getenv("TOKENSMITH_BOOTSTRAP_TOKEN"))
+				bootstrapSource = "env:TOKENSMITH_BOOTSTRAP_TOKEN"
 			}
 			if bootstrapToken == "" {
 				return fmt.Errorf("tokensmith bootstrap token is required when both hsm-url and tokensmith_url are set")
@@ -224,6 +226,15 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 			tokenConfig.TargetService = strings.TrimSpace(config.TokenSmithTargetService)
 			tokenConfig.Scopes = parseScopeCSV(config.TokenSmithScopes)
 			tokenConfig.RefreshBefore = time.Duration(config.TokenSmithRefreshSkewSec) * time.Second
+
+			tokenEndpoint := strings.TrimRight(tokenConfig.TokenSmithURL, "/") + "/service/token"
+			log.Printf("HSM token exchange config: endpoint=%s target=%s scopes=%v bootstrap_token_present=%v bootstrap_token_source=%s",
+				tokenEndpoint,
+				tokenConfig.TargetService,
+				tokenConfig.Scopes,
+				bootstrapToken != "",
+				bootstrapSource,
+			)
 
 			serviceTokenManager = hsm.NewServiceTokenManager(tokenConfig, hsmLogger)
 			initialTokenCtx, initialTokenCancel := context.WithTimeout(ctx, 10*time.Second)

@@ -12,6 +12,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -105,6 +106,16 @@ func NewServiceTokenManager(config TokenExchangeConfig, logger *log.Logger) *Ser
 func (m *ServiceTokenManager) Initialize(ctx context.Context) error {
 	var lastErr error
 	backoff := m.config.BootstrapInitialBackoff
+	endpoint := m.serviceTokenEndpoint()
+	bootstrapPresent := strings.TrimSpace(m.config.BootstrapToken) != ""
+
+	m.logger.Printf("initializing HSM service token exchange: endpoint=%s target=%s scopes=%s bootstrap_token_present=%v max_attempts=%d",
+		endpoint,
+		strings.TrimSpace(m.config.TargetService),
+		strings.Join(sortedScopes(m.config.Scopes), ","),
+		bootstrapPresent,
+		m.config.BootstrapMaxAttempts,
+	)
 
 	for attempt := 1; attempt <= m.config.BootstrapMaxAttempts; attempt++ {
 		_, err := m.GetToken(ctx)
@@ -120,7 +131,15 @@ func (m *ServiceTokenManager) Initialize(ctx context.Context) error {
 			break
 		}
 
-		m.logger.Printf("warning: bootstrap token exchange attempt %d/%d failed: %v", attempt, m.config.BootstrapMaxAttempts, err)
+		m.logger.Printf("warning: bootstrap token exchange attempt %d/%d failed: endpoint=%s target=%s scopes=%s bootstrap_token_present=%v err=%v",
+			attempt,
+			m.config.BootstrapMaxAttempts,
+			endpoint,
+			strings.TrimSpace(m.config.TargetService),
+			strings.Join(sortedScopes(m.config.Scopes), ","),
+			bootstrapPresent,
+			err,
+		)
 
 		wait := backoff
 		if wait > m.config.BootstrapMaxBackoff {
@@ -243,7 +262,7 @@ func (m *ServiceTokenManager) refreshTokenLocked(ctx context.Context) error {
 		return fmt.Errorf("failed to encode service token request: %w", err)
 	}
 
-	url := strings.TrimRight(m.config.TokenSmithURL, "/") + "/service/token"
+	url := m.serviceTokenEndpoint()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(requestBody))
 	if err != nil {
 		return fmt.Errorf("failed to create service token request: %w", err)
@@ -259,7 +278,7 @@ func (m *ServiceTokenManager) refreshTokenLocked(ctx context.Context) error {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		err := fmt.Errorf("service token request failed: status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
+		err := fmt.Errorf("service token request failed: endpoint=%s status=%d body=%s", url, resp.StatusCode, strings.TrimSpace(string(body)))
 		m.recordRefreshFailure(err)
 		return err
 	}
@@ -303,4 +322,20 @@ func (m *ServiceTokenManager) recordRefreshFailure(err error) {
 	m.lastRefreshAt = time.Now().UTC()
 	m.lastError = err.Error()
 	m.statusMu.Unlock()
+}
+
+func (m *ServiceTokenManager) serviceTokenEndpoint() string {
+	return strings.TrimRight(m.config.TokenSmithURL, "/") + "/service/token"
+}
+
+func sortedScopes(scopes []string) []string {
+	filtered := make([]string, 0, len(scopes))
+	for _, scope := range scopes {
+		scope = strings.TrimSpace(scope)
+		if scope != "" {
+			filtered = append(filtered, scope)
+		}
+	}
+	sort.Strings(filtered)
+	return filtered
 }
