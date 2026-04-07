@@ -11,8 +11,8 @@ package resources
 import (
 	"fmt"
 
-	"github.com/openchami/fabrica/pkg/codegen"
 	v1 "github.com/openchami/boot-service/apis/boot.openchami.io/v1"
+	"github.com/openchami/fabrica/pkg/codegen"
 )
 
 // RegisterAllResources registers all discovered resources with the generator.

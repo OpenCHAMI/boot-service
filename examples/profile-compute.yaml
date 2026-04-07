@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+# SPDX-License-Identifier: MIT
+#
+# Example: Compute Profile Configurations
+# These configs target compute nodes with different optimization levels.
+
+---
+apiVersion: boot.openchami.io/v1
+kind: BootConfiguration
+metadata:
+  name: compute-standard
+spec:
+  profile: "compute"
+  # Target all compute slots (pattern matching)
+  hosts:
+    - "x0c0s*"
+  kernel: "http://files.openchami.org/vmlinuz-compute"
+  initrd: "http://files.openchami.org/initramfs-compute.img"
+  params: |
+    console=ttyS0,115200
+    root=/dev/ram0
+    cgroup_memory=1
+    numa=on
+  priority: 50
+
+---
+# GPU-optimized variant for GPU-enabled compute nodes
+apiVersion: boot.openchami.io/v1
+kind: BootConfiguration
+metadata:
+  name: compute-gpu-optimized
+spec:
+  profile: "compute"
+  # Target GPU-enabled nodes through group membership
+  groups:
+    - "gpu-enabled"
+  kernel: "http://files.openchami.org/vmlinuz-compute-cuda"
+  initrd: "http://files.openchami.org/initramfs-compute-cuda.img"
+  params: |
+    console=ttyS0,115200
+    root=/dev/ram0
+    cgroup_memory=1
+    iommu=pt
+  priority: 75  # Higher priority for more specific matching

@@ -1,12 +1,8 @@
-<!--
-SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
-
-SPDX-License-Identifier: MIT
-
-Example boot configurations demonstrating profile usage.
-See docs/PROFILES.md for comprehensive documentation.
--->
-
+# SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+# SPDX-License-Identifier: MIT
+#
+# Example boot configurations demonstrating profile usage.
+# See docs/PROFILES.md for comprehensive documentation.
 ---
 # Default Profile - Fallback for all nodes
 apiVersion: boot.openchami.io/v1

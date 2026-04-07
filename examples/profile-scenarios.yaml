@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+# SPDX-License-Identifier: MIT
+#
+# Example: Operational Scenario Profiles
+# These configs support different operational modes: debug, maintenance.
+
+---
+# Debug profile for troubleshooting specific nodes
+apiVersion: boot.openchami.io/v1
+kind: BootConfiguration
+metadata:
+  name: debug-interactive
+spec:
+  profile: "debug"
+  # Target specific node by MAC address for debugging
+  macs:
+    - "aa:bb:cc:dd:ee:ff"
+  kernel: "http://files.openchami.org/vmlinuz-debug"
+  initrd: "http://files.openchami.org/initramfs-debug.img"
+  params: |
+    console=ttyS0,115200
+    root=/dev/ram0
+    rd.break=pre-mount
+    systemd.log_level=debug
+  priority: 100  # Highest priority to force selection
+
+---
+# Maintenance profile for system maintenance mode
+apiVersion: boot.openchami.io/v1
+kind: BootConfiguration
+metadata:
+  name: maintenance-mode
+spec:
+  profile: "maintenance"
+  kernel: "http://files.openchami.org/vmlinuz-maintenance"
+  initrd: "http://files.openchami.org/initramfs-maintenance.img"
+  params: |
+    console=ttyS0,115200
+    root=/dev/ram0
+    systemd.unit=emergency.target
+  priority: 50

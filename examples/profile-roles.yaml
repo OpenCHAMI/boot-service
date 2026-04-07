@@ -1,0 +1,58 @@
+# SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+# SPDX-License-Identifier: MIT
+#
+# Example: Specialized Role Profiles
+# These configs target different node roles: login, storage, management.
+
+---
+# Login/Service node profile
+apiVersion: boot.openchami.io/v1
+kind: BootConfiguration
+metadata:
+  name: login-standard
+spec:
+  profile: "login"
+  hosts:
+    - "login[0-9]"
+    - "service[0-9]"
+  kernel: "http://files.openchami.org/vmlinuz-login"
+  initrd: "http://files.openchami.org/initramfs-login.img"
+  params: |
+    console=ttyS0,115200
+    root=/dev/nvme0n1p1
+  priority: 50
+
+---
+# Storage node profile
+apiVersion: boot.openchami.io/v1
+kind: BootConfiguration
+metadata:
+  name: storage-standard
+spec:
+  profile: "storage"
+  groups:
+    - "storage-nodes"
+  kernel: "http://files.openchami.org/vmlinuz-storage"
+  initrd: "http://files.openchami.org/initramfs-storage.img"
+  params: |
+    console=ttyS0,115200
+    root=/dev/sda1
+  priority: 50
+
+---
+# Management/headnode profile
+apiVersion: boot.openchami.io/v1
+kind: BootConfiguration
+metadata:
+  name: management-standard
+spec:
+  profile: "management"
+  hosts:
+    - "master[0-9]"
+    - "headnode*"
+  kernel: "http://files.openchami.org/vmlinuz-management"
+  initrd: "http://files.openchami.org/initramfs-management.img"
+  params: |
+    console=ttyS0,115200
+    root=/dev/nvme0n1p1
+  priority: 80
