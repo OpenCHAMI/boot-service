@@ -1,0 +1,150 @@
+<!--
+SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+
+SPDX-License-Identifier: MIT
+
+Example boot configurations demonstrating profile usage.
+See docs/PROFILES.md for comprehensive documentation.
+-->
+
+---
+# Default Profile - Fallback for all nodes
+apiVersion: boot.openchami.io/v1
+kind: BootConfiguration
+metadata:
+  name: default-boot
+spec:
+  # No profile specified - this is the default/fallback
+  kernel: "http://files.openchami.org/vmlinuz-5.10.0"
+  initrd: "http://files.openchami.org/initramfs-5.10.0.img"
+  params: "console=ttyS0,115200 root=/dev/ram0"
+  priority: 1  # Low priority, used as fallback
+
+---
+# Compute Profile - Standard HPC compute nodes
+apiVersion: boot.openchami.io/v1
+kind: BootConfiguration
+metadata:
+  name: compute-standard
+spec:
+  profile: "compute"
+  # Target all compute slots (pattern matching)
+  hosts:
+    - "x0c0s*"
+  kernel: "http://files.openchami.org/vmlinuz-compute"
+  initrd: "http://files.openchami.org/initramfs-compute.img"
+  params: |
+    console=ttyS0,115200
+    root=/dev/ram0
+    cgroup_memory=1
+    numa=on
+  priority: 50
+
+---
+# Compute Profile - GPU optimized variant
+apiVersion: boot.openchami.io/v1
+kind: BootConfiguration
+metadata:
+  name: compute-gpu-optimized
+spec:
+  profile: "compute"
+  # Target GPU-enabled nodes through group membership
+  groups:
+    - "gpu-enabled"
+  kernel: "http://files.openchami.org/vmlinuz-compute-cuda"
+  initrd: "http://files.openchami.org/initramfs-compute-cuda.img"
+  params: |
+    console=ttyS0,115200
+    root=/dev/ram0
+    cgroup_memory=1
+    iommu=pt
+  priority: 75  # Higher priority for more specific matching
+
+---
+# Login Profile - Login/service nodes
+apiVersion: boot.openchami.io/v1
+kind: BootConfiguration
+metadata:
+  name: login-standard
+spec:
+  profile: "login"
+  hosts:
+    - "login[0-9]"
+    - "service[0-9]"
+  kernel: "http://files.openchami.org/vmlinuz-login"
+  initrd: "http://files.openchami.org/initramfs-login.img"
+  params: |
+    console=ttyS0,115200
+    root=/dev/nvme0n1p1
+  priority: 50
+
+---
+# Storage Profile - Storage nodes
+apiVersion: boot.openchami.io/v1
+kind: BootConfiguration
+metadata:
+  name: storage-standard
+spec:
+  profile: "storage"
+  groups:
+    - "storage-nodes"
+  kernel: "http://files.openchami.org/vmlinuz-storage"
+  initrd: "http://files.openchami.org/initramfs-storage.img"
+  params: |
+    console=ttyS0,115200
+    root=/dev/sda1
+  priority: 50
+
+---
+# Management Profile - Management/headnode
+apiVersion: boot.openchami.io/v1
+kind: BootConfiguration
+metadata:
+  name: management-standard
+spec:
+  profile: "management"
+  hosts:
+    - "master[0-9]"
+    - "headnode*"
+  kernel: "http://files.openchami.org/vmlinuz-management"
+  initrd: "http://files.openchami.org/initramfs-management.img"
+  params: |
+    console=ttyS0,115200
+    root=/dev/nvme0n1p1
+  priority: 80
+
+---
+# Debug Profile - For troubleshooting specific nodes
+apiVersion: boot.openchami.io/v1
+kind: BootConfiguration
+metadata:
+  name: debug-interactive
+spec:
+  profile: "debug"
+  # Target specific node by MAC address for debugging
+  macs:
+    - "aa:bb:cc:dd:ee:ff"
+  kernel: "http://files.openchami.org/vmlinuz-debug"
+  initrd: "http://files.openchami.org/initramfs-debug.img"
+  params: |
+    console=ttyS0,115200
+    root=/dev/ram0
+    rd.break=pre-mount
+    systemd.log_level=debug
+  priority: 100  # Highest priority to force selection
+
+---
+# Maintenance Profile - System maintenance mode
+apiVersion: boot.openchami.io/v1
+kind: BootConfiguration
+metadata:
+  name: maintenance-mode
+spec:
+  profile: "maintenance"
+  kernel: "http://files.openchami.org/vmlinuz-maintenance"
+  initrd: "http://files.openchami.org/initramfs-maintenance.img"
+  params: |
+    console=ttyS0,115200
+    root=/dev/ram0
+    systemd.unit=emergency.target
+  priority: 50

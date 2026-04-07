@@ -22,16 +22,38 @@ type BootConfiguration struct {
 }
 
 // BootConfigurationSpec defines the desired state of BootConfiguration.
+//
+// A boot configuration specifies the kernel, initrd, and parameters needed to boot a node,
+// along with targeting criteria (hosts, MACs, NIDs, groups) to determine which nodes use
+// this configuration.
+//
+// Profile support allows organizing configurations by operational scenario (e.g., "compute",
+// "debug", "login"). When requesting a boot script with a specific profile, the service
+// selects from matching profile configurations. If no matching profile exists, it falls back
+// to the default profile (empty profile field).
+//
+// Selection priority: exact MAC match (100) > NID match (75) > host pattern (50) >
+// group membership (25) > default (1). When scores tie, the Priority field determines selection.
+// See docs/PROFILES.md for comprehensive profile documentation.
 type BootConfigurationSpec struct { // nolint:revive
-	Hosts  []string `json:"hosts,omitempty"`
-	MACs   []string `json:"macs,omitempty"`
-	NIDs   []int32  `json:"nids,omitempty"`
-	Groups []string `json:"groups,omitempty"`
+	// Node targeting criteria (at least one required)
+	Hosts  []string `json:"hosts,omitempty"`  // XName patterns (e.g., "x0c0s*")
+	MACs   []string `json:"macs,omitempty"`   // MAC addresses (case-insensitive)
+	NIDs   []int32  `json:"nids,omitempty"`   // Numeric node IDs
+	Groups []string `json:"groups,omitempty"` // Inventory group memberships
 
-	Kernel string `json:"kernel"`
-	Initrd string `json:"initrd,omitempty"`
-	Params string `json:"params,omitempty"`
+	// Boot profile for organizing configurations
+	// Empty or "default" indicates the default fallback profile.
+	// See docs/PROFILES.md for profile usage and selection logic.
+	Profile string `json:"profile,omitempty"`
 
+	// Boot parameters
+	Kernel string `json:"kernel"`           // Required: kernel URL or path
+	Initrd string `json:"initrd,omitempty"` // Optional: initrd/initramfs URL or path
+	Params string `json:"params,omitempty"` // Kernel parameters (console, root, etc.)
+
+	// Priority for tiebreaking within the same profile when multiple configs match
+	// Higher values take precedence. Default configurations typically use priority 1.
 	Priority int `json:"priority,omitempty"`
 }
 

@@ -52,12 +52,17 @@ const (
 	IdentifierUnknown
 )
 
+type configCandidate struct {
+	config *apiv1.BootConfiguration
+	score  int
+}
+
 // GenerateBootScript generates an iPXE boot script for a node
-func (c *BootScriptController) GenerateBootScript(ctx context.Context, identifier string) (string, error) {
+func (c *BootScriptController) GenerateBootScript(ctx context.Context, identifier, profile string) (string, error) {
 	c.logger.Printf("Generating boot script for identifier: %s", identifier)
 
 	// Check cache first
-	cacheKey := c.generateCacheKey(identifier, "")
+	cacheKey := c.generateCacheKey(identifier, profile)
 	if cached, found := c.cache.Get(cacheKey); found {
 		c.logger.Printf("Cache hit for identifier: %s", identifier)
 		return cached, nil
@@ -71,7 +76,7 @@ func (c *BootScriptController) GenerateBootScript(ctx context.Context, identifie
 	}
 
 	// Find best matching configuration
-	config, err := c.findBootConfiguration(ctx, node)
+	config, err := c.findBootConfiguration(ctx, node, profile)
 	if err != nil {
 		c.logger.Printf("No configuration found for node %s: %v", node.Spec.XName, err)
 		// Return minimal script for nodes without configuration
@@ -147,7 +152,7 @@ func (c *BootScriptController) resolveNode(ctx context.Context, identifier NodeI
 }
 
 // findBootConfiguration finds the best matching configuration for a node
-func (c *BootScriptController) findBootConfiguration(ctx context.Context, node *apiv1.Node) (*apiv1.BootConfiguration, error) {
+func (c *BootScriptController) findBootConfiguration(ctx context.Context, node *apiv1.Node, profile string) (*apiv1.BootConfiguration, error) {
 	// Get all boot configurations
 	configs, err := c.client.GetBootConfigurations(ctx)
 	if err != nil {
@@ -158,35 +163,57 @@ func (c *BootScriptController) findBootConfiguration(ctx context.Context, node *
 		return nil, fmt.Errorf("no boot configurations found")
 	}
 
-	// Score each configuration against the node
-	type configCandidate struct {
-		config *apiv1.BootConfiguration
-		score  int
-	}
+	findBestCandidate := func(targetProfile string) *apiv1.BootConfiguration {
+		var candidates []configCandidate
 
-	var candidates []configCandidate
-	for _, configItem := range configs {
-		score := c.calculateConfigScore(&configItem, node)
-		if score > 0 {
-			candidates = append(candidates, configCandidate{config: &configItem, score: score})
+		for _, configItem := range configs {
+			configProfile := configItem.Spec.Profile
+			if configProfile == "" {
+				configProfile = "default"
+			}
+
+			effectiveTarget := targetProfile
+			if effectiveTarget == "" {
+				effectiveTarget = "default"
+			}
+
+			if configProfile != effectiveTarget {
+				continue
+			}
+
+			score := c.calculateConfigScore(&configItem, node)
+			if score > 0 {
+				candidates = append(candidates, configCandidate{config: &configItem, score: score})
+			}
 		}
-	}
 
-	if len(candidates) == 0 {
-		return nil, fmt.Errorf("no matching configurations found for node %s", node.Spec.XName)
-	}
-
-	// Sort by score (descending) and priority (descending)
-	sort.Slice(candidates, func(i, j int) bool {
-		if candidates[i].score != candidates[j].score {
-			return candidates[i].score > candidates[j].score
+		if len(candidates) == 0 {
+			return nil
 		}
-		return candidates[i].config.Spec.Priority > candidates[j].config.Spec.Priority
-	})
 
-	selectedConfig := candidates[0].config
+		// Sort by score (descending) and priority (descending)
+		sort.Slice(candidates, func(i, j int) bool {
+			if candidates[i].score != candidates[j].score {
+				return candidates[i].score > candidates[j].score
+			}
+			return candidates[i].config.Spec.Priority > candidates[j].config.Spec.Priority
+		})
 
-	return selectedConfig, nil
+		return candidates[0].config
+	}
+
+	if profile != "" && profile != "default" {
+		if match := findBestCandidate(profile); match != nil {
+			return match, nil
+		}
+		c.logger.Printf("No config found for profile '%s', falling back to default", profile)
+	}
+
+	if match := findBestCandidate("default"); match != nil {
+		return match, nil
+	}
+
+	return nil, fmt.Errorf("no matching configurations found for node %s", node.Spec.XName)
 }
 
 // calculateConfigScore determines how well a configuration matches a node

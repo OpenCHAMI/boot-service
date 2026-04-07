@@ -37,18 +37,18 @@ Example usage:
 	controller := bootscript.NewBootScriptController(client, logger)
 
 	// Generate boot script for a node
-	script, err := controller.GenerateBootScript(ctx, "x0c0s0b0n0")
+	script, err := controller.GenerateBootScript(ctx, "x0c0s0b0n0", "")
 	if err != nil {
-		log.Fatal(err)
+	  log.Fatal(err)
 	}
 
 	// Use flexible controller with HSM integration
 	config := ProviderConfig{
-		Type: "hsm",
-		HSMConfig: &hsm.IntegrationConfig{
-			BaseURL: "http://localhost:27779",
-			Timeout: 30 * time.Second,
-		},
+	  Type: "hsm",
+	  HSMConfig: &hsm.IntegrationConfig{
+	    BaseURL: "http://localhost:27779",
+	    Timeout: 30 * time.Second,
+	  },
 	}
 	flexController, err := NewFlexibleBootScriptController(client, config, logger)
 

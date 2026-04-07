@@ -70,7 +70,7 @@ func TestBootLogicWithExistingData(t *testing.T) {
 		for _, node := range nodes {
 			t.Run("Node_"+node.Spec.XName, func(t *testing.T) {
 				// Test generation by XName
-				scriptByXName, err := controller.GenerateBootScript(ctx, node.Spec.XName)
+				scriptByXName, err := controller.GenerateBootScript(ctx, node.Spec.XName, "")
 				if err != nil {
 					t.Errorf("Failed to generate script by XName %s: %v", node.Spec.XName, err)
 					return
@@ -91,7 +91,7 @@ func TestBootLogicWithExistingData(t *testing.T) {
 
 				// Test generation by NID if available
 				if node.Spec.NID > 0 {
-					scriptByNID, err := controller.GenerateBootScript(ctx, fmt.Sprintf("%d", node.Spec.NID))
+					scriptByNID, err := controller.GenerateBootScript(ctx, fmt.Sprintf("%d", node.Spec.NID), "")
 					if err != nil {
 						t.Logf("Failed to generate script by NID %d: %v", node.Spec.NID, err)
 					} else if scriptByNID == scriptByXName {
@@ -101,7 +101,7 @@ func TestBootLogicWithExistingData(t *testing.T) {
 
 				// Test generation by MAC if available
 				if node.Spec.BootMAC != "" {
-					scriptByMAC, err := controller.GenerateBootScript(ctx, node.Spec.BootMAC)
+					scriptByMAC, err := controller.GenerateBootScript(ctx, node.Spec.BootMAC, "")
 					if err != nil {
 						t.Logf("Failed to generate script by MAC %s: %v", node.Spec.BootMAC, err)
 					} else if scriptByMAC == scriptByXName {
@@ -117,7 +117,7 @@ func TestBootLogicWithExistingData(t *testing.T) {
 	// Test Case 2: Configuration matching logic
 	t.Run("Configuration Matching Validation", func(t *testing.T) {
 		for _, node := range nodes {
-			script, err := controller.GenerateBootScript(ctx, node.Spec.XName)
+			script, err := controller.GenerateBootScript(ctx, node.Spec.XName, "")
 			if err != nil {
 				t.Errorf("Failed to generate script for node %s: %v", node.Spec.XName, err)
 				continue
@@ -143,7 +143,7 @@ func TestBootLogicWithExistingData(t *testing.T) {
 	// Test Case 3: Unknown node handling
 	t.Run("Unknown Node Fallback", func(t *testing.T) {
 		// Try to generate script for non-existent node
-		script, err := controller.GenerateBootScript(ctx, "x9999c9s9b9n9")
+		script, err := controller.GenerateBootScript(ctx, "x9999c9s9b9n9", "")
 		if err != nil {
 			t.Fatalf("Expected graceful handling of unknown node, but got error: %v", err)
 		}
@@ -177,7 +177,7 @@ func TestBootLogicWithExistingData(t *testing.T) {
 
 		// Generate script (should be cache miss)
 		start := time.Now()
-		script1, err := controller.GenerateBootScript(ctx, testNode.Spec.XName)
+		script1, err := controller.GenerateBootScript(ctx, testNode.Spec.XName, "")
 		duration1 := time.Since(start)
 		if err != nil {
 			t.Fatalf("Failed to generate boot script: %v", err)
@@ -185,7 +185,7 @@ func TestBootLogicWithExistingData(t *testing.T) {
 
 		// Generate same script again (should be cache hit)
 		start = time.Now()
-		script2, err := controller.GenerateBootScript(ctx, testNode.Spec.XName)
+		script2, err := controller.GenerateBootScript(ctx, testNode.Spec.XName, "")
 		duration2 := time.Since(start)
 		if err != nil {
 			t.Fatalf("Failed to generate boot script: %v", err)
@@ -211,7 +211,7 @@ func TestBootLogicWithExistingData(t *testing.T) {
 		}
 
 		testNode := nodes[0]
-		script, err := controller.GenerateBootScript(ctx, testNode.Spec.XName)
+		script, err := controller.GenerateBootScript(ctx, testNode.Spec.XName, "")
 		if err != nil {
 			t.Fatalf("Failed to generate boot script: %v", err)
 		}

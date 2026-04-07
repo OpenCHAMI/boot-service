@@ -152,6 +152,7 @@ export BOOT_SERVICE_HSM_URL=http://localhost:27779
 
 ## Documentation
 
-- `docs/CONFIGURATION.md`
-- `docs/AUTHENTICATION.md`
-- `docs/AUTHENTICATION_TESTING.md`
+- `docs/PROFILES.md` - Boot profiles for configuration management
+- `docs/CONFIGURATION.md` - Service configuration guide
+- `docs/AUTHENTICATION.md` - JWT authentication with TokenSmith
+- `docs/AUTHENTICATION_TESTING.md` - Testing authentication flows
