@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"strings"
 	"sync/atomic"
@@ -419,30 +420,30 @@ func TestHSMClient_AuthTokenProvider(t *testing.T) {
 
 func TestServiceTokenManager_GetTokenAndRefresh(t *testing.T) {
 	var callCount int32
-	var firstRequest serviceTokenRequest
+	var firstForm url.Values
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/service/token" {
-			t.Fatalf("expected /service/token, got %s", r.URL.Path)
+		if r.URL.Path != "/oauth/token" {
+			t.Fatalf("expected /oauth/token, got %s", r.URL.Path)
 		}
 		if r.Method != http.MethodPost {
 			t.Fatalf("expected POST, got %s", r.Method)
 		}
-
-		var req serviceTokenRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			t.Fatalf("failed to decode request body: %v", err)
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("failed to parse form body: %v", err)
 		}
+
 		if atomic.LoadInt32(&callCount) == 0 {
-			firstRequest = req
+			firstForm = r.PostForm
 		}
 
 		count := atomic.AddInt32(&callCount, 1)
 		resp := map[string]interface{}{
-			"token":              "token-" + time.Now().Format("150405") + "-" + strings.Repeat("x", int(count)),
-			"expires_at":         time.Now().Add(500 * time.Millisecond),
+			"access_token":       "token-" + time.Now().Format("150405") + "-" + strings.Repeat("x", int(count)),
+			"token_type":         "Bearer",
+			"expires_in":         1,
 			"refresh_token":      "refresh-" + time.Now().Format("150405") + "-" + strings.Repeat("r", int(count)),
-			"refresh_expires_at": time.Now().Add(10 * time.Minute),
+			"refresh_expires_in": 600,
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -455,7 +456,7 @@ func TestServiceTokenManager_GetTokenAndRefresh(t *testing.T) {
 	cfg.BootstrapToken = "bootstrap-jwt"
 	cfg.TargetService = "hsm"
 	cfg.Scopes = []string{"hsm:read"}
-	cfg.RefreshBefore = 100 * time.Millisecond
+	cfg.RefreshBefore = 900 * time.Millisecond
 
 	manager := NewServiceTokenManager(cfg, log.New(os.Stdout, "test: ", log.LstdFlags))
 
@@ -467,11 +468,14 @@ func TestServiceTokenManager_GetTokenAndRefresh(t *testing.T) {
 		t.Fatal("expected non-empty token")
 	}
 
-	if firstRequest.BootstrapToken != "bootstrap-jwt" {
-		t.Fatalf("expected bootstrap token in request, got %q", firstRequest.BootstrapToken)
+	if firstForm.Get("grant_type") != "urn:ietf:params:oauth:grant-type:token-exchange" {
+		t.Fatalf("expected token-exchange grant type, got %q", firstForm.Get("grant_type"))
 	}
-	if firstRequest.TargetService != "hsm" {
-		t.Fatalf("expected target service 'hsm', got %q", firstRequest.TargetService)
+	if firstForm.Get("subject_token") != "bootstrap-jwt" {
+		t.Fatalf("expected bootstrap token in subject_token, got %q", firstForm.Get("subject_token"))
+	}
+	if firstForm.Get("subject_token_type") != "urn:openchami:params:oauth:token-type:bootstrap-token" {
+		t.Fatalf("expected bootstrap token type, got %q", firstForm.Get("subject_token_type"))
 	}
 
 	time.Sleep(450 * time.Millisecond)
@@ -508,10 +512,11 @@ func TestServiceTokenManager_InitializeRetriesThenSucceeds(t *testing.T) {
 		}
 
 		resp := map[string]interface{}{
-			"token":              "token-after-retry",
-			"expires_at":         time.Now().Add(10 * time.Minute),
+			"access_token":       "token-after-retry",
+			"token_type":         "Bearer",
+			"expires_in":         600,
 			"refresh_token":      "refresh-after-retry",
-			"refresh_expires_at": time.Now().Add(24 * time.Hour),
+			"refresh_expires_in": 86400,
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -579,7 +584,7 @@ func TestServiceTokenManager_ErrorIncludesEndpoint(t *testing.T) {
 		t.Fatal("expected initialize to fail")
 	}
 
-	if !strings.Contains(err.Error(), server.URL+"/service/token") {
+	if !strings.Contains(err.Error(), server.URL+"/oauth/token") {
 		t.Fatalf("expected error to include endpoint, got: %v", err)
 	}
 }

@@ -91,8 +91,8 @@ github.com/openchami/chi-middleware/log v0.0.0-20240812224658-b16b83c70700 h1:Gz
 github.com/openchami/chi-middleware/log v0.0.0-20240812224658-b16b83c70700/go.mod h1:UuXvr2loD4MtvZeKr57W0WpBs+gm0KM1kdtcXrE8M6s=
 github.com/openchami/fabrica v0.4.0 h1:qlObadRCEEeRrw3DYjg4pjQJ+4gt0izs2Kg76cBsuQ0=
 github.com/openchami/fabrica v0.4.0/go.mod h1:8iRKnxePWWL85d0qsJJ8a+YiZCjxz2hMZrl3B5fLPT0=
-github.com/openchami/tokensmith/middleware v0.0.2 h1:9H9hHhbcUj4BK6kIsVtzPrQt+qysJYqJVysEDSe5WRU=
-github.com/openchami/tokensmith/middleware v0.0.2/go.mod h1:8vjSQT2TyyhREqMCMLZshkgo1MrYbhaDFw4nidOMU/s=
+github.com/openchami/tokensmith v0.3.1-0.20260408211730-d305fa0bedb3 h1:nJaBWyKECFs6ZEfEsXOszc9M2PITq+n35vAjJcMYY5U=
+github.com/openchami/tokensmith v0.3.1-0.20260408211730-d305fa0bedb3/go.mod h1:L4ZCMX/vPGwXUUn9otw+UdfFTbarv+ZVO/FjhZmoOAE=
 github.com/pelletier/go-toml/v2 v2.2.4 h1:mye9XuhQ6gvn5h28+VilKrrPoQVanw5PMw/TB0t5Ec4=
 github.com/pelletier/go-toml/v2 v2.2.4/go.mod h1:2gIqNv+qfxSVS7cM2xJQKtLSTLUE9V8t9Stt+h56mCY=
 github.com/perimeterx/marshmallow v1.1.5 h1:a2LALqQ1BlHM8PZblsDdidgv1mWi1DgC2UmX50IvK2s=
@@ -122,8 +122,6 @@ github.com/spf13/pflag v1.0.10/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3A
 github.com/spf13/viper v1.21.0 h1:x5S+0EU27Lbphp4UKm1C+1oQO+rKx36vfCoaVebLFSU=
 github.com/spf13/viper v1.21.0/go.mod h1:P0lhsswPGWD/1lZJ9ny3fYnVqxiegrlNrEmgLjbTCAY=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
-github.com/stretchr/objx v0.5.2 h1:xuMeJ0Sdp5ZMRXx/aWO6RZxdr3beISkG5/G/aIRr3pY=
-github.com/stretchr/objx v0.5.2/go.mod h1:FRsXN1f5AsAjCGJKqEizvkpNtU+EGNCLh3NxZ/8L+MA=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
