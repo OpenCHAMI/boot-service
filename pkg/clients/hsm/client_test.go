@@ -438,9 +438,11 @@ func TestServiceTokenManager_GetTokenAndRefresh(t *testing.T) {
 		}
 
 		count := atomic.AddInt32(&callCount, 1)
-		resp := serviceTokenResponse{
-			Token:     "token-" + time.Now().Format("150405") + "-" + strings.Repeat("x", int(count)),
-			ExpiresAt: time.Now().Add(500 * time.Millisecond),
+		resp := map[string]interface{}{
+			"token":              "token-" + time.Now().Format("150405") + "-" + strings.Repeat("x", int(count)),
+			"expires_at":         time.Now().Add(500 * time.Millisecond),
+			"refresh_token":      "refresh-" + time.Now().Format("150405") + "-" + strings.Repeat("r", int(count)),
+			"refresh_expires_at": time.Now().Add(10 * time.Minute),
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -505,9 +507,11 @@ func TestServiceTokenManager_InitializeRetriesThenSucceeds(t *testing.T) {
 			return
 		}
 
-		resp := serviceTokenResponse{
-			Token:     "token-after-retry",
-			ExpiresAt: time.Now().Add(10 * time.Minute),
+		resp := map[string]interface{}{
+			"token":              "token-after-retry",
+			"expires_at":         time.Now().Add(10 * time.Minute),
+			"refresh_token":      "refresh-after-retry",
+			"refresh_expires_at": time.Now().Add(24 * time.Hour),
 		}
 
 		w.Header().Set("Content-Type", "application/json")

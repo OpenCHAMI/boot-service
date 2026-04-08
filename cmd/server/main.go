@@ -160,6 +160,13 @@ func main() {
 	viper.RegisterAlias("tokensmith_scopes", "tokensmith-scopes")
 	viper.RegisterAlias("tokensmith_refresh_skew_sec", "tokensmith-refresh-skew-sec")
 
+	// Standardized TokenSmith env vars for cross-service UX consistency.
+	viper.BindEnv("tokensmith_url", "TOKENSMITH_URL")                           //nolint:errcheck
+	viper.BindEnv("tokensmith_bootstrap_token", "TOKENSMITH_BOOTSTRAP_TOKEN")   //nolint:errcheck
+	viper.BindEnv("tokensmith_target_service", "TOKENSMITH_TARGET_SERVICE")     //nolint:errcheck
+	viper.BindEnv("tokensmith_scopes", "TOKENSMITH_SCOPES")                     //nolint:errcheck
+	viper.BindEnv("tokensmith_refresh_skew_sec", "TOKENSMITH_REFRESH_SKEW_SEC") //nolint:errcheck
+
 	// Read config file if present
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
@@ -244,8 +251,7 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 				return fmt.Errorf("failed to initialize HSM service token manager: %w", initErr)
 			}
 
-			hsmConfig.AuthTokenProvider = serviceTokenManager.GetToken
-			hsmConfig.AuthTokenStatsProvider = serviceTokenManager.Stats
+			hsmConfig.ServiceTokenManager = serviceTokenManager
 			log.Printf("HSM auth enabled via TokenSmith service-token exchange (target=%s)", tokenConfig.TargetService)
 		}
 

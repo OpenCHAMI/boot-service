@@ -63,6 +63,7 @@ type HSMConfig struct { //nolint:revive
 	AuthToken              string                                `json:"authToken,omitempty"`
 	AuthTokenProvider      func(context.Context) (string, error) `json:"-"`
 	AuthTokenStatsProvider func() map[string]interface{}         `json:"-"`
+	ServiceTokenManager    *ServiceTokenManager                  `json:"-"`
 	EnableCircuitBreaker   bool                                  `json:"enableCircuitBreaker"`
 }
 
@@ -377,7 +378,7 @@ func (c *HSMClient) GetStats(ctx context.Context) map[string]interface{} { //nol
 	stats := map[string]interface{}{
 		"hsm_base_url":    c.config.BaseURL,
 		"cache_enabled":   c.cache != nil,
-		"authenticated":   c.config.AuthToken != "" || c.config.AuthTokenProvider != nil,
+		"authenticated":   c.config.AuthToken != "" || c.config.AuthTokenProvider != nil || c.config.ServiceTokenManager != nil,
 		"cache_expiry":    c.cache.expiry.String(),
 		"request_timeout": c.config.Timeout.String(),
 	}
@@ -395,6 +396,8 @@ func (c *HSMClient) GetStats(ctx context.Context) map[string]interface{} { //nol
 
 	if c.config.AuthTokenStatsProvider != nil {
 		stats["auth_token_stats"] = c.config.AuthTokenStatsProvider()
+	} else if c.config.ServiceTokenManager != nil {
+		stats["auth_token_stats"] = c.config.ServiceTokenManager.Stats()
 	}
 
 	return stats
@@ -409,6 +412,14 @@ func (c *HSMClient) addAuthHeader(ctx context.Context, req *http.Request) error 
 			return fmt.Errorf("failed to resolve HSM auth token: %w", err)
 		}
 		token = strings.TrimSpace(providerToken)
+	} else if c.config.ServiceTokenManager != nil {
+		if err := c.config.ServiceTokenManager.RefreshTokenIfNeeded(ctx); err != nil {
+			return fmt.Errorf("failed to resolve HSM auth token: %w", err)
+		}
+		serviceToken := c.config.ServiceTokenManager.GetServiceToken()
+		if serviceToken != nil {
+			token = strings.TrimSpace(serviceToken.Token)
+		}
 	}
 
 	if token != "" {
