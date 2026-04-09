@@ -1,129 +1,120 @@
-# SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
-#
+# SPDX-FileCopyrightText: Copyright © 2025 OpenCHAMI a Series of LF Projects, LLC
 # SPDX-License-Identifier: MIT
-
 version: 2
-
-# GoReleaser v2.12 configuration
-# Docs: https://goreleaser.com/customization/
-
-project_name: boot-service
-
+project_name: "boot-service"
 before:
   hooks:
-    - go mod tidy
+    - go mod download
 
 builds:
-  - id: boot-service-server
-    main: ./cmd/server
-    binary: boot-service
-    env:
-      - CGO_ENABLED=0
-    flags:
-      - -trimpath
-    ldflags:
-      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+  - id: "boot-server"
+    binary: "boot-server"
+    dir: "cmd/server"
     goos:
       - linux
-      - darwin
     goarch:
       - amd64
       - arm64
-  - id: boot-service-client
-    main: ./cmd/client
-    binary: boot-service-client
+    goamd64:
+      - v3
     env:
       - CGO_ENABLED=0
-    flags:
-      - -trimpath
     ldflags:
-      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+      - "-s -w -X main.GitCommit={{.Commit}} \
+         -X main.BuildTime={{.Timestamp}} \
+         -X main.Version={{.Version}} \
+         -X main.GitBranch={{.Branch}} \
+         -X main.GitTag={{.Tag}} \
+         -X main.GitState={{ .Env.GIT_STATE }} \
+         -X main.BuildHost={{ .Env.BUILD_HOST }} \
+         -X main.GoVersion={{ .Env.GO_VERSION }} \
+         -X main.BuildUser={{ .Env.BUILD_USER }} "
+
+  - id: "boot-client"
+    binary: "boot-client"
+    dir: "cmd/client"
     goos:
       - linux
-      - darwin
     goarch:
       - amd64
       - arm64
+    goamd64:
+      - v3
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - "-s -w -X main.GitCommit={{.Commit}} \
+         -X main.BuildTime={{.Timestamp}} \
+         -X main.Version={{.Version}} \
+         -X main.GitBranch={{.Branch}} \
+         -X main.GitTag={{.Tag}} \
+         -X main.GitState={{ .Env.GIT_STATE }} \
+         -X main.BuildHost={{ .Env.BUILD_HOST }} \
+         -X main.GoVersion={{ .Env.GO_VERSION }} \
+         -X main.BuildUser={{ .Env.BUILD_USER }} "
+
+
+dockers_v2:
+  - id: "boot-server"
+    ids:
+      - "boot-server"
+    images:
+      - "ghcr.io/openchami/{{.ProjectName}}"
+    tags:
+      - "latest"
+      - "{{ .Tag }}"
+      - "{{ .Major }}"
+      - "{{ .Major }}.{{ .Minor }}"
+    labels:
+      "org.opencontainers.image.created": "{{.Date}}"
+      "org.opencontainers.image.title": "{{.ProjectName}}"
+      "org.opencontainers.image.revision": "{{.FullCommit}}"
+      "org.opencontainers.image.version": "{{.Version}}"
+    platforms:
+      - "linux/amd64"
+      - "linux/arm64"
+    flags:
+      - "--pull"
+    extra_files:
+      - "LICENSES/MIT.txt"
+      - "README.md"
 
 archives:
-  - id: boot-service-archives
-    builds:
-      - boot-service-server
-      - boot-service-client
-    format: tar.gz
-    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+  - id: "boot-service"
+    # this name template makes the OS and Arch compatible with the results of uname.
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
     files:
+      - LICENSES/MIT.txt
       - README.md
-      - LICENSE*
-      - docs/**
-      - config.example.yaml
 
 checksum:
-  name_template: "checksums_{{ .Version }}.txt"
-
+  name_template: 'checksums.txt'
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
 changelog:
   sort: asc
-  use: git
   filters:
     exclude:
       - '^docs:'
       - '^test:'
 
 release:
-  draft: false
+  disable: "{{ if eq .Env.IS_PR_BUILD \"true\" }}true{{ else }}false{{ end }}"
+  github:
+    owner: OpenCHAMI
+    name: boot-service
+  name_template: 'v{{ .Version }}'
   prerelease: auto
+  mode: replace
 
-dockers:
-  - id: boot-service-amd64
-    ids: [boot-service]
-    image_templates:
-      - "ghcr.io/openchami/boot-service:{{ .Version }}-amd64"
-      - "ghcr.io/openchami/boot-service:latest-amd64"
-    use: buildx
-    goos: linux
-    goarch: amd64
-    dockerfile: Dockerfile
-    build_flag_templates:
-      - "--platform=linux/amd64"
-      - "--pull"
-      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.description=A microservice for managing node boot configurations in OpenCHAMI"
-      - "--label=org.opencontainers.image.url={{ .GitURL }}"
-      - "--label=org.opencontainers.image.source={{ .GitURL }}"
-      - "--label=org.opencontainers.image.revision={{ .Commit }}"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
-    extra_files:
-      - config.example.yaml
 
-  - id: boot-service-arm64
-    ids: [boot-service]
-    image_templates:
-      - "ghcr.io/openchami/boot-service:{{ .Version }}-arm64"
-      - "ghcr.io/openchami/boot-service:latest-arm64"
-    use: buildx
-    goos: linux
-    goarch: arm64
-    dockerfile: Dockerfile
-    build_flag_templates:
-      - "--platform=linux/arm64"
-      - "--pull"
-      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.description=A microservice for managing node boot configurations in OpenCHAMI"
-      - "--label=org.opencontainers.image.url={{ .GitURL }}"
-      - "--label=org.opencontainers.image.source={{ .GitURL }}"
-      - "--label=org.opencontainers.image.revision={{ .Commit }}"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
-    extra_files:
-      - config.example.yaml
-
-docker_manifests:
-  - id: boot-service-manifest-version
-    name_template: "ghcr.io/openchami/boot-service:{{ .Version }}"
-    image_templates:
-      - "ghcr.io/openchami/boot-service:{{ .Version }}-amd64"
-      - "ghcr.io/openchami/boot-service:{{ .Version }}-arm64"
-  - id: boot-service-manifest-latest
-    name_template: "ghcr.io/openchami/boot-service:latest"
-    image_templates:
-      - "ghcr.io/openchami/boot-service:latest-amd64"
-      - "ghcr.io/openchami/boot-service:latest-arm64"
+# The lines beneath this are called `modelines`. See `:help modeline`
+# Feel free to remove those if you don't want/use them.
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
