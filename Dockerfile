@@ -9,7 +9,7 @@ WORKDIR /app
 ARG TARGETPLATFORM
 
 # With GoReleaser dockers_v2, binaries are available under $TARGETPLATFORM/.
-COPY $TARGETPLATFORMboot-server /usr/local/bin/boot-server
+COPY $TARGETPLATFORM/boot-server /usr/local/bin/boot-server
 
 USER nonroot:nonroot
 EXPOSE 8080 9090
