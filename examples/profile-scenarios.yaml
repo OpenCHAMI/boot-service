@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+# SPDX-License-Identifier: MIT
+#
+# Example: Debug Profile for Troubleshooting
+# This config supports debugging and troubleshooting specific nodes.
+
+apiVersion: boot.openchami.io/v1
+kind: BootConfiguration
+metadata:
+  name: debug-interactive
+spec:
+  profile: "debug"
+  # Target specific node by MAC address for debugging
+  macs:
+    - "aa:bb:cc:dd:ee:ff"
+  kernel: "http://files.openchami.org/vmlinuz-debug"
+  initrd: "http://files.openchami.org/initramfs-debug.img"
+  params: |
+    console=ttyS0,115200
+    root=/dev/ram0
+    rd.break=pre-mount
+    systemd.log_level=debug
+  priority: 100  # Highest priority to force selection

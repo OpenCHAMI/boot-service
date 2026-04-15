@@ -9,12 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/openchami/boot-service/pkg/resources/bootconfiguration"
-	"github.com/openchami/boot-service/pkg/resources/node"
+	apiv1 "github.com/openchami/boot-service/apis/boot.openchami.io/v1"
 )
 
 // ConvertNodeToLegacyIdentifiers extracts legacy identifiers from a modern Node resource
-func ConvertNodeToLegacyIdentifiers(n *node.Node) (hosts []string, macs []string, nids []string) {
+func ConvertNodeToLegacyIdentifiers(n *apiv1.Node) (hosts []string, macs []string, nids []string) {
 	if n.Spec.XName != "" {
 		hosts = append(hosts, n.Spec.XName)
 	}
@@ -31,7 +30,7 @@ func ConvertNodeToLegacyIdentifiers(n *node.Node) (hosts []string, macs []string
 }
 
 // ConvertBootConfigurationToLegacy converts a modern BootConfiguration to legacy BootParameters
-func ConvertBootConfigurationToLegacy(config *bootconfiguration.BootConfiguration) BootParameters {
+func ConvertBootConfigurationToLegacy(config *apiv1.BootConfiguration) BootParameters {
 	// Extract target identifiers from boot configuration
 	var hosts, macs, nids []string
 
@@ -66,7 +65,7 @@ func ConvertBootConfigurationToLegacy(config *bootconfiguration.BootConfiguratio
 }
 
 // ConvertLegacyToBootConfiguration converts legacy BootParameters to modern BootConfiguration
-func ConvertLegacyToBootConfiguration(legacy BootParameters) *bootconfiguration.BootConfiguration {
+func ConvertLegacyToBootConfiguration(legacy BootParameters) *apiv1.BootConfiguration {
 	// Convert string NIDs to int32
 	var nids []int32
 	for _, nidStr := range legacy.Nids {
@@ -75,8 +74,8 @@ func ConvertLegacyToBootConfiguration(legacy BootParameters) *bootconfiguration.
 		}
 	}
 
-	return &bootconfiguration.BootConfiguration{
-		Spec: bootconfiguration.BootConfigurationSpec{
+	return &apiv1.BootConfiguration{
+		Spec: apiv1.BootConfigurationSpec{
 			Hosts:  legacy.Hosts,
 			MACs:   legacy.Macs,
 			NIDs:   nids,
@@ -88,7 +87,7 @@ func ConvertLegacyToBootConfiguration(legacy BootParameters) *bootconfiguration.
 }
 
 // ConvertLegacyRequestToBootConfiguration converts a legacy request to modern BootConfiguration
-func ConvertLegacyRequestToBootConfiguration(req BootParametersRequest) *bootconfiguration.BootConfiguration {
+func ConvertLegacyRequestToBootConfiguration(req BootParametersRequest) *apiv1.BootConfiguration {
 	// Convert string NIDs to int32
 	var nids []int32
 	for _, nidStr := range req.Nids {
@@ -97,8 +96,8 @@ func ConvertLegacyRequestToBootConfiguration(req BootParametersRequest) *bootcon
 		}
 	}
 
-	return &bootconfiguration.BootConfiguration{
-		Spec: bootconfiguration.BootConfigurationSpec{
+	return &apiv1.BootConfiguration{
+		Spec: apiv1.BootConfigurationSpec{
 			Hosts:  req.Hosts,
 			MACs:   req.Macs,
 			NIDs:   nids,

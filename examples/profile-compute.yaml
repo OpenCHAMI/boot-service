@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+# SPDX-License-Identifier: MIT
+#
+# Example: Standard Compute Profile
+# This config targets compute nodes with standard optimization.
+
+apiVersion: boot.openchami.io/v1
+kind: BootConfiguration
+metadata:
+  name: compute-standard
+spec:
+  profile: "compute"
+  # Target all compute slots (pattern matching)
+  hosts:
+    - "x0c0s*"
+  kernel: "http://files.openchami.org/vmlinuz-compute"
+  initrd: "http://files.openchami.org/initramfs-compute.img"
+  params: |
+    console=ttyS0,115200
+    root=/dev/ram0
+    cgroup_memory=1
+    numa=on
+  priority: 50

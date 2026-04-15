@@ -9,8 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openchami/boot-service/pkg/resources/bootconfiguration"
-	"github.com/openchami/boot-service/pkg/resources/node"
+	apiv1 "github.com/openchami/boot-service/apis/boot.openchami.io/v1"
 )
 
 // TestScriptCache tests the caching functionality
@@ -50,8 +49,8 @@ func TestIPXETemplates(t *testing.T) {
 	controller := createTestController(t)
 
 	// Create test configuration and node
-	config := &bootconfiguration.BootConfiguration{
-		Spec: bootconfiguration.BootConfigurationSpec{
+	config := &apiv1.BootConfiguration{
+		Spec: apiv1.BootConfigurationSpec{
 			Kernel:   "http://files.example.com/vmlinuz",
 			Initrd:   "http://files.example.com/initramfs",
 			Params:   "console=tty0 console=ttyS0,115200",
@@ -59,8 +58,8 @@ func TestIPXETemplates(t *testing.T) {
 		},
 	}
 
-	testNode := &node.Node{
-		Spec: node.NodeSpec{
+	testNode := &apiv1.Node{
+		Spec: apiv1.NodeSpec{
 			XName:    "x0c0s0b0n0",
 			NID:      1,
 			BootMAC:  "a4:bf:01:00:00:01",
@@ -121,8 +120,8 @@ func TestCacheKeyGeneration(t *testing.T) {
 func TestTemplateVariablePreparation(t *testing.T) {
 	controller := createTestController(t)
 
-	config := &bootconfiguration.BootConfiguration{
-		Spec: bootconfiguration.BootConfigurationSpec{
+	config := &apiv1.BootConfiguration{
+		Spec: apiv1.BootConfigurationSpec{
 			Kernel:   "http://files.example.com/vmlinuz-5.4.0",
 			Initrd:   "http://files.example.com/initramfs-5.4.0",
 			Params:   "console=ttyS0,115200",
@@ -130,8 +129,8 @@ func TestTemplateVariablePreparation(t *testing.T) {
 		},
 	}
 
-	testNode := &node.Node{
-		Spec: node.NodeSpec{
+	testNode := &apiv1.Node{
+		Spec: apiv1.NodeSpec{
 			XName:    "x0c0s1b0n0",
 			NID:      42,
 			BootMAC:  "aa:bb:cc:dd:ee:ff",

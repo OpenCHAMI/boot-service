@@ -136,10 +136,11 @@ func TestConvenienceFunctions(t *testing.T) {
 	t.Run("GetRawClaimsFromRequest", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/test", nil)
 
-		// Without JWT middleware, there should be no raw claims
+		// Compatibility helper delegates to GetClaimsFromRequest, so the
+		// missing-claims error text is the same.
 		claims, err := GetRawClaimsFromRequest(req)
 		assert.Error(t, err)
 		assert.Nil(t, claims)
-		assert.Contains(t, err.Error(), "raw claims not found in context")
+		assert.Contains(t, err.Error(), "claims not found in context")
 	})
 }

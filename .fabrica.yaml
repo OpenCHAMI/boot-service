@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: 2026 OpenCHAMI Contributors
+#
+# SPDX-License-Identifier: MIT
+
+project:
+  name: boot-service
+  module: github.com/openchami/boot-service
+  description: OpenCHAMI boot service with Fabrica-generated REST APIs and legacy BSS compatibility
+  created: 2025-01-01T00:00:00Z
+features:
+  validation:
+    enabled: true
+    mode: strict
+  events:
+    enabled: false
+    bus_type: memory
+  conditional:
+    enabled: true
+    etag_algorithm: sha256
+  auth:
+    enabled: true
+  security:
+    authn:
+      enabled: true
+    authz:
+      enabled: false
+      mode: enforce
+  storage:
+    enabled: true
+    type: file
+  metrics:
+    enabled: false
+generation:
+  handlers: true
+  storage: true
+  client: true
+  openapi: true
+  events: false
+  middleware: true
+  reconciliation: false

@@ -17,13 +17,17 @@ import (
 )
 
 func main() {
-	if len(os.Args) != 2 {
-		fmt.Fprintf(os.Stderr, "Usage: %s <node-identifier>\n", os.Args[0])
+	if len(os.Args) < 2 {
+		fmt.Fprintf(os.Stderr, "Usage: %s <node-identifier> [profile]\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "  node-identifier can be XName, NID, or MAC address\n")
 		os.Exit(1)
 	}
 
 	identifier := os.Args[1]
+	profile := ""
+	if len(os.Args) > 2 {
+		profile = os.Args[2]
+	}
 
 	// Create client
 	bootClient, err := client.NewClient("http://localhost:8080", &http.Client{Timeout: 30 * time.Second})
@@ -37,7 +41,7 @@ func main() {
 
 	// Generate boot script
 	ctx := context.Background()
-	script, err := controller.GenerateBootScript(ctx, identifier)
+	script, err := controller.GenerateBootScript(ctx, identifier, profile)
 	if err != nil {
 		log.Fatalf("Failed to generate boot script: %v", err)
 	}

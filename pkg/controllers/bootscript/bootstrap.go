@@ -37,18 +37,18 @@ Example usage:
 	controller := bootscript.NewBootScriptController(client, logger)
 
 	// Generate boot script for a node
-	script, err := controller.GenerateBootScript(ctx, "x0c0s0b0n0")
+	script, err := controller.GenerateBootScript(ctx, "x0c0s0b0n0", "")
 	if err != nil {
-		log.Fatal(err)
+	  log.Fatal(err)
 	}
 
 	// Use flexible controller with HSM integration
 	config := ProviderConfig{
-		Type: "hsm",
-		HSMConfig: &hsm.IntegrationConfig{
-			BaseURL: "http://localhost:27779",
-			Timeout: 30 * time.Second,
-		},
+	  Type: "hsm",
+	  HSMConfig: &hsm.IntegrationConfig{
+	    BaseURL: "http://localhost:27779",
+	    Timeout: 30 * time.Second,
+	  },
 	}
 	flexController, err := NewFlexibleBootScriptController(client, config, logger)
 
@@ -180,8 +180,7 @@ nodes to boot even during partial service degradation.
 This package integrates with several other boot service components:
 
   - pkg/client: REST API client for boot configuration management
-  - pkg/resources/node: Node resource definitions
-  - pkg/resources/bootconfiguration: Boot configuration resources
+  - apis/boot.openchami.io/v1: Node and boot configuration resource definitions
   - pkg/clients/hsm: Hardware State Manager integration
   - pkg/clients/local: Local file-based node provider
   - pkg/handlers/legacy: Legacy BSS API compatibility

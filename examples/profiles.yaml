@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+# SPDX-License-Identifier: MIT
+#
+# Example: Default Boot Profile
+# This is the fallback configuration for all nodes.
+# See docs/PROFILES.md for comprehensive documentation.
+
+apiVersion: boot.openchami.io/v1
+kind: BootConfiguration
+metadata:
+  name: default-boot
+spec:
+  # No profile specified - this is the default/fallback
+  kernel: "http://files.openchami.org/vmlinuz-5.10.0"
+  initrd: "http://files.openchami.org/initramfs-5.10.0.img"
+  params: "console=ttyS0,115200 root=/dev/ram0"
+  priority: 1  # Low priority, used as fallback

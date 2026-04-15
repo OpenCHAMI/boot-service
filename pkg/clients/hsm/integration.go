@@ -11,8 +11,8 @@ import (
 	"log"
 	"time"
 
+	v1 "github.com/openchami/boot-service/apis/boot.openchami.io/v1"
 	"github.com/openchami/boot-service/pkg/client"
-	"github.com/openchami/boot-service/pkg/resources/node"
 )
 
 // IntegrationService provides HSM integration for the boot service
@@ -98,7 +98,7 @@ func (s *IntegrationService) SyncNodesFromHSM(ctx context.Context) error {
 	}
 
 	// Create lookup map for existing nodes
-	existingMap := make(map[string]*node.Node)
+	existingMap := make(map[string]*v1.Node)
 	for i := range existingNodes {
 		existingMap[existingNodes[i].Spec.XName] = &existingNodes[i]
 	}
@@ -129,7 +129,7 @@ func (s *IntegrationService) SyncNodesFromHSM(ctx context.Context) error {
 }
 
 // syncNode synchronizes a single node from HSM
-func (s *IntegrationService) syncNode(ctx context.Context, comp HSMComponent, macMap map[string]string, existingMap map[string]*node.Node) error {
+func (s *IntegrationService) syncNode(ctx context.Context, comp HSMComponent, macMap map[string]string, existingMap map[string]*v1.Node) error {
 	// Check if node already exists
 	existing, exists := existingMap[comp.ID]
 
@@ -137,7 +137,7 @@ func (s *IntegrationService) syncNode(ctx context.Context, comp HSMComponent, ma
 	bootMAC := macMap[comp.ID]
 
 	// Create node spec from HSM data
-	nodeSpec := node.NodeSpec{
+	nodeSpec := v1.NodeSpec{
 		XName:   comp.ID,
 		NID:     comp.NID,
 		BootMAC: bootMAC,
@@ -150,7 +150,7 @@ func (s *IntegrationService) syncNode(ctx context.Context, comp HSMComponent, ma
 		// Update existing node if needed
 		if s.needsUpdate(comp, macMap, existing) {
 			updateReq := client.UpdateNodeRequest{
-				NodeSpec: nodeSpec,
+				Spec: nodeSpec,
 			}
 
 			_, err := s.bootClient.UpdateNode(ctx, existing.Metadata.UID, updateReq)
@@ -163,9 +163,9 @@ func (s *IntegrationService) syncNode(ctx context.Context, comp HSMComponent, ma
 	} else {
 		// Create new node
 		createReq := client.CreateNodeRequest{
-			Name:     comp.ID,
-			NodeSpec: nodeSpec,
+			Spec: nodeSpec,
 		}
+		createReq.Metadata.Name = comp.ID
 
 		_, err := s.bootClient.CreateNode(ctx, createReq)
 		if err != nil {
@@ -179,7 +179,7 @@ func (s *IntegrationService) syncNode(ctx context.Context, comp HSMComponent, ma
 }
 
 // needsUpdate checks if a node needs to be updated based on HSM data
-func (s *IntegrationService) needsUpdate(comp HSMComponent, macMap map[string]string, existing *node.Node) bool {
+func (s *IntegrationService) needsUpdate(comp HSMComponent, macMap map[string]string, existing *v1.Node) bool {
 	// Check if NID changed
 	if comp.NID != existing.Spec.NID {
 		return true
@@ -201,7 +201,7 @@ func (s *IntegrationService) needsUpdate(comp HSMComponent, macMap map[string]st
 }
 
 // ResolveNodeByIdentifier resolves a node using HSM as fallback
-func (s *IntegrationService) ResolveNodeByIdentifier(ctx context.Context, identifier string) (*node.Node, error) {
+func (s *IntegrationService) ResolveNodeByIdentifier(ctx context.Context, identifier string) (*v1.Node, error) {
 	// First try to find in our local database
 	nodes, err := s.bootClient.GetNodes(ctx)
 	if err != nil {
@@ -241,7 +241,7 @@ func (s *IntegrationService) ResolveNodeByIdentifier(ctx context.Context, identi
 }
 
 // convertHSMComponentToNode converts an HSM component to a Node (for fallback scenarios)
-func (s *IntegrationService) convertHSMComponentToNode(ctx context.Context, comp *HSMComponent) (*node.Node, error) {
+func (s *IntegrationService) convertHSMComponentToNode(ctx context.Context, comp *HSMComponent) (*v1.Node, error) {
 	// Get MAC address
 	interfaces, err := s.hsmClient.GetEthernetInterfaces(ctx)
 	if err != nil {
@@ -257,8 +257,8 @@ func (s *IntegrationService) convertHSMComponentToNode(ctx context.Context, comp
 	}
 
 	// Create a temporary node representation (not persisted)
-	return &node.Node{
-		Spec: node.NodeSpec{
+	return &v1.Node{
+		Spec: v1.NodeSpec{
 			XName:   comp.ID,
 			NID:     comp.NID,
 			BootMAC: bootMAC,

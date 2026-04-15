@@ -35,6 +35,45 @@ The boot service supports multiple configuration methods in order of precedence:
 3. **Configuration file** (`config.yaml`)
 4. **Default values** (lowest priority)
 
+## Boot Profiles
+
+**⚠️ This section is an overview. See [PROFILES.md](PROFILES.md) for comprehensive documentation.**
+
+Boot profiles allow you to organize boot configurations by operational scenario or node type:
+
+```bash
+# Standard compute profile
+curl "http://boot-service:8080/boot/v1/bootscript?mac=aa:bb:cc:dd:ee:ff&profile=compute"
+
+# Debug profile
+curl "http://boot-service:8080/boot/v1/bootscript?host=x0c0s0b0n0&profile=debug"
+
+# Default profile (omit profile parameter)
+curl "http://boot-service:8080/boot/v1/bootscript?nid=42"
+```
+
+Boot configurations specify a profile in their spec:
+
+```yaml
+apiVersion: boot.openchami.io/v1
+kind: BootConfiguration
+metadata:
+  name: compute-standard
+spec:
+  profile: "compute"           # Optional profile identifier
+  kernel: "http://files.openchami.org/vmlinuz-compute"
+  initrd: "http://files.openchami.org/initramfs-compute.img"
+  params: "console=ttyS0,115200"
+```
+
+Key behaviors:
+
+- Configurations without a profile are treated as the **default** profile
+- When requesting a profile not found, the service falls back to the default
+- Higher priority scores and exact identifier matches determine selection within a profile
+
+→ **Read [PROFILES.md](PROFILES.md)** for detailed examples, selection logic, best practices, and migration guides.
+
 ### Configuration File
 
 The recommended approach for most deployments is to use a configuration file:
@@ -111,6 +150,23 @@ tokensmith:
   url: "http://localhost:8080"       # TokenSmith auth service
   timeout: 30
 ```
+
+### HSM Service-Token Auth (TokenSmith)
+
+When both `hsm_url` and `tokensmith_url` are set, boot-service performs a
+bootstrap-token exchange against TokenSmith (`POST /oauth/token`) and uses the
+short-lived service token for HSM API calls.
+
+```yaml
+tokensmith_url: "http://localhost:8080"
+tokensmith_target_service: "hsm"
+tokensmith_bootstrap_policy_scopes_hint: "hsm:read"
+tokensmith_refresh_skew_sec: 120
+# tokensmith_bootstrap_token: "<bootstrap-jwt>"   # Prefer env var
+```
+
+`tokensmith_bootstrap_token` may be provided via config, or by environment
+variable `TOKENSMITH_BOOTSTRAP_TOKEN`.
 
 ## Environment-Specific Examples
 

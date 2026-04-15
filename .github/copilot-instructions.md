@@ -33,14 +33,15 @@ Client → Chi Router → [Auth Middleware] → Generated Handlers → Storage B
 **NEVER manually edit `*_generated.go` files.** All handlers, storage, and client code is generated from resource definitions.
 
 ```bash
-# After modifying resources in pkg/resources/*/
+# After modifying resources in apis/boot.openchami.io/v1/
 fabrica generate --handlers --storage --openapi --client
 
 # Or use the Makefile
 make dev  # clean + generate + build
 ```
 
-Resources are defined in `pkg/resources/{node,bootconfiguration,bmc}/` with `Spec` (desired state) and `Status` (observed state) structs.
+Resources are defined in `apis/boot.openchami.io/v1/` with `Spec` (desired state) and `Status` (observed state) structs.
+The `pkg/resources/*` tree is deprecated and should not be used for new code.
 
 ### Building
 
@@ -271,7 +272,7 @@ GoReleaser config: `.goreleaser.yaml` (v2.4.4 compatible, no sboms).
 ## Key Files Reference
 
 - `cmd/server/main.go` - Server entrypoint with Cobra CLI and config loading
-- `pkg/resources/*/` - Resource definitions (edit these, not generated files)
+- `apis/boot.openchami.io/v1/` - Resource definitions (edit these, not generated files)
 - `pkg/controllers/bootscript/` - Boot logic, config matching, iPXE generation
 - `pkg/handlers/legacy/` - BSS compatibility layer
 - `pkg/auth/` - TokenSmith integration and testing utilities

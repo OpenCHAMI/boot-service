@@ -10,12 +10,11 @@ import (
 	"html/template"
 	"strings"
 
-	"github.com/openchami/boot-service/pkg/resources/bootconfiguration"
-	"github.com/openchami/boot-service/pkg/resources/node"
+	apiv1 "github.com/openchami/boot-service/apis/boot.openchami.io/v1"
 )
 
 // buildIPXEScript generates an iPXE script from configuration and node data
-func (c *BootScriptController) buildIPXEScript(config *bootconfiguration.BootConfiguration, node *node.Node) (string, error) {
+func (c *BootScriptController) buildIPXEScript(config *apiv1.BootConfiguration, node *apiv1.Node) (string, error) {
 	// Prepare template variables
 	vars := c.prepareTemplateVars(config, node)
 
@@ -37,7 +36,7 @@ func (c *BootScriptController) buildIPXEScript(config *bootconfiguration.BootCon
 }
 
 // prepareTemplateVars creates the variable map for template substitution
-func (c *BootScriptController) prepareTemplateVars(config *bootconfiguration.BootConfiguration, node *node.Node) map[string]interface{} {
+func (c *BootScriptController) prepareTemplateVars(config *apiv1.BootConfiguration, node *apiv1.Node) map[string]interface{} {
 	vars := map[string]interface{}{
 		// Node information
 		"XName":    node.Spec.XName,

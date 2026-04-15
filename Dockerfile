@@ -6,15 +6,13 @@ FROM gcr.io/distroless/static-debian12:nonroot
 
 WORKDIR /app
 
-# GoReleaser will build the binary and place it in the Docker build context
-# as 'boot-service' for each target platform.
-COPY boot-service /usr/local/bin/boot-service
+ARG TARGETPLATFORM
 
-# Include an example config for reference (not used by default runtime)
-COPY config.example.yaml /etc/boot-service/config.example.yaml
+# With GoReleaser dockers_v2, binaries are available under $TARGETPLATFORM/.
+COPY $TARGETPLATFORM/boot-server /usr/local/bin/boot-server
 
 USER nonroot:nonroot
 EXPOSE 8080 9090
 
-ENTRYPOINT ["/usr/local/bin/boot-service"]
+ENTRYPOINT ["/usr/local/bin/boot-server"]
 CMD ["serve"]

@@ -48,8 +48,13 @@ type Config struct {
 	MetricsPort     int  `mapstructure:"metrics_port"`
 
 	// Authentication Configuration (when enabled)
-	TokenSmithURL string `mapstructure:"tokensmith_url"`
-	JWKSEndpoint  string `mapstructure:"jwks_endpoint"`
+	TokenSmithURL                       string `mapstructure:"tokensmith_url"`
+	TokenSmithBootstrapToken            string `mapstructure:"tokensmith_bootstrap_token"`
+	TokenSmithTargetService             string `mapstructure:"tokensmith_target_service"`
+	TokenSmithBootstrapPolicyScopesHint string `mapstructure:"tokensmith_bootstrap_policy_scopes_hint"`
+	TokenSmithScopesLegacy              string `mapstructure:"tokensmith_scopes"`
+	TokenSmithRefreshSkewSec            int    `mapstructure:"tokensmith_refresh_skew_sec"`
+	JWKSEndpoint                        string `mapstructure:"jwks_endpoint"`
 
 	// Hardware State Manager Configuration (when enabled)
 	HSMURL          string `mapstructure:"hsm_url"`
@@ -60,22 +65,27 @@ type Config struct {
 // DefaultConfig returns a configuration with sensible defaults
 func DefaultConfig() Config {
 	return Config{
-		Port:            8080,
-		Host:            "0.0.0.0",
-		ReadTimeout:     30,
-		WriteTimeout:    30,
-		IdleTimeout:     120,
-		DataDir:         "./data",
-		StorageType:     "file",
-		EnableAuth:      false,
-		EnableMetrics:   false,
-		EnableLegacyAPI: true,
-		MetricsPort:     9090,
-		TokenSmithURL:   "",
-		JWKSEndpoint:    "",
-		HSMURL:          "",
-		HSMSyncEnabled:  true,
-		HSMSyncInterval: 5, // 5 minutes
+		Port:                                8080,
+		Host:                                "0.0.0.0",
+		ReadTimeout:                         30,
+		WriteTimeout:                        30,
+		IdleTimeout:                         120,
+		DataDir:                             "./data",
+		StorageType:                         "file",
+		EnableAuth:                          false,
+		EnableMetrics:                       false,
+		EnableLegacyAPI:                     true,
+		MetricsPort:                         9090,
+		TokenSmithURL:                       "",
+		TokenSmithBootstrapToken:            "",
+		TokenSmithTargetService:             "hsm",
+		TokenSmithBootstrapPolicyScopesHint: "",
+		TokenSmithScopesLegacy:              "",
+		TokenSmithRefreshSkewSec:            120,
+		JWKSEndpoint:                        "",
+		HSMURL:                              "",
+		HSMSyncEnabled:                      true,
+		HSMSyncInterval:                     5, // 5 minutes
 	}
 }
 
@@ -112,6 +122,11 @@ func init() {
 
 	// Authentication configuration flags
 	serveCmd.Flags().String("tokensmith_url", "", "TokenSmith service URL for authentication")
+	serveCmd.Flags().String("tokensmith-bootstrap-token", "", "Bootstrap token used to exchange HSM service tokens")
+	serveCmd.Flags().String("tokensmith-target-service", "hsm", "Target service audience for HSM service token exchange")
+	serveCmd.Flags().String("tokensmith-bootstrap-policy-scopes-hint", "", "Comma-separated scope hint from bootstrap token policy used for diagnostics only")
+	serveCmd.Flags().String("tokensmith-scopes", "", "Deprecated alias for --tokensmith-bootstrap-policy-scopes-hint")
+	serveCmd.Flags().Int("tokensmith-refresh-skew-sec", 120, "Refresh service tokens when this many seconds remain before expiry")
 	serveCmd.Flags().String("jwks-endpoint", "", "JWKS endpoint for JWT validation")
 
 	// Hardware State Manager configuration flags
@@ -143,6 +158,19 @@ func main() {
 	viper.RegisterAlias("hsm_url", "hsm-url")
 	viper.RegisterAlias("hsm_sync_enabled", "hsm-sync-enabled")
 	viper.RegisterAlias("hsm_sync_interval", "hsm-sync-interval")
+	viper.RegisterAlias("tokensmith_bootstrap_token", "tokensmith-bootstrap-token")
+	viper.RegisterAlias("tokensmith_target_service", "tokensmith-target-service")
+	viper.RegisterAlias("tokensmith_bootstrap_policy_scopes_hint", "tokensmith-bootstrap-policy-scopes-hint")
+	viper.RegisterAlias("tokensmith_scopes", "tokensmith-scopes")
+	viper.RegisterAlias("tokensmith_refresh_skew_sec", "tokensmith-refresh-skew-sec")
+
+	// Standardized TokenSmith env vars for cross-service UX consistency.
+	viper.BindEnv("tokensmith_url", "TOKENSMITH_URL")                                                   //nolint:errcheck
+	viper.BindEnv("tokensmith_bootstrap_token", "TOKENSMITH_BOOTSTRAP_TOKEN")                           //nolint:errcheck
+	viper.BindEnv("tokensmith_target_service", "TOKENSMITH_TARGET_SERVICE")                             //nolint:errcheck
+	viper.BindEnv("tokensmith_bootstrap_policy_scopes_hint", "TOKENSMITH_BOOTSTRAP_POLICY_SCOPES_HINT") //nolint:errcheck
+	viper.BindEnv("tokensmith_scopes", "TOKENSMITH_SCOPES")                                             //nolint:errcheck
+	viper.BindEnv("tokensmith_refresh_skew_sec", "TOKENSMITH_REFRESH_SKEW_SEC")                         //nolint:errcheck
 
 	// Read config file if present
 	if err := viper.ReadInConfig(); err != nil {
@@ -178,18 +206,60 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 		return fmt.Errorf("failed to initialize storage: %v", err)
 	}
 
+	// Setup graceful shutdown context early so it can be used for background workers
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	// Initialize HSM client if configured
 	// When HSM URL is provided, the service will use FlexibleBootScriptController
 	// with HSM as the node provider for boot script generation
 	var hsmClient *hsm.HSMClient
+	var serviceTokenManager *hsm.ServiceTokenManager
 	if config.HSMURL != "" {
 		hsmConfig := hsm.DefaultHSMConfig()
 		hsmConfig.BaseURL = config.HSMURL
-		if config.TokenSmithURL != "" {
-			hsmConfig.AuthToken = config.TokenSmithURL // TODO: Get actual token from TokenSmith
+
+		hsmLogger := log.New(os.Stdout, "smd: ", log.LstdFlags)
+
+		if strings.TrimSpace(config.TokenSmithURL) != "" {
+			bootstrapToken := strings.TrimSpace(config.TokenSmithBootstrapToken)
+			bootstrapSource := "config"
+			if bootstrapToken == "" {
+				bootstrapToken = strings.TrimSpace(os.Getenv("TOKENSMITH_BOOTSTRAP_TOKEN"))
+				bootstrapSource = "env:TOKENSMITH_BOOTSTRAP_TOKEN"
+			}
+			if bootstrapToken == "" {
+				return fmt.Errorf("tokensmith bootstrap token is required when both hsm-url and tokensmith_url are set")
+			}
+
+			tokenConfig := hsm.DefaultTokenExchangeConfig()
+			tokenConfig.TokenSmithURL = config.TokenSmithURL
+			tokenConfig.BootstrapToken = bootstrapToken
+			tokenConfig.TargetService = strings.TrimSpace(config.TokenSmithTargetService)
+			tokenConfig.Scopes = parseScopeHintCSV(tokenSmithScopeHintCSV(config))
+			tokenConfig.RefreshBefore = time.Duration(config.TokenSmithRefreshSkewSec) * time.Second
+
+			tokenEndpoint := strings.TrimRight(tokenConfig.TokenSmithURL, "/") + "/oauth/token"
+			log.Printf("HSM token exchange config: endpoint=%s target=%s scope_hint=%v bootstrap_token_present=%v bootstrap_token_source=%s",
+				tokenEndpoint,
+				tokenConfig.TargetService,
+				tokenConfig.Scopes,
+				bootstrapToken != "",
+				bootstrapSource,
+			)
+
+			serviceTokenManager = hsm.NewServiceTokenManager(tokenConfig, hsmLogger)
+			initialTokenCtx, initialTokenCancel := context.WithTimeout(ctx, 10*time.Second)
+			initErr := serviceTokenManager.Initialize(initialTokenCtx)
+			initialTokenCancel()
+			if initErr != nil {
+				return fmt.Errorf("failed to initialize HSM service token manager: %w", initErr)
+			}
+
+			hsmConfig.ServiceTokenManager = serviceTokenManager
+			log.Printf("HSM auth enabled via TokenSmith service-token exchange (target=%s)", tokenConfig.TargetService)
 		}
 
-		hsmLogger := log.New(os.Stdout, "hsm: ", log.LstdFlags)
 		hsmClient = hsm.NewHSMClient(hsmConfig, hsmLogger)
 
 		// Test HSM connectivity
@@ -203,9 +273,9 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 		}
 	}
 
-	// Setup graceful shutdown context early so it can be used for background workers
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	if serviceTokenManager != nil {
+		go serviceTokenManager.StartAutoRefresh(ctx)
+	}
 
 	// Setup router
 	r := chi.NewRouter()
@@ -215,6 +285,11 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	// Generated chi routes are registered with trailing slashes, while existing
+	// clients (including our legacy compatibility handler's internal client)
+	// use slashless resource paths. RedirectSlashes preserves that compatibility
+	// without hand-editing generated route registrations.
+	r.Use(middleware.RedirectSlashes)
 	r.Use(middleware.Timeout(time.Duration(config.ReadTimeout) * time.Second))
 
 	// Register health check
@@ -233,6 +308,11 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 
 		// Start separate metrics server
 		go startMetricsServer(config)
+	}
+
+	// Register UID prefixes used by generated handlers when creating resources.
+	if err := registerResourcePrefixes(); err != nil {
+		return fmt.Errorf("failed to register resource prefixes: %w", err)
 	}
 
 	// Register generated routes (modern API) - middleware already applied above
@@ -331,8 +411,41 @@ func validateConfig(config Config) error {
 	if config.EnableAuth && config.TokenSmithURL == "" {
 		return fmt.Errorf("tokensmith-url is required when auth is enabled")
 	}
+	if config.TokenSmithRefreshSkewSec < 0 {
+		return fmt.Errorf("tokensmith-refresh-skew-sec must be >= 0")
+	}
 	// Note: HSM is auto-enabled when hsm-url is provided, no explicit validation needed
 	return nil
+}
+
+func tokenSmithScopeHintCSV(config Config) string {
+	if strings.TrimSpace(config.TokenSmithBootstrapPolicyScopesHint) != "" {
+		return config.TokenSmithBootstrapPolicyScopesHint
+	}
+
+	// Backward compatibility for legacy key/env/flag names.
+	return config.TokenSmithScopesLegacy
+}
+
+func parseScopeHintCSV(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+
+	parts := strings.Split(raw, ",")
+	scopes := make([]string, 0, len(parts))
+	for _, part := range parts {
+		scope := strings.TrimSpace(part)
+		if scope != "" {
+			scopes = append(scopes, scope)
+		}
+	}
+
+	if len(scopes) == 0 {
+		return nil
+	}
+
+	return scopes
 }
 
 func startMetricsServer(config Config) {
