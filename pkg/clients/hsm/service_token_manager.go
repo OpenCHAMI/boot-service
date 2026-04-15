@@ -18,9 +18,12 @@ import (
 
 // TokenExchangeConfig controls how HSM service tokens are obtained from TokenSmith.
 type TokenExchangeConfig struct {
-	TokenSmithURL           string
-	BootstrapToken          string
-	TargetService           string
+	TokenSmithURL  string
+	BootstrapToken string
+	TargetService  string
+	// Scopes is retained as an operator hint for diagnostics only.
+	// Current TokenSmith ServiceClient does not send scopes during exchange;
+	// issued scopes come from bootstrap-token policy on the server.
 	Scopes                  []string
 	RequestTimeout          time.Duration
 	RefreshBefore           time.Duration
@@ -81,7 +84,6 @@ func NewServiceTokenManager(config TokenExchangeConfig, logger *log.Logger) *Ser
 		tokenservice.WithHTTPClient(&http.Client{Timeout: config.RequestTimeout}),
 		tokenservice.WithBootstrapToken(config.BootstrapToken),
 		tokenservice.WithTargetService(strings.TrimSpace(config.TargetService)),
-		tokenservice.WithScopes(config.Scopes),
 		tokenservice.WithRefreshBefore(config.RefreshBefore),
 		tokenservice.WithBootstrapMaxAttempts(config.BootstrapMaxAttempts),
 		tokenservice.WithBootstrapInitialBackoff(config.BootstrapInitialBackoff),
@@ -100,7 +102,7 @@ func (m *ServiceTokenManager) Initialize(ctx context.Context) error {
 	endpoint := m.serviceTokenEndpoint()
 	bootstrapPresent := strings.TrimSpace(m.config.BootstrapToken) != ""
 
-	m.logger.Printf("initializing HSM service token exchange: endpoint=%s target=%s scopes=%s bootstrap_token_present=%v max_attempts=%d",
+	m.logger.Printf("initializing HSM service token exchange: endpoint=%s target=%s scope_hint=%s bootstrap_token_present=%v max_attempts=%d",
 		endpoint,
 		strings.TrimSpace(m.config.TargetService),
 		strings.Join(sortedScopes(m.config.Scopes), ","),

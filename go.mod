@@ -13,7 +13,7 @@ require (
 	github.com/go-chi/chi/v5 v5.2.3
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/openchami/fabrica v0.4.0
-	github.com/openchami/tokensmith v0.3.1-0.20260408211730-d305fa0bedb3
+	github.com/openchami/tokensmith v0.4.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1

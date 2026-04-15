@@ -48,12 +48,13 @@ type Config struct {
 	MetricsPort     int  `mapstructure:"metrics_port"`
 
 	// Authentication Configuration (when enabled)
-	TokenSmithURL            string `mapstructure:"tokensmith_url"`
-	TokenSmithBootstrapToken string `mapstructure:"tokensmith_bootstrap_token"`
-	TokenSmithTargetService  string `mapstructure:"tokensmith_target_service"`
-	TokenSmithScopes         string `mapstructure:"tokensmith_scopes"`
-	TokenSmithRefreshSkewSec int    `mapstructure:"tokensmith_refresh_skew_sec"`
-	JWKSEndpoint             string `mapstructure:"jwks_endpoint"`
+	TokenSmithURL                       string `mapstructure:"tokensmith_url"`
+	TokenSmithBootstrapToken            string `mapstructure:"tokensmith_bootstrap_token"`
+	TokenSmithTargetService             string `mapstructure:"tokensmith_target_service"`
+	TokenSmithBootstrapPolicyScopesHint string `mapstructure:"tokensmith_bootstrap_policy_scopes_hint"`
+	TokenSmithScopesLegacy              string `mapstructure:"tokensmith_scopes"`
+	TokenSmithRefreshSkewSec            int    `mapstructure:"tokensmith_refresh_skew_sec"`
+	JWKSEndpoint                        string `mapstructure:"jwks_endpoint"`
 
 	// Hardware State Manager Configuration (when enabled)
 	HSMURL          string `mapstructure:"hsm_url"`
@@ -64,26 +65,27 @@ type Config struct {
 // DefaultConfig returns a configuration with sensible defaults
 func DefaultConfig() Config {
 	return Config{
-		Port:                     8080,
-		Host:                     "0.0.0.0",
-		ReadTimeout:              30,
-		WriteTimeout:             30,
-		IdleTimeout:              120,
-		DataDir:                  "./data",
-		StorageType:              "file",
-		EnableAuth:               false,
-		EnableMetrics:            false,
-		EnableLegacyAPI:          true,
-		MetricsPort:              9090,
-		TokenSmithURL:            "",
-		TokenSmithBootstrapToken: "",
-		TokenSmithTargetService:  "hsm",
-		TokenSmithScopes:         "",
-		TokenSmithRefreshSkewSec: 120,
-		JWKSEndpoint:             "",
-		HSMURL:                   "",
-		HSMSyncEnabled:           true,
-		HSMSyncInterval:          5, // 5 minutes
+		Port:                                8080,
+		Host:                                "0.0.0.0",
+		ReadTimeout:                         30,
+		WriteTimeout:                        30,
+		IdleTimeout:                         120,
+		DataDir:                             "./data",
+		StorageType:                         "file",
+		EnableAuth:                          false,
+		EnableMetrics:                       false,
+		EnableLegacyAPI:                     true,
+		MetricsPort:                         9090,
+		TokenSmithURL:                       "",
+		TokenSmithBootstrapToken:            "",
+		TokenSmithTargetService:             "hsm",
+		TokenSmithBootstrapPolicyScopesHint: "",
+		TokenSmithScopesLegacy:              "",
+		TokenSmithRefreshSkewSec:            120,
+		JWKSEndpoint:                        "",
+		HSMURL:                              "",
+		HSMSyncEnabled:                      true,
+		HSMSyncInterval:                     5, // 5 minutes
 	}
 }
 
@@ -122,7 +124,8 @@ func init() {
 	serveCmd.Flags().String("tokensmith_url", "", "TokenSmith service URL for authentication")
 	serveCmd.Flags().String("tokensmith-bootstrap-token", "", "Bootstrap token used to exchange HSM service tokens")
 	serveCmd.Flags().String("tokensmith-target-service", "hsm", "Target service audience for HSM service token exchange")
-	serveCmd.Flags().String("tokensmith-scopes", "", "Comma-separated scopes requested for HSM service token exchange")
+	serveCmd.Flags().String("tokensmith-bootstrap-policy-scopes-hint", "", "Comma-separated scope hint from bootstrap token policy used for diagnostics only")
+	serveCmd.Flags().String("tokensmith-scopes", "", "Deprecated alias for --tokensmith-bootstrap-policy-scopes-hint")
 	serveCmd.Flags().Int("tokensmith-refresh-skew-sec", 120, "Refresh service tokens when this many seconds remain before expiry")
 	serveCmd.Flags().String("jwks-endpoint", "", "JWKS endpoint for JWT validation")
 
@@ -157,15 +160,17 @@ func main() {
 	viper.RegisterAlias("hsm_sync_interval", "hsm-sync-interval")
 	viper.RegisterAlias("tokensmith_bootstrap_token", "tokensmith-bootstrap-token")
 	viper.RegisterAlias("tokensmith_target_service", "tokensmith-target-service")
+	viper.RegisterAlias("tokensmith_bootstrap_policy_scopes_hint", "tokensmith-bootstrap-policy-scopes-hint")
 	viper.RegisterAlias("tokensmith_scopes", "tokensmith-scopes")
 	viper.RegisterAlias("tokensmith_refresh_skew_sec", "tokensmith-refresh-skew-sec")
 
 	// Standardized TokenSmith env vars for cross-service UX consistency.
-	viper.BindEnv("tokensmith_url", "TOKENSMITH_URL")                           //nolint:errcheck
-	viper.BindEnv("tokensmith_bootstrap_token", "TOKENSMITH_BOOTSTRAP_TOKEN")   //nolint:errcheck
-	viper.BindEnv("tokensmith_target_service", "TOKENSMITH_TARGET_SERVICE")     //nolint:errcheck
-	viper.BindEnv("tokensmith_scopes", "TOKENSMITH_SCOPES")                     //nolint:errcheck
-	viper.BindEnv("tokensmith_refresh_skew_sec", "TOKENSMITH_REFRESH_SKEW_SEC") //nolint:errcheck
+	viper.BindEnv("tokensmith_url", "TOKENSMITH_URL")                                                   //nolint:errcheck
+	viper.BindEnv("tokensmith_bootstrap_token", "TOKENSMITH_BOOTSTRAP_TOKEN")                           //nolint:errcheck
+	viper.BindEnv("tokensmith_target_service", "TOKENSMITH_TARGET_SERVICE")                             //nolint:errcheck
+	viper.BindEnv("tokensmith_bootstrap_policy_scopes_hint", "TOKENSMITH_BOOTSTRAP_POLICY_SCOPES_HINT") //nolint:errcheck
+	viper.BindEnv("tokensmith_scopes", "TOKENSMITH_SCOPES")                                             //nolint:errcheck
+	viper.BindEnv("tokensmith_refresh_skew_sec", "TOKENSMITH_REFRESH_SKEW_SEC")                         //nolint:errcheck
 
 	// Read config file if present
 	if err := viper.ReadInConfig(); err != nil {
@@ -231,11 +236,11 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 			tokenConfig.TokenSmithURL = config.TokenSmithURL
 			tokenConfig.BootstrapToken = bootstrapToken
 			tokenConfig.TargetService = strings.TrimSpace(config.TokenSmithTargetService)
-			tokenConfig.Scopes = parseScopeCSV(config.TokenSmithScopes)
+			tokenConfig.Scopes = parseScopeHintCSV(tokenSmithScopeHintCSV(config))
 			tokenConfig.RefreshBefore = time.Duration(config.TokenSmithRefreshSkewSec) * time.Second
 
-			tokenEndpoint := strings.TrimRight(tokenConfig.TokenSmithURL, "/") + "/service/token"
-			log.Printf("HSM token exchange config: endpoint=%s target=%s scopes=%v bootstrap_token_present=%v bootstrap_token_source=%s",
+			tokenEndpoint := strings.TrimRight(tokenConfig.TokenSmithURL, "/") + "/oauth/token"
+			log.Printf("HSM token exchange config: endpoint=%s target=%s scope_hint=%v bootstrap_token_present=%v bootstrap_token_source=%s",
 				tokenEndpoint,
 				tokenConfig.TargetService,
 				tokenConfig.Scopes,
@@ -413,7 +418,16 @@ func validateConfig(config Config) error {
 	return nil
 }
 
-func parseScopeCSV(raw string) []string {
+func tokenSmithScopeHintCSV(config Config) string {
+	if strings.TrimSpace(config.TokenSmithBootstrapPolicyScopesHint) != "" {
+		return config.TokenSmithBootstrapPolicyScopesHint
+	}
+
+	// Backward compatibility for legacy key/env/flag names.
+	return config.TokenSmithScopesLegacy
+}
+
+func parseScopeHintCSV(raw string) []string {
 	if strings.TrimSpace(raw) == "" {
 		return nil
 	}
