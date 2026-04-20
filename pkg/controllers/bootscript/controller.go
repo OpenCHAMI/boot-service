@@ -163,21 +163,22 @@ func (c *BootScriptController) findBootConfiguration(ctx context.Context, node *
 		return nil, fmt.Errorf("no boot configurations found")
 	}
 
-	findBestCandidate := func(targetProfile string) *apiv1.BootConfiguration {
+	normalizeProfile := func(p string) string {
+		if p == "" {
+			return "default"
+		}
+		return p
+	}
+
+	findBestCandidate := func(targetProfile string, filterByProfile bool) *apiv1.BootConfiguration {
 		var candidates []configCandidate
 
+		targetProfile = normalizeProfile(targetProfile)
+
 		for _, configItem := range configs {
-			configProfile := configItem.Spec.Profile
-			if configProfile == "" {
-				configProfile = "default"
-			}
+			configProfile := normalizeProfile(configItem.Spec.Profile)
 
-			effectiveTarget := targetProfile
-			if effectiveTarget == "" {
-				effectiveTarget = "default"
-			}
-
-			if configProfile != effectiveTarget {
+			if filterByProfile && configProfile != targetProfile {
 				continue
 			}
 
@@ -191,25 +192,38 @@ func (c *BootScriptController) findBootConfiguration(ctx context.Context, node *
 			return nil
 		}
 
-		// Sort by score (descending) and priority (descending)
+		// Sort by score (descending), priority (descending), and name (ascending)
+		// to keep deterministic selection when score and priority are identical.
 		sort.Slice(candidates, func(i, j int) bool {
 			if candidates[i].score != candidates[j].score {
 				return candidates[i].score > candidates[j].score
 			}
-			return candidates[i].config.Spec.Priority > candidates[j].config.Spec.Priority
+			if candidates[i].config.Spec.Priority != candidates[j].config.Spec.Priority {
+				return candidates[i].config.Spec.Priority > candidates[j].config.Spec.Priority
+			}
+			return candidates[i].config.Metadata.Name < candidates[j].config.Metadata.Name
 		})
 
 		return candidates[0].config
 	}
 
+	// DHCP-style profile-less requests should auto-resolve the best configuration
+	// across all profiles using score and priority.
+	if profile == "" {
+		if match := findBestCandidate("", false); match != nil {
+			return match, nil
+		}
+		return nil, fmt.Errorf("no matching configurations found for node %s", node.Spec.XName)
+	}
+
 	if profile != "" && profile != "default" {
-		if match := findBestCandidate(profile); match != nil {
+		if match := findBestCandidate(profile, true); match != nil {
 			return match, nil
 		}
 		c.logger.Printf("No config found for profile '%s', falling back to default", profile)
 	}
 
-	if match := findBestCandidate("default"); match != nil {
+	if match := findBestCandidate("default", true); match != nil {
 		return match, nil
 	}
 

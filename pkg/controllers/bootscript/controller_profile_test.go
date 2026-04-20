@@ -103,7 +103,7 @@ func TestGenerateBootScript_FallsBackToDefaultProfile(t *testing.T) {
 	}
 }
 
-func TestGenerateBootScript_EmptyRequestedProfileUsesDefault(t *testing.T) {
+func TestGenerateBootScript_EmptyRequestedProfileSelectsBestAcrossProfiles(t *testing.T) {
 	nodes := []apiv1.Node{
 		{
 			Spec: apiv1.NodeSpec{
@@ -120,6 +120,7 @@ func TestGenerateBootScript_EmptyRequestedProfileUsesDefault(t *testing.T) {
 			Metadata: resource.Metadata{Name: "compute-config"},
 			Spec: apiv1.BootConfigurationSpec{
 				Profile: "compute",
+				Hosts:   []string{"x0c0s0b0n2"},
 				Kernel:  "http://files.example.com/vmlinuz-compute",
 				Params:  "root=/dev/ram0 profile=compute",
 			},
@@ -140,8 +141,62 @@ func TestGenerateBootScript_EmptyRequestedProfileUsesDefault(t *testing.T) {
 		t.Fatalf("GenerateBootScript returned error: %v", err)
 	}
 
-	if !strings.Contains(script, "profile=default") {
-		t.Fatalf("expected default profile script for empty request profile, got: %s", script)
+	if !strings.Contains(script, "profile=compute") {
+		t.Fatalf("expected best matching profile script for empty request profile, got: %s", script)
+	}
+}
+
+func TestGenerateBootScript_EmptyRequestedProfileUsesPriorityAcrossProfiles(t *testing.T) {
+	nodes := []apiv1.Node{
+		{
+			Spec: apiv1.NodeSpec{
+				XName:    "x0c0s0b0n3",
+				NID:      45,
+				BootMAC:  "aa:bb:cc:dd:ee:03",
+				Hostname: "node-45",
+			},
+		},
+	}
+
+	configs := []apiv1.BootConfiguration{
+		{
+			Metadata: resource.Metadata{Name: "compute-config"},
+			Spec: apiv1.BootConfigurationSpec{
+				Profile:  "compute",
+				Hosts:    []string{"x0c0s0b0n3"},
+				Kernel:   "http://files.example.com/vmlinuz-compute",
+				Params:   "root=/dev/ram0 profile=compute",
+				Priority: 40,
+			},
+		},
+		{
+			Metadata: resource.Metadata{Name: "service-config"},
+			Spec: apiv1.BootConfigurationSpec{
+				Profile:  "service",
+				Hosts:    []string{"x0c0s0b0n3"},
+				Kernel:   "http://files.example.com/vmlinuz-service",
+				Params:   "root=/dev/ram0 profile=service",
+				Priority: 80,
+			},
+		},
+		{
+			Metadata: resource.Metadata{Name: "default-config"},
+			Spec: apiv1.BootConfigurationSpec{
+				Profile: "",
+				Kernel:  "http://files.example.com/vmlinuz-default",
+				Params:  "root=/dev/ram0 profile=default",
+			},
+		},
+	}
+
+	controller := newTestControllerWithData(t, nodes, configs)
+	script, err := controller.GenerateBootScript(context.Background(), "x0c0s0b0n3", "")
+	if err != nil {
+		t.Fatalf("GenerateBootScript returned error: %v", err)
+	}
+
+	if !strings.Contains(script, "profile=service") {
+		t.Fatalf("expected higher-priority profile script for empty request profile, got: %s", script)
 	}
 }
 

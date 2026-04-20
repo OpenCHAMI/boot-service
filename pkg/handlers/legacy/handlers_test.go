@@ -93,7 +93,7 @@ func TestGetBootScript_WithProfileQueryParameter(t *testing.T) {
 		t.Errorf("expected iPXE header in response")
 	}
 
-	// Test Case 2: Request with default profile (empty profile parameter)
+	// Test Case 2: Request with empty profile parameter (auto-select best across profiles)
 	req = httptest.NewRequest("GET", "/boot/v1/bootscript?mac=aa:bb:cc:dd:ee:ff&profile=", nil)
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -103,11 +103,11 @@ func TestGetBootScript_WithProfileQueryParameter(t *testing.T) {
 	}
 
 	body = w.Body.String()
-	if !strings.Contains(body, "profile=default") {
-		t.Errorf("expected default profile in response, got: %s", body)
+	if !strings.Contains(body, "profile=compute") {
+		t.Errorf("expected best matching profile in response, got: %s", body)
 	}
 
-	// Test Case 3: Request without profile parameter (should default to default profile)
+	// Test Case 3: Request without profile parameter (auto-select best across profiles)
 	req = httptest.NewRequest("GET", "/boot/v1/bootscript?mac=aa:bb:cc:dd:ee:ff", nil)
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -117,8 +117,8 @@ func TestGetBootScript_WithProfileQueryParameter(t *testing.T) {
 	}
 
 	body = w.Body.String()
-	if !strings.Contains(body, "profile=default") {
-		t.Errorf("expected default profile when no profile param provided, got: %s", body)
+	if !strings.Contains(body, "profile=compute") {
+		t.Errorf("expected best matching profile when no profile param provided, got: %s", body)
 	}
 
 	// Test Case 4: Request with XName identifier

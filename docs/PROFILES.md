@@ -177,7 +177,8 @@ curl "http://boot-service:8080/boot/v1/bootscript?host=x0c0s0b0n0&profile=comput
 # Login node requests boot script for login profile
 curl "http://boot-service:8080/boot/v1/bootscript?host=login0&profile=login"
 
-# Unknown node (or no profile specified) gets default
+# Unknown node (or no profile specified) gets best overall match by score/priority
+# and falls back to default only if nothing else matches
 curl "http://boot-service:8080/boot/v1/bootscript?host=unknown-node"
 ```
 
@@ -450,7 +451,8 @@ curl "http://boot-service:8080/boot/v1/bootscript?host=x0c0s0b0n0&profile=debug"
 # Request login profile with NID
 curl "http://boot-service:8080/boot/v1/bootscript?nid=42&profile=login"
 
-# Request default profile (omit profile parameter or use &profile=default)
+# Omit profile parameter to auto-resolve best config across all profiles
+# (score first, then priority). Use &profile=default to force default-only behavior.
 curl "http://boot-service:8080/boot/v1/bootscript?mac=aa:bb:cc:dd:ee:ff"
 curl "http://boot-service:8080/boot/v1/bootscript?mac=aa:bb:cc:dd:ee:ff&profile=default"
 ```
@@ -487,7 +489,8 @@ chain http://boot-service:8080/boot/v1/bootscript?mac=${net0/mac}&profile=comput
 # Debug boot (if special boot flag is set)
 chain http://boot-service:8080/boot/v1/bootscript?mac=${net0/mac}&profile=debug
 
-# No profile specified - uses default profile
+# No profile specified - service auto-selects best config across all profiles
+# (score first, priority second)
 chain http://boot-service:8080/boot/v1/bootscript?mac=${net0/mac}
 ```
 
@@ -512,9 +515,9 @@ curl "http://boot-service:8080/bootconfigurations/boo-a1b2c3d4"
 When you request a boot script, the boot service follows this algorithm:
 
 **Step 1: Filter by Profile**
-- If no profile requested: target = "default"
-- If profile requested: target = requested profile
-- Find all configs with `spec.profile == target` (or `spec.profile == ""` if default)
+- If no profile requested: evaluate candidates across ALL profiles
+- If profile requested and not `default`: evaluate only that profile
+- If profile requested as `default`: evaluate only default profile (`spec.profile == ""`)
 
 **Step 2: Score Each Candidate**
 
@@ -533,11 +536,14 @@ For each configuration matching the profile, calculate a score based on how well
 - Return the highest-ranked configuration
 
 **Step 4: Fallback**
-- If requested profile had matches: Return best match from Step 2
-- If requested profile had NO matches:
-  - Repeat search with target = "default" profile
-  - If default matches found: Return best match from default
-  - If NO default found: Return error
+- If no profile requested:
+  - Return best overall candidate from all profiles
+  - If no specific candidate matches, catch-all/default configs (score=1) win
+  - If nothing matches at all: Return error
+- If a non-default profile was requested:
+  - Return best match from requested profile when available
+  - Otherwise retry with default profile
+  - If no default exists: Return error
 
 **Example with Data**:
 
@@ -899,7 +905,7 @@ curl -X PATCH http://boot-service:8080/bootconfigurations/{uid} \
 ### Backward Compatibility
 
 - Existing clients requesting `?profile=` on old configs: Works (matched against empty profile = default)
-- Existing clients requesting no profile: Works (defaults to default profile)
+- Existing clients requesting no profile: Works (auto-selects best config across all profiles)
 - No API changes needed
 
 ## See Also
