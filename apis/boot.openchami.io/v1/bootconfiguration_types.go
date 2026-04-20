@@ -73,6 +73,11 @@ func (r *BootConfiguration) Validate(ctx context.Context) error { //nolint:reviv
 		return errors.New("kernel field is required")
 	}
 
+	// Note: Targeting criteria (hosts, macs, nids, groups) are all optional.
+	// Configurations with no targeting criteria act as catch-all defaults (score=1 in selection).
+	// This is intentional for supporting default profile configurations that apply when
+	// more specific profiles don't match. See docs/PROFILES.md for details.
+
 	for _, host := range r.Spec.Hosts {
 		if !bootvalidation.ValidateXNameOrDefault(host) {
 			return errors.New("invalid host XName format: " + host)
@@ -95,10 +100,6 @@ func (r *BootConfiguration) Validate(ctx context.Context) error { //nolint:reviv
 
 	if r.Spec.Priority < 0 || r.Spec.Priority > 100 {
 		return errors.New("priority must be between 0 and 100")
-	}
-
-	if len(r.Spec.Hosts) == 0 && len(r.Spec.MACs) == 0 && len(r.Spec.NIDs) == 0 && len(r.Spec.Groups) == 0 {
-		return errors.New("at least one targeting method (hosts, macs, nids, or groups) must be specified")
 	}
 
 	return nil
