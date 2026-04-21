@@ -318,52 +318,59 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 	// Register generated routes (modern API) - middleware already applied above
 	RegisterGeneratedRoutes(r)
 
-	// Register legacy BSS API routes if enabled
-	if config.EnableLegacyAPI {
-		bootClient, err := client.NewClient(fmt.Sprintf("http://%s:%d", config.Host, config.Port),
-			&http.Client{Timeout: 30 * time.Second})
-		if err != nil {
-			return fmt.Errorf("failed to create client for legacy API: %v", err)
+	bootClient, err := client.NewClient(fmt.Sprintf("http://%s:%d", config.Host, config.Port),
+		&http.Client{Timeout: 30 * time.Second})
+	if err != nil {
+		return fmt.Errorf("failed to create client for boot script API: %v", err)
+	}
+
+	logger := log.New(os.Stdout, "legacy: ", log.LstdFlags)
+
+	var legacyHandler *legacy.LegacyHandler
+
+	if hsmClient != nil {
+		// Use FlexibleBootScriptController with HSM provider
+		hsmIntegrationConfig := hsm.DefaultIntegrationConfig()
+		hsmIntegrationConfig.HSMConfig.BaseURL = config.HSMURL
+		hsmIntegrationConfig.HSMConfig.Timeout = 30 * time.Second
+		hsmIntegrationConfig.SyncEnabled = config.HSMSyncEnabled
+		hsmIntegrationConfig.SyncInterval = time.Duration(config.HSMSyncInterval) * time.Minute
+
+		providerConfig := bootscript.ProviderConfig{
+			Type:      "hsm",
+			HSMConfig: &hsmIntegrationConfig,
 		}
 
-		logger := log.New(os.Stdout, "legacy: ", log.LstdFlags)
+		controllerLogger := log.New(os.Stdout, "bootscript: ", log.LstdFlags)
+		flexController, err := bootscript.NewFlexibleBootScriptController(*bootClient, providerConfig, controllerLogger)
+		if err != nil {
+			return fmt.Errorf("failed to create flexible controller with HSM: %v", err)
+		}
 
-		var legacyHandler *legacy.LegacyHandler
+		// Start background sync worker if enabled
+		if config.HSMSyncEnabled {
+			go flexController.StartBackgroundSync(ctx)
+			log.Printf("HSM background sync enabled (interval: %d minutes)", config.HSMSyncInterval)
+		}
 
+		legacyHandler = legacy.NewLegacyHandlerWithController(*bootClient, flexController, logger)
+	} else {
+		// Use standard controller with local storage
+		legacyHandler = legacy.NewLegacyHandler(*bootClient, logger)
+	}
+
+	// Register node bootscript endpoint always; keep additional legacy BSS
+	// compatibility endpoints behind enable_legacy_api.
+	if config.EnableLegacyAPI {
+		legacyHandler.RegisterRoutes(r)
 		if hsmClient != nil {
-			// Use FlexibleBootScriptController with HSM provider
-			hsmIntegrationConfig := hsm.DefaultIntegrationConfig()
-			hsmIntegrationConfig.HSMConfig.BaseURL = config.HSMURL
-			hsmIntegrationConfig.HSMConfig.Timeout = 30 * time.Second
-			hsmIntegrationConfig.SyncEnabled = config.HSMSyncEnabled
-			hsmIntegrationConfig.SyncInterval = time.Duration(config.HSMSyncInterval) * time.Minute
-
-			providerConfig := bootscript.ProviderConfig{
-				Type:      "hsm",
-				HSMConfig: &hsmIntegrationConfig,
-			}
-
-			controllerLogger := log.New(os.Stdout, "bootscript: ", log.LstdFlags)
-			flexController, err := bootscript.NewFlexibleBootScriptController(*bootClient, providerConfig, controllerLogger)
-			if err != nil {
-				return fmt.Errorf("failed to create flexible controller with HSM: %v", err)
-			}
-
-			// Start background sync worker if enabled
-			if config.HSMSyncEnabled {
-				go flexController.StartBackgroundSync(ctx)
-				log.Printf("HSM background sync enabled (interval: %d minutes)", config.HSMSyncInterval)
-			}
-
-			legacyHandler = legacy.NewLegacyHandlerWithController(*bootClient, flexController, logger)
 			log.Println("Legacy BSS API enabled with HSM integration at: /boot/v1/")
 		} else {
-			// Use standard controller with local storage
-			legacyHandler = legacy.NewLegacyHandler(*bootClient, logger)
 			log.Println("Legacy BSS API enabled at: /boot/v1/")
 		}
-
-		legacyHandler.RegisterRoutes(r)
+	} else {
+		legacyHandler.RegisterBootScriptRoute(r)
+		log.Println("Boot script endpoint enabled at: /boot/v1/bootscript")
 	}
 
 	// Configure server

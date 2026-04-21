@@ -6,6 +6,8 @@ package main
 
 import (
 	"context"
+	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -16,6 +18,7 @@ import (
 
 	"github.com/openchami/boot-service/internal/storage"
 	bootclient "github.com/openchami/boot-service/pkg/client"
+	"github.com/openchami/boot-service/pkg/handlers/legacy"
 )
 
 func newGeneratedRouterForTest(t *testing.T) http.Handler {
@@ -83,4 +86,107 @@ func TestGeneratedClientWorksAgainstSlashlessCollectionPaths(t *testing.T) {
 	if _, err := client.GetNodes(ctx); err != nil {
 		t.Fatalf("GetNodes failed against slashless path: %v", err)
 	}
+}
+
+func TestBootScriptEndpointAvailabilityByLegacyFlag(t *testing.T) {
+	tests := []struct {
+		name                 string
+		enableLegacyAPI      bool
+		expectedBootParams   int
+		expectedServiceState int
+	}{
+		{
+			name:                 "LegacyDisabled_BootScriptOnly",
+			enableLegacyAPI:      false,
+			expectedBootParams:   http.StatusNotFound,
+			expectedServiceState: http.StatusNotFound,
+		},
+		{
+			name:                 "LegacyEnabled_AllLegacyRoutes",
+			enableLegacyAPI:      true,
+			expectedBootParams:   http.StatusOK,
+			expectedServiceState: http.StatusOK,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			router := newRouterWithLegacyModeForTest(t, tc.enableLegacyAPI)
+			server := httptest.NewServer(router)
+			defer server.Close()
+
+			bootScriptResp, err := http.Get(server.URL + "/boot/v1/bootscript?mac=aa:bb:cc:dd:ee:ff")
+			if err != nil {
+				t.Fatalf("GET bootscript failed: %v", err)
+			}
+			defer bootScriptResp.Body.Close() //nolint:errcheck
+
+			if bootScriptResp.StatusCode != http.StatusOK {
+				t.Fatalf("GET /boot/v1/bootscript returned %d, want %d", bootScriptResp.StatusCode, http.StatusOK)
+			}
+
+			bootParamsResp, err := http.Get(server.URL + "/boot/v1/bootparameters")
+			if err != nil {
+				t.Fatalf("GET bootparameters failed: %v", err)
+			}
+			defer bootParamsResp.Body.Close() //nolint:errcheck
+
+			if bootParamsResp.StatusCode != tc.expectedBootParams {
+				t.Fatalf("GET /boot/v1/bootparameters returned %d, want %d", bootParamsResp.StatusCode, tc.expectedBootParams)
+			}
+
+			serviceResp, err := http.Get(server.URL + "/boot/v1/service/status")
+			if err != nil {
+				t.Fatalf("GET service status failed: %v", err)
+			}
+			defer serviceResp.Body.Close() //nolint:errcheck
+
+			if serviceResp.StatusCode != tc.expectedServiceState {
+				t.Fatalf("GET /boot/v1/service/status returned %d, want %d", serviceResp.StatusCode, tc.expectedServiceState)
+			}
+		})
+	}
+}
+
+func newRouterWithLegacyModeForTest(t *testing.T, enableLegacyAPI bool) http.Handler {
+	t.Helper()
+
+	dataDir := filepath.Join(t.TempDir(), "data")
+	if err := storage.InitFileBackend(dataDir); err != nil {
+		t.Fatalf("failed to initialize file backend: %v", err)
+	}
+
+	backendServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/nodes":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`[{"apiVersion":"boot.openchami.io/v1","kind":"Node","metadata":{},"spec":{"xname":"x0c0s0b0n0","nid":42,"bootMAC":"aa:bb:cc:dd:ee:ff","hostname":"node-42"}}]`))
+		case "/bootconfigurations":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`[{"apiVersion":"boot.openchami.io/v1","kind":"BootConfiguration","metadata":{"name":"default-config"},"spec":{"kernel":"http://files.example.com/vmlinuz-default","params":"console=ttyS0,115200"}}]`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(backendServer.Close)
+
+	bootClient, err := bootclient.NewClient(backendServer.URL, backendServer.Client())
+	if err != nil {
+		t.Fatalf("failed to create boot client: %v", err)
+	}
+
+	r := chi.NewRouter()
+	r.Use(middleware.RedirectSlashes)
+	RegisterGeneratedRoutes(r)
+
+	legacyHandler := legacy.NewLegacyHandler(*bootClient, log.New(io.Discard, "", 0))
+	if enableLegacyAPI {
+		legacyHandler.RegisterRoutes(r)
+	} else {
+		legacyHandler.RegisterBootScriptRoute(r)
+	}
+
+	return r
 }
