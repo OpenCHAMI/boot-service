@@ -97,6 +97,7 @@ make generate-check
 
 # Optional: use local Fabrica checkout (sibling ../fabrica)
 (cd ../fabrica && go build -o bin/fabrica ./cmd/fabrica)
+# Makefile local mode passes --fabrica-source ../fabrica automatically
 make generate FABRICA_LOCAL=1
 make generate-check FABRICA_LOCAL=1
 ```

@@ -15,9 +15,13 @@ COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS=-ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)"
 FABRICA_CMD ?= go run github.com/openchami/fabrica/cmd/fabrica@v0.4.0
+FABRICA_SOURCE_ARG ?=
+FABRICA_ENV ?=
 
 ifeq ($(FABRICA_LOCAL),1)
 FABRICA_CMD := ../fabrica/bin/fabrica
+FABRICA_SOURCE_ARG := --fabrica-source ../fabrica
+FABRICA_ENV := GOTOOLCHAIN=auto
 endif
 
 help: ## Display this help screen
@@ -34,7 +38,7 @@ generate: ## Regenerate Fabrica outputs from apis/.fabrica.yaml/apis.yaml
 		echo "Build it with: (cd ../fabrica && go build -o bin/fabrica ./cmd/fabrica)"; \
 		exit 1; \
 	fi
-	$(FABRICA_CMD) generate
+	$(FABRICA_ENV) $(FABRICA_CMD) generate $(FABRICA_SOURCE_ARG)
 
 generate-check: ## Fail if generated files are out of sync (requires clean git tree)
 	@if ! git diff --quiet || ! git diff --cached --quiet; then \
