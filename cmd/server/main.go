@@ -299,6 +299,10 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 		w.Write([]byte(`{"status":"ok","service":"boot-service"}`)) //nolint:errcheck
 	})
 
+	// Register OpenAPI endpoints
+	r.Get("/openapi.json", ServeOpenAPISpec)
+	r.Get("/docs", ServeSwaggerUI)
+
 	// Setup metrics endpoint if enabled (before other routes)
 	if config.EnableMetrics {
 		// Add metrics to main router
