@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: 2026 OpenCHAMI Contributors
+#
+# SPDX-License-Identifier: MIT
+
+name: Codegen Check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "apis/**"
+      - "apis.yaml"
+      - ".fabrica.yaml"
+      - "cmd/server/**"
+      - "internal/storage/**"
+      - "pkg/client/**"
+      - "pkg/resources/register_generated.go"
+      - "Makefile"
+      - ".github/workflows/codegen-check.yaml"
+  workflow_dispatch:
+
+jobs:
+  codegen-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Run code generation
+        run: make generate
+
+      - name: Verify generated code is committed
+        run: |
+          if ! git diff --quiet; then
+            echo "Generated files are out of sync. Run 'make generate' and commit the results."
+            git --no-pager diff --stat
+            exit 1
+          fi

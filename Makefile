@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-.PHONY: help build test test-integration lint clean install run docker-build docker-run release-test check-no-pkg-resources-imports
+.PHONY: help build test test-integration lint clean install run docker-build docker-run release-test check-no-pkg-resources-imports generate generate-check dev
 
 # Variables
 BINARY_NAME=boot-service
@@ -22,6 +22,24 @@ help: ## Display this help screen
 build:
 	go build -o bin/server ./cmd/server/
 	go build -o bin/client ./cmd/client/
+
+generate: ## Regenerate Fabrica outputs from apis/.fabrica.yaml/apis.yaml
+	go run github.com/openchami/fabrica/cmd/fabrica@v0.4.0 generate
+
+generate-check: ## Fail if generated files are out of sync (requires clean git tree)
+	@if ! git diff --quiet || ! git diff --cached --quiet; then \
+		echo "Working tree must be clean before running generate-check"; \
+		git --no-pager status --short; \
+		exit 1; \
+	fi
+	$(MAKE) generate
+	@if ! git diff --quiet || ! git diff --cached --quiet; then \
+		echo "Generated files are out of sync. Run 'make generate' and commit the results."; \
+		git --no-pager diff --stat; \
+		exit 1; \
+	fi
+
+dev: generate build ## Regenerate code then build server and client binaries
 
 test: ## Run tests
 	$(GO) test $(GOFLAGS) -timeout $(TEST_TIMEOUT) -race -coverprofile=coverage.out -covermode=atomic $$(go list ./... 2>/dev/null | grep -v /examples/)

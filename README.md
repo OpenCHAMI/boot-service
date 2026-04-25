@@ -89,7 +89,10 @@ Resource definitions live in:
 Regenerate handlers/storage/client/openapi after API changes:
 
 ```bash
-go run github.com/openchami/fabrica/cmd/fabrica generate --handlers --storage --openapi --client
+make generate
+
+# CI-style drift check (requires a clean working tree)
+make generate-check
 ```
 
 Do not edit `*_generated.go` files manually.
