@@ -14,6 +14,11 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS=-ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)"
+FABRICA_CMD ?= go run github.com/openchami/fabrica/cmd/fabrica@v0.4.0
+
+ifeq ($(FABRICA_LOCAL),1)
+FABRICA_CMD := ../fabrica/bin/fabrica
+endif
 
 help: ## Display this help screen
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
@@ -24,7 +29,12 @@ build:
 	go build -o bin/client ./cmd/client/
 
 generate: ## Regenerate Fabrica outputs from apis/.fabrica.yaml/apis.yaml
-	go run github.com/openchami/fabrica/cmd/fabrica@v0.4.0 generate
+	@if [ "$(FABRICA_LOCAL)" = "1" ] && [ ! -x ../fabrica/bin/fabrica ]; then \
+		echo "Local Fabrica binary not found at ../fabrica/bin/fabrica"; \
+		echo "Build it with: (cd ../fabrica && go build -o bin/fabrica ./cmd/fabrica)"; \
+		exit 1; \
+	fi
+	$(FABRICA_CMD) generate
 
 generate-check: ## Fail if generated files are out of sync (requires clean git tree)
 	@if ! git diff --quiet || ! git diff --cached --quiet; then \
@@ -32,7 +42,7 @@ generate-check: ## Fail if generated files are out of sync (requires clean git t
 		git --no-pager status --short; \
 		exit 1; \
 	fi
-	$(MAKE) generate
+	$(MAKE) generate FABRICA_LOCAL=$(FABRICA_LOCAL)
 	@if ! git diff --quiet || ! git diff --cached --quiet; then \
 		echo "Generated files are out of sync. Run 'make generate' and commit the results."; \
 		git --no-pager diff --stat; \

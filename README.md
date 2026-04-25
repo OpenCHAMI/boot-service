@@ -89,10 +89,16 @@ Resource definitions live in:
 Regenerate handlers/storage/client/openapi after API changes:
 
 ```bash
+# Default: use released Fabrica from go modules
 make generate
 
 # CI-style drift check (requires a clean working tree)
 make generate-check
+
+# Optional: use local Fabrica checkout (sibling ../fabrica)
+(cd ../fabrica && go build -o bin/fabrica ./cmd/fabrica)
+make generate FABRICA_LOCAL=1
+make generate-check FABRICA_LOCAL=1
 ```
 
 Do not edit `*_generated.go` files manually.
