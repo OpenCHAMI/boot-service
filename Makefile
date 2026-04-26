@@ -73,7 +73,7 @@ lint-fix: ## Run golangci-lint with auto-fix
 
 clean: ## Clean build artifacts
 	rm -rf bin/ dist/ coverage.out coverage.html
-	$(GO) clean
+	$(GO) clean -cache
 
 tidy: ## Tidy go.mod
 	$(GO) mod tidy
