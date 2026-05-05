@@ -58,7 +58,9 @@ func main() {
 		r.Use(devAuth)
 
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte("OK - No auth required"))
+			if _, err := w.Write([]byte("OK - No auth required")); err != nil {
+				log.Printf("failed to write response: %v", err)
+			}
 		})
 	})
 
@@ -72,10 +74,14 @@ func main() {
 		r.Get("/test", func(w http.ResponseWriter, r *http.Request) {
 			claims, err := auth.GetClaimsFromRequest(r)
 			if err != nil {
-				w.Write([]byte("OK - No valid token, but non-enforcing mode allows request"))
+				if _, writeErr := w.Write([]byte("OK - No valid token, but non-enforcing mode allows request")); writeErr != nil {
+					log.Printf("failed to write response: %v", writeErr)
+				}
 				return
 			}
-			w.Write([]byte(fmt.Sprintf("OK - Authenticated as %s with scopes %v", claims.Subject, claims.Scope)))
+			if _, err := fmt.Fprintf(w, "OK - Authenticated as %s with scopes %v", claims.Subject, claims.Scope); err != nil {
+				log.Printf("failed to write response: %v", err)
+			}
 		})
 	})
 
@@ -92,21 +98,27 @@ func main() {
 				http.Error(w, "Failed to get claims", http.StatusInternalServerError)
 				return
 			}
-			w.Write([]byte(fmt.Sprintf("Protected resource accessed by %s", claims.Subject)))
+			if _, err := fmt.Fprintf(w, "Protected resource accessed by %s", claims.Subject); err != nil {
+				log.Printf("failed to write response: %v", err)
+			}
 		})
 
 		// Scope-protected routes
 		r.Group(func(r chi.Router) {
 			r.Use(auth.CreateScopeMiddleware("boot:read"))
 			r.Get("/read", func(w http.ResponseWriter, r *http.Request) {
-				w.Write([]byte("Read operation successful"))
+				if _, err := w.Write([]byte("Read operation successful")); err != nil {
+					log.Printf("failed to write response: %v", err)
+				}
 			})
 		})
 
 		r.Group(func(r chi.Router) {
 			r.Use(auth.CreateScopeMiddleware("boot:write"))
 			r.Post("/write", func(w http.ResponseWriter, r *http.Request) {
-				w.Write([]byte("Write operation successful"))
+				if _, err := w.Write([]byte("Write operation successful")); err != nil {
+					log.Printf("failed to write response: %v", err)
+				}
 			})
 		})
 
@@ -114,7 +126,9 @@ func main() {
 		r.Group(func(r chi.Router) {
 			r.Use(auth.CreateServiceTokenMiddleware("boot-service"))
 			r.Get("/internal", func(w http.ResponseWriter, r *http.Request) {
-				w.Write([]byte("Internal service endpoint"))
+				if _, err := w.Write([]byte("Internal service endpoint")); err != nil {
+					log.Printf("failed to write response: %v", err)
+				}
 			})
 		})
 	})
