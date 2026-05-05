@@ -55,7 +55,10 @@ func TestEnhancedController_HSMIntegration(t *testing.T) {
 
 	// Create enhanced controller
 	logger := log.New(os.Stdout, "hsm-test: ", log.LstdFlags)
-	controller := NewEnhancedBootScriptController(*bootClient, hsmConfig, logger)
+	controller, err := NewEnhancedBootScriptController(*bootClient, hsmConfig, logger)
+	if err != nil {
+		t.Fatalf("Failed to create enhanced controller: %v", err)
+	}
 
 	ctx := context.Background()
 
@@ -255,7 +258,10 @@ func TestEnhancedController_HSMSyncWorker(t *testing.T) {
 
 	// Create enhanced controller
 	logger := log.New(os.Stdout, "sync-test: ", log.LstdFlags)
-	controller := NewEnhancedBootScriptController(*bootClient, hsmConfig, logger)
+	controller, err := NewEnhancedBootScriptController(*bootClient, hsmConfig, logger)
+	if err != nil {
+		t.Fatalf("Failed to create enhanced controller: %v", err)
+	}
 
 	// Start sync worker with timeout context
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
@@ -300,7 +306,10 @@ func BenchmarkEnhancedController_WithHSM(b *testing.B) {
 
 	// Create enhanced controller
 	logger := log.New(os.Stdout, "bench: ", log.LstdFlags)
-	controller := NewEnhancedBootScriptController(*bootClient, hsmConfig, logger)
+	controller, err := NewEnhancedBootScriptController(*bootClient, hsmConfig, logger)
+	if err != nil {
+		b.Fatalf("Failed to create enhanced controller: %v", err)
+	}
 
 	ctx := context.Background()
 

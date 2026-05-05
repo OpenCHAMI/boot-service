@@ -157,6 +157,9 @@ When both `hsm_url` and `tokensmith_url` are set, boot-service performs a
 bootstrap-token exchange against TokenSmith (`POST /oauth/token`) and uses the
 short-lived service token for HSM API calls.
 
+If `enable_auth: false`, `tokensmith_url` is ignored for HSM integration and no
+bootstrap token is required.
+
 ```yaml
 tokensmith_url: "http://localhost:8080"
 tokensmith_target_service: "hsm"
@@ -213,6 +216,10 @@ logging:
   format: "json"
   output: "stdout"
 ```
+
+The runtime image is distroless, so it does not include `curl` or `wget` for an
+in-container Docker `HEALTHCHECK`. Probe `/health` from Kubernetes, your
+container runtime, or an external monitor instead.
 
 ## Validation
 

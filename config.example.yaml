@@ -109,6 +109,7 @@ hsm_url: "http://localhost:27779"  # URL of the HSM service
 # TokenSmith-backed HSM service authentication
 # When both hsm_url and tokensmith_url are configured, boot-service exchanges a
 # bootstrap token for short-lived service tokens and adds them to HSM requests.
+# If enable_auth is false, tokensmith_url is ignored.
 # Standardized env vars: TOKENSMITH_URL, TOKENSMITH_BOOTSTRAP_TOKEN,
 # TOKENSMITH_TARGET_SERVICE, TOKENSMITH_BOOTSTRAP_POLICY_SCOPES_HINT,
 # TOKENSMITH_REFRESH_SKEW_SEC

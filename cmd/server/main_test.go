@@ -5,12 +5,14 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"log"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -189,4 +191,47 @@ func newRouterWithLegacyModeForTest(t *testing.T, enableLegacyAPI bool) http.Han
 	}
 
 	return r
+}
+
+func TestInitializeHSMServiceTokenManager_IgnoresTokenSmithWhenAuthDisabled(t *testing.T) {
+	t.Setenv("TOKENSMITH_BOOTSTRAP_TOKEN", "")
+
+	var buf bytes.Buffer
+	originalWriter := log.Writer()
+	log.SetOutput(&buf)
+	defer log.SetOutput(originalWriter)
+
+	manager, err := initializeHSMServiceTokenManager(context.Background(), Config{
+		EnableAuth:    false,
+		TokenSmithURL: "http://tokensmith.example",
+		HSMURL:        "http://hsm.example",
+	}, log.New(io.Discard, "", 0))
+	if err != nil {
+		t.Fatalf("expected no error when auth is disabled, got %v", err)
+	}
+	if manager != nil {
+		t.Fatal("expected no token manager when auth is disabled")
+	}
+	if !strings.Contains(buf.String(), "INFO: tokensmith URL ignored, auth disabled") {
+		t.Fatalf("expected auth-disabled info log, got %q", buf.String())
+	}
+}
+
+func TestInitializeHSMServiceTokenManager_RequiresBootstrapTokenWhenAuthEnabled(t *testing.T) {
+	t.Setenv("TOKENSMITH_BOOTSTRAP_TOKEN", "")
+
+	manager, err := initializeHSMServiceTokenManager(context.Background(), Config{
+		EnableAuth:    true,
+		TokenSmithURL: "http://tokensmith.example",
+		HSMURL:        "http://hsm.example",
+	}, log.New(io.Discard, "", 0))
+	if err == nil {
+		t.Fatal("expected error when auth is enabled and bootstrap token is missing")
+	}
+	if manager != nil {
+		t.Fatal("expected no token manager on error")
+	}
+	if !strings.Contains(err.Error(), "tokensmith bootstrap token is required") {
+		t.Fatalf("unexpected error: %v", err)
+	}
 }

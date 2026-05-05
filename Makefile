@@ -28,7 +28,7 @@ help: ## Display this help screen
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 
-build:
+build: generate
 	go build -o bin/server ./cmd/server/
 	go build -o bin/client ./cmd/client/
 
@@ -53,7 +53,7 @@ generate-check: ## Fail if generated files are out of sync (requires clean git t
 		exit 1; \
 	fi
 
-dev: generate build ## Regenerate code then build server and client binaries
+dev: build ## Regenerate code then build server and client binaries
 
 test: ## Run tests
 	$(GO) test $(GOFLAGS) -timeout $(TEST_TIMEOUT) -race -coverprofile=coverage.out -covermode=atomic $$(go list ./... 2>/dev/null | grep -v /examples/)

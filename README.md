@@ -89,8 +89,8 @@ Resource definitions live in:
 Regenerate handlers/storage/client/openapi after API changes:
 
 ```bash
-# Default: use released Fabrica from go modules
-make generate
+# Build automatically re-runs Fabrica generation first
+make build
 
 # CI-style drift check (requires a clean working tree)
 make generate-check
@@ -152,6 +152,8 @@ export BOOT_SERVICE_HSM_URL=http://localhost:27779
 
 - `Dockerfile`: runtime image expecting a prebuilt binary
 - `Dockerfile.standalone`: multi-stage standalone build
+- The distroless runtime image does not ship `curl` or `wget`; use `/health`
+  from an external probe instead of an in-container Docker `HEALTHCHECK`.
 
 ## Troubleshooting
 

@@ -70,7 +70,6 @@ type HSMConfig struct { //nolint:revive
 // DefaultHSMConfig returns a default HSM configuration
 func DefaultHSMConfig() HSMConfig {
 	return HSMConfig{
-		BaseURL:              "http://localhost:27779",
 		Timeout:              30 * time.Second,
 		RetryAttempts:        3,
 		RetryDelay:           1 * time.Second,
@@ -158,8 +157,12 @@ func (c *HSMCache) SetEthernet(key string, data interface{}) {
 	}
 }
 
-// NewHSMClient creates a new HSM client
-func NewHSMClient(config HSMConfig, logger *log.Logger) *HSMClient {
+// NewHSMClient creates a new HSM client.
+func NewHSMClient(config HSMConfig, logger *log.Logger) (*HSMClient, error) {
+	if strings.TrimSpace(config.BaseURL) == "" {
+		return nil, fmt.Errorf("hsm base URL is required")
+	}
+
 	if logger == nil {
 		logger = log.New(log.Writer(), "hsm: ", log.LstdFlags)
 	}
@@ -180,7 +183,7 @@ func NewHSMClient(config HSMConfig, logger *log.Logger) *HSMClient {
 		httpClient: httpClient,
 		logger:     logger,
 		cache:      cache,
-	}
+	}, nil
 }
 
 // GetComponents retrieves all components from HSM

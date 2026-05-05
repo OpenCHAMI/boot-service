@@ -63,7 +63,10 @@ func NewFlexibleBootScriptController(bootClient client.Client, config ProviderCo
 			config.HSMConfig = &defaultConfig
 		}
 
-		hsmIntegration := hsm.NewIntegrationService(*config.HSMConfig, bootClient, logger)
+		hsmIntegration, err := hsm.NewIntegrationService(*config.HSMConfig, bootClient, logger)
+		if err != nil {
+			return nil, err
+		}
 		controller.nodeProvider = hsmIntegration
 		controller.syncProvider = hsmIntegration
 		logger.Printf("Initialized with HSM provider")
