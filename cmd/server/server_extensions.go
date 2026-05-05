@@ -52,6 +52,7 @@ func registerCustomServerIntegrations(r chi.Router, config Config, hsmClient *hs
 		providerConfig := bootscript.ProviderConfig{
 			Type:      "hsm",
 			HSMConfig: &hsmIntegrationConfig,
+			HSMClient: hsmClient,
 		}
 
 		controllerLogger := log.New(os.Stdout, "bootscript: ", log.LstdFlags)

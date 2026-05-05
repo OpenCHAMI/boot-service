@@ -60,6 +60,24 @@ func NewIntegrationService(config IntegrationConfig, bootClient client.Client, l
 	}, nil
 }
 
+func NewIntegrationServiceWithClient(hsmClient *HSMClient, config IntegrationConfig, bootClient client.Client, logger *log.Logger) (*IntegrationService, error) {
+	if logger == nil {
+		logger = log.New(log.Writer(), "hsm-integration: ", log.LstdFlags)
+	}
+
+	if hsmClient == nil {
+		return nil, fmt.Errorf("hsm client is required")
+	}
+
+	return &IntegrationService{
+		hsmClient:    hsmClient,
+		bootClient:   bootClient,
+		logger:       logger,
+		syncEnabled:  config.SyncEnabled,
+		syncInterval: config.SyncInterval,
+	}, nil
+}
+
 // SyncNodesFromHSM synchronizes node data from HSM to the boot service
 func (s *IntegrationService) SyncNodesFromHSM(ctx context.Context) error {
 	s.logger.Printf("Starting HSM node synchronization")
