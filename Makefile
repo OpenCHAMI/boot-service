@@ -14,13 +14,14 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS=-ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)"
-FABRICA_CMD ?= go run github.com/openchami/fabrica/cmd/fabrica@v0.4.0
+FABRICA_CMD ?= go run github.com/openchami/fabrica/cmd/fabrica@latest
 FABRICA_SOURCE_ARG ?=
 FABRICA_ENV ?=
+LOCAL_FABRICA ?=
 
-ifeq ($(FABRICA_LOCAL),1)
-FABRICA_CMD := ../fabrica/bin/fabrica
-FABRICA_SOURCE_ARG := --fabrica-source ../fabrica
+ifneq ($(strip $(LOCAL_FABRICA)),)
+FABRICA_CMD := $(LOCAL_FABRICA)/bin/fabrica
+FABRICA_SOURCE_ARG := --fabrica-source $(LOCAL_FABRICA)
 FABRICA_ENV := GOTOOLCHAIN=auto
 endif
 
@@ -33,11 +34,13 @@ build: generate
 	go build -o bin/client ./cmd/client/
 
 generate: ## Regenerate Fabrica outputs from apis/.fabrica.yaml/apis.yaml
-	@if [ "$(FABRICA_LOCAL)" = "1" ] && [ ! -x ../fabrica/bin/fabrica ]; then \
-		echo "Local Fabrica binary not found at ../fabrica/bin/fabrica"; \
-		echo "Build it with: (cd ../fabrica && go build -o bin/fabrica ./cmd/fabrica)"; \
+ifneq ($(strip $(LOCAL_FABRICA)),)
+	@if [ ! -x $(LOCAL_FABRICA)/bin/fabrica ]; then \
+		echo "Local Fabrica binary not found at $(LOCAL_FABRICA)/bin/fabrica"; \
+		echo "Build it with: (cd $(LOCAL_FABRICA) && go build -o bin/fabrica ./cmd/fabrica)"; \
 		exit 1; \
 	fi
+endif
 	$(FABRICA_ENV) $(FABRICA_CMD) generate $(FABRICA_SOURCE_ARG)
 
 generate-check: ## Fail if generated files are out of sync (requires clean git tree)
@@ -46,7 +49,7 @@ generate-check: ## Fail if generated files are out of sync (requires clean git t
 		git --no-pager status --short; \
 		exit 1; \
 	fi
-	$(MAKE) generate FABRICA_LOCAL=$(FABRICA_LOCAL)
+	$(MAKE) generate LOCAL_FABRICA="$(LOCAL_FABRICA)"
 	@if ! git diff --quiet || ! git diff --cached --quiet; then \
 		echo "Generated files are out of sync. Run 'make generate' and commit the results."; \
 		git --no-pager diff --stat; \
