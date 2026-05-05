@@ -365,7 +365,7 @@ func (c *HSMClient) GetMembership(ctx context.Context, componentID string) (*HSM
 	if err != nil {
 		return nil, fmt.Errorf("failed to call HSM membership endpoint: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck //nolint:errcheck
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HSM returned status %d", resp.StatusCode)
