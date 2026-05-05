@@ -48,6 +48,13 @@ type HSMEthernetInterface struct { //nolint:revive
 	LastUpdate  string `json:"LastUpdate,omitempty"`
 }
 
+// HSMMembership represents group membership information from HSM
+type HSMMembership struct {
+	ID            string   `json:"id"`
+	GroupLabels   []string `json:"groupLabels"`
+	PartitionName string   `json:"partitionName"`
+}
+
 // HSMEthernetResponse represents the response from HSM ethernet interfaces endpoint
 type HSMEthernetResponse struct { //nolint:revive
 	EthernetInterfaces []HSMEthernetInterface `json:"EthernetInterfaces"`
@@ -90,6 +97,7 @@ type HSMClient struct { //nolint:revive
 type HSMCache struct { //nolint:revive
 	components         map[string]*CacheEntry
 	ethernetInterfaces map[string]*CacheEntry
+	membership         map[string]*CacheEntry
 	mu                 sync.RWMutex
 	expiry             time.Duration
 }
@@ -105,6 +113,7 @@ func NewHSMCache(expiry time.Duration) *HSMCache {
 	return &HSMCache{
 		components:         make(map[string]*CacheEntry),
 		ethernetInterfaces: make(map[string]*CacheEntry),
+		membership:         make(map[string]*CacheEntry),
 		expiry:             expiry,
 	}
 }
@@ -135,6 +144,17 @@ func (c *HSMCache) GetEthernet(key string) (interface{}, bool) {
 	return entry.Data, true
 }
 
+func (c *HSMCache) GetMembership(key string) (interface{}, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	entry, exists := c.membership[key]
+	if !exists || time.Now().After(entry.ExpiresAt) {
+		return nil, false
+	}
+	return entry.Data, true
+}
+
 // SetComponent stores a component in cache with expiration
 func (c *HSMCache) SetComponent(key string, data interface{}) {
 	c.mu.Lock()
@@ -152,6 +172,16 @@ func (c *HSMCache) SetEthernet(key string, data interface{}) {
 	defer c.mu.Unlock()
 
 	c.ethernetInterfaces[key] = &CacheEntry{
+		Data:      data,
+		ExpiresAt: time.Now().Add(c.expiry),
+	}
+}
+
+func (c *HSMCache) SetMembership(key string, data interface{}) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.membership[key] = &CacheEntry{
 		Data:      data,
 		ExpiresAt: time.Now().Add(c.expiry),
 	}
@@ -314,6 +344,44 @@ func (c *HSMClient) GetEthernetInterfaces(ctx context.Context) ([]HSMEthernetInt
 	return interfaces, nil
 }
 
+func (c *HSMClient) GetMembership(ctx context.Context, componentID string) (*HSMMembership, error) {
+	//check cache
+	cacheKey := fmt.Sprintf("membership_%s", componentID)
+	if data, found := c.cache.GetMembership(cacheKey); found {
+		c.logger.Printf("HSM membership cache hit for %s", componentID)
+		return data.(*HSMMembership), nil
+	}
+
+	url := fmt.Sprintf("%s/hsm/v2/memberships/%s", c.config.BaseURL, componentID)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HSM membership request: %w", err)
+	}
+
+	if err := c.addAuthHeader(ctx, req); err != nil {
+		return nil, err
+	}
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call HSM membership endpoint: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HSM returned status %d", resp.StatusCode)
+	}
+	var membership HSMMembership
+	if err := json.NewDecoder(resp.Body).Decode(&membership); err != nil {
+		return nil, fmt.Errorf("failed to decode HSM response: %w", err)
+	}
+
+	c.cache.SetMembership(cacheKey, &membership)
+
+	c.logger.Printf("Retrieved %d group memberships from HSM for component %s", len(membership.GroupLabels), componentID)
+
+	return &membership, nil
+}
+
 // GetComponentByMAC finds a component by its MAC address
 func (c *HSMClient) GetComponentByMAC(ctx context.Context, macAddress string) (*HSMComponent, error) {
 	// Get ethernet interfaces to find the component ID
@@ -372,6 +440,7 @@ func (c *HSMClient) ClearCache() {
 
 	c.cache.components = make(map[string]*CacheEntry)
 	c.cache.ethernetInterfaces = make(map[string]*CacheEntry)
+	c.cache.membership = make(map[string]*CacheEntry)
 
 	c.logger.Printf("HSM cache cleared")
 }
