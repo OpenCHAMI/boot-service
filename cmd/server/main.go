@@ -18,14 +18,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
 	"github.com/openchami/boot-service/internal/storage"
-	"github.com/openchami/boot-service/pkg/client"
 	"github.com/openchami/boot-service/pkg/clients/hsm"
-	"github.com/openchami/boot-service/pkg/controllers/bootscript"
-	"github.com/openchami/boot-service/pkg/handlers/legacy"
 )
 
 // Config holds all configuration for the boot service
@@ -216,51 +214,24 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 	var hsmClient *hsm.HSMClient
 	var serviceTokenManager *hsm.ServiceTokenManager
 	if config.HSMURL != "" {
+		var err error
 		hsmConfig := hsm.DefaultHSMConfig()
 		hsmConfig.BaseURL = config.HSMURL
 
 		hsmLogger := log.New(os.Stdout, "smd: ", log.LstdFlags)
 
-		if strings.TrimSpace(config.TokenSmithURL) != "" {
-			bootstrapToken := strings.TrimSpace(config.TokenSmithBootstrapToken)
-			bootstrapSource := "config"
-			if bootstrapToken == "" {
-				bootstrapToken = strings.TrimSpace(os.Getenv("TOKENSMITH_BOOTSTRAP_TOKEN"))
-				bootstrapSource = "env:TOKENSMITH_BOOTSTRAP_TOKEN"
-			}
-			if bootstrapToken == "" {
-				return fmt.Errorf("tokensmith bootstrap token is required when both hsm-url and tokensmith_url are set")
-			}
-
-			tokenConfig := hsm.DefaultTokenExchangeConfig()
-			tokenConfig.TokenSmithURL = config.TokenSmithURL
-			tokenConfig.BootstrapToken = bootstrapToken
-			tokenConfig.TargetService = strings.TrimSpace(config.TokenSmithTargetService)
-			tokenConfig.Scopes = parseScopeHintCSV(tokenSmithScopeHintCSV(config))
-			tokenConfig.RefreshBefore = time.Duration(config.TokenSmithRefreshSkewSec) * time.Second
-
-			tokenEndpoint := strings.TrimRight(tokenConfig.TokenSmithURL, "/") + "/oauth/token"
-			log.Printf("HSM token exchange config: endpoint=%s target=%s scope_hint=%v bootstrap_token_present=%v bootstrap_token_source=%s",
-				tokenEndpoint,
-				tokenConfig.TargetService,
-				tokenConfig.Scopes,
-				bootstrapToken != "",
-				bootstrapSource,
-			)
-
-			serviceTokenManager = hsm.NewServiceTokenManager(tokenConfig, hsmLogger)
-			initialTokenCtx, initialTokenCancel := context.WithTimeout(ctx, 10*time.Second)
-			initErr := serviceTokenManager.Initialize(initialTokenCtx)
-			initialTokenCancel()
-			if initErr != nil {
-				return fmt.Errorf("failed to initialize HSM service token manager: %w", initErr)
-			}
-
+		serviceTokenManager, err = initializeHSMServiceTokenManager(ctx, config, hsmLogger)
+		if err != nil {
+			return err
+		}
+		if serviceTokenManager != nil {
 			hsmConfig.ServiceTokenManager = serviceTokenManager
-			log.Printf("HSM auth enabled via TokenSmith service-token exchange (target=%s)", tokenConfig.TargetService)
 		}
 
-		hsmClient = hsm.NewHSMClient(hsmConfig, hsmLogger)
+		hsmClient, err = hsm.NewHSMClient(hsmConfig, hsmLogger)
+		if err != nil {
+			return fmt.Errorf("failed to initialize HSM client: %w", err)
+		}
 
 		// Test HSM connectivity
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -314,60 +285,8 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 		go startMetricsServer(config)
 	}
 
-	// Register UID prefixes used by generated handlers when creating resources.
-	if err := registerResourcePrefixes(); err != nil {
-		return fmt.Errorf("failed to register resource prefixes: %w", err)
-	}
-
-	// Register generated routes (modern API) - middleware already applied above
-	RegisterGeneratedRoutes(r)
-
-	// Register legacy BSS API routes if enabled
-	if config.EnableLegacyAPI {
-		bootClient, err := client.NewClient(fmt.Sprintf("http://%s:%d", config.Host, config.Port),
-			&http.Client{Timeout: 30 * time.Second})
-		if err != nil {
-			return fmt.Errorf("failed to create client for legacy API: %v", err)
-		}
-
-		logger := log.New(os.Stdout, "legacy: ", log.LstdFlags)
-
-		var legacyHandler *legacy.LegacyHandler
-
-		if hsmClient != nil {
-			// Use FlexibleBootScriptController with HSM provider
-			hsmIntegrationConfig := hsm.DefaultIntegrationConfig()
-			hsmIntegrationConfig.HSMConfig.BaseURL = config.HSMURL
-			hsmIntegrationConfig.HSMConfig.Timeout = 30 * time.Second
-			hsmIntegrationConfig.SyncEnabled = config.HSMSyncEnabled
-			hsmIntegrationConfig.SyncInterval = time.Duration(config.HSMSyncInterval) * time.Minute
-
-			providerConfig := bootscript.ProviderConfig{
-				Type:      "hsm",
-				HSMConfig: &hsmIntegrationConfig,
-			}
-
-			controllerLogger := log.New(os.Stdout, "bootscript: ", log.LstdFlags)
-			flexController, err := bootscript.NewFlexibleBootScriptController(*bootClient, providerConfig, controllerLogger)
-			if err != nil {
-				return fmt.Errorf("failed to create flexible controller with HSM: %v", err)
-			}
-
-			// Start background sync worker if enabled
-			if config.HSMSyncEnabled {
-				go flexController.StartBackgroundSync(ctx)
-				log.Printf("HSM background sync enabled (interval: %d minutes)", config.HSMSyncInterval)
-			}
-
-			legacyHandler = legacy.NewLegacyHandlerWithController(*bootClient, flexController, logger)
-			log.Println("Legacy BSS API enabled with HSM integration at: /boot/v1/")
-		} else {
-			// Use standard controller with local storage
-			legacyHandler = legacy.NewLegacyHandler(*bootClient, logger)
-			log.Println("Legacy BSS API enabled at: /boot/v1/")
-		}
-
-		legacyHandler.RegisterRoutes(r)
+	if err := registerCustomServerIntegrations(r, config, hsmClient, ctx); err != nil {
+		return err
 	}
 
 	// Configure server
@@ -452,11 +371,58 @@ func parseScopeHintCSV(raw string) []string {
 	return scopes
 }
 
+func initializeHSMServiceTokenManager(ctx context.Context, config Config, hsmLogger *log.Logger) (*hsm.ServiceTokenManager, error) {
+	if strings.TrimSpace(config.TokenSmithURL) == "" {
+		return nil, nil
+	}
+
+	if !config.EnableAuth {
+		log.Printf("INFO: tokensmith URL ignored, auth disabled")
+		return nil, nil
+	}
+
+	bootstrapToken := strings.TrimSpace(config.TokenSmithBootstrapToken)
+	bootstrapSource := "config"
+	if bootstrapToken == "" {
+		bootstrapToken = strings.TrimSpace(os.Getenv("TOKENSMITH_BOOTSTRAP_TOKEN"))
+		bootstrapSource = "env:TOKENSMITH_BOOTSTRAP_TOKEN"
+	}
+	if bootstrapToken == "" {
+		return nil, fmt.Errorf("tokensmith bootstrap token is required when both hsm-url and tokensmith_url are set")
+	}
+
+	tokenConfig := hsm.DefaultTokenExchangeConfig()
+	tokenConfig.TokenSmithURL = config.TokenSmithURL
+	tokenConfig.BootstrapToken = bootstrapToken
+	tokenConfig.TargetService = strings.TrimSpace(config.TokenSmithTargetService)
+	tokenConfig.Scopes = parseScopeHintCSV(tokenSmithScopeHintCSV(config))
+	tokenConfig.RefreshBefore = time.Duration(config.TokenSmithRefreshSkewSec) * time.Second
+
+	tokenEndpoint := strings.TrimRight(tokenConfig.TokenSmithURL, "/") + "/oauth/token"
+	log.Printf("HSM token exchange config: endpoint=%s target=%s scope_hint=%v bootstrap_token_present=%v bootstrap_token_source=%s",
+		tokenEndpoint,
+		tokenConfig.TargetService,
+		tokenConfig.Scopes,
+		bootstrapToken != "",
+		bootstrapSource,
+	)
+
+	serviceTokenManager := hsm.NewServiceTokenManager(tokenConfig, hsmLogger)
+	initialTokenCtx, initialTokenCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer initialTokenCancel()
+	if err := serviceTokenManager.Initialize(initialTokenCtx); err != nil {
+		return nil, fmt.Errorf("failed to initialize HSM service token manager: %w", err)
+	}
+
+	log.Printf("HSM auth enabled via TokenSmith service-token exchange (target=%s)", tokenConfig.TargetService)
+	return serviceTokenManager, nil
+}
+
 func startMetricsServer(config Config) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/metrics", metricsHandler)
+	mux.Handle("/metrics", promhttp.Handler())
 
-	metricsAddr := fmt.Sprintf(":%d", config.MetricsPort)
+	metricsAddr := fmt.Sprintf("%s:%d", config.Host, config.MetricsPort)
 	log.Printf("Metrics server starting on %s", metricsAddr)
 
 	if err := http.ListenAndServe(metricsAddr, mux); err != nil {
@@ -465,8 +431,5 @@ func startMetricsServer(config Config) {
 }
 
 func metricsHandler(w http.ResponseWriter, r *http.Request) { //nolint:revive
-	// TODO: Implement Prometheus metrics here
-	w.Header().Set("Content-Type", "text/plain")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("# Metrics endpoint - implementation pending\n")) //nolint:errcheck
+	promhttp.Handler().ServeHTTP(w, r)
 }

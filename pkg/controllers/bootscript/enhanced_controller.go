@@ -19,17 +19,20 @@ type EnhancedBootScriptController struct {
 }
 
 // NewEnhancedBootScriptController creates a new enhanced controller with HSM integration
-func NewEnhancedBootScriptController(bootClient client.Client, hsmConfig hsm.IntegrationConfig, logger *log.Logger) *EnhancedBootScriptController {
+func NewEnhancedBootScriptController(bootClient client.Client, hsmConfig hsm.IntegrationConfig, logger *log.Logger) (*EnhancedBootScriptController, error) {
 	// Create base controller
 	baseController := NewBootScriptController(bootClient, logger)
 
 	// Create HSM integration service
-	hsmIntegration := hsm.NewIntegrationService(hsmConfig, bootClient, logger)
+	hsmIntegration, err := hsm.NewIntegrationService(hsmConfig, bootClient, logger)
+	if err != nil {
+		return nil, err
+	}
 
 	return &EnhancedBootScriptController{
 		BootScriptController: baseController,
 		hsmIntegration:       hsmIntegration,
-	}
+	}, nil
 }
 
 // GenerateBootScriptWithHSM generates a boot script using HSM for node resolution if needed

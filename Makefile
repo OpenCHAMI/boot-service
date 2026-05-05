@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-.PHONY: help build test test-integration lint clean install run docker-build docker-run release-test check-no-pkg-resources-imports
+.PHONY: help build test test-integration lint clean install run docker-build docker-run release-test check-no-pkg-resources-imports generate generate-check dev
 
 # Variables
 BINARY_NAME=boot-service
@@ -14,14 +14,49 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS=-ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)"
+FABRICA_CMD ?= go run github.com/openchami/fabrica/cmd/fabrica@latest
+FABRICA_SOURCE_ARG ?=
+FABRICA_ENV ?=
+LOCAL_FABRICA ?=
+
+ifneq ($(strip $(LOCAL_FABRICA)),)
+FABRICA_CMD := $(LOCAL_FABRICA)/bin/fabrica
+FABRICA_SOURCE_ARG := --fabrica-source $(LOCAL_FABRICA)
+FABRICA_ENV := GOTOOLCHAIN=auto
+endif
 
 help: ## Display this help screen
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 
-build:
+build: generate
 	go build -o bin/server ./cmd/server/
 	go build -o bin/client ./cmd/client/
+
+generate: ## Regenerate Fabrica outputs from apis/.fabrica.yaml/apis.yaml
+ifneq ($(strip $(LOCAL_FABRICA)),)
+	@if [ ! -x $(LOCAL_FABRICA)/bin/fabrica ]; then \
+		echo "Local Fabrica binary not found at $(LOCAL_FABRICA)/bin/fabrica"; \
+		echo "Build it with: (cd $(LOCAL_FABRICA) && go build -o bin/fabrica ./cmd/fabrica)"; \
+		exit 1; \
+	fi
+endif
+	$(FABRICA_ENV) $(FABRICA_CMD) generate $(FABRICA_SOURCE_ARG)
+
+generate-check: ## Fail if generated files are out of sync (requires clean git tree)
+	@if ! git diff --quiet || ! git diff --cached --quiet; then \
+		echo "Working tree must be clean before running generate-check"; \
+		git --no-pager status --short; \
+		exit 1; \
+	fi
+	$(MAKE) generate LOCAL_FABRICA="$(LOCAL_FABRICA)"
+	@if ! git diff --quiet || ! git diff --cached --quiet; then \
+		echo "Generated files are out of sync. Run 'make generate' and commit the results."; \
+		git --no-pager diff --stat; \
+		exit 1; \
+	fi
+
+dev: build ## Regenerate code then build server and client binaries
 
 test: ## Run tests
 	$(GO) test $(GOFLAGS) -timeout $(TEST_TIMEOUT) -race -coverprofile=coverage.out -covermode=atomic $$(go list ./... 2>/dev/null | grep -v /examples/)
@@ -41,7 +76,7 @@ lint-fix: ## Run golangci-lint with auto-fix
 
 clean: ## Clean build artifacts
 	rm -rf bin/ dist/ coverage.out coverage.html
-	$(GO) clean
+	$(GO) clean -cache
 
 tidy: ## Tidy go.mod
 	$(GO) mod tidy

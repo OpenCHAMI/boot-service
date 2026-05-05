@@ -19,7 +19,7 @@ import (
 	"github.com/openchami/fabrica/pkg/resource"
 )
 
-func TestGetBootScript_WithProfileQueryParameter(t *testing.T) {
+func TestGetBootScript_ProfileQueryParameterIgnored(t *testing.T) {
 	nodes := []apiv1.Node{
 		{
 			Spec: apiv1.NodeSpec{
@@ -76,7 +76,8 @@ func TestGetBootScript_WithProfileQueryParameter(t *testing.T) {
 	router := chi.NewRouter()
 	handler.RegisterRoutes(router)
 
-	// Test Case 1: Request with compute profile
+	// Test Case 1: Request with explicit compute profile query should still
+	// auto-select based on score/priority and ignore the query parameter.
 	req := httptest.NewRequest("GET", "/boot/v1/bootscript?mac=aa:bb:cc:dd:ee:ff&profile=compute", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -93,7 +94,7 @@ func TestGetBootScript_WithProfileQueryParameter(t *testing.T) {
 		t.Errorf("expected iPXE header in response")
 	}
 
-	// Test Case 2: Request with default profile (empty profile parameter)
+	// Test Case 2: Request with empty profile parameter (auto-select best across profiles)
 	req = httptest.NewRequest("GET", "/boot/v1/bootscript?mac=aa:bb:cc:dd:ee:ff&profile=", nil)
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -103,11 +104,11 @@ func TestGetBootScript_WithProfileQueryParameter(t *testing.T) {
 	}
 
 	body = w.Body.String()
-	if !strings.Contains(body, "profile=default") {
-		t.Errorf("expected default profile in response, got: %s", body)
+	if !strings.Contains(body, "profile=compute") {
+		t.Errorf("expected best matching profile in response, got: %s", body)
 	}
 
-	// Test Case 3: Request without profile parameter (should default to default profile)
+	// Test Case 3: Request without profile parameter (auto-select best across profiles)
 	req = httptest.NewRequest("GET", "/boot/v1/bootscript?mac=aa:bb:cc:dd:ee:ff", nil)
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -117,8 +118,8 @@ func TestGetBootScript_WithProfileQueryParameter(t *testing.T) {
 	}
 
 	body = w.Body.String()
-	if !strings.Contains(body, "profile=default") {
-		t.Errorf("expected default profile when no profile param provided, got: %s", body)
+	if !strings.Contains(body, "profile=compute") {
+		t.Errorf("expected best matching profile when no profile param provided, got: %s", body)
 	}
 
 	// Test Case 4: Request with XName identifier
@@ -132,7 +133,22 @@ func TestGetBootScript_WithProfileQueryParameter(t *testing.T) {
 
 	body = w.Body.String()
 	if !strings.Contains(body, "profile=compute") {
-		t.Errorf("expected compute profile with XName identifier, got: %s", body)
+		t.Errorf("expected best matching profile with XName identifier, got: %s", body)
+	}
+
+	// Test Case 5: Request with profile=default should still ignore profile and
+	// auto-select compute due to higher match score.
+	req = httptest.NewRequest("GET", "/boot/v1/bootscript?mac=aa:bb:cc:dd:ee:ff&profile=default", nil)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", w.Code)
+	}
+
+	body = w.Body.String()
+	if !strings.Contains(body, "profile=compute") {
+		t.Errorf("expected best matching profile when profile query is ignored, got: %s", body)
 	}
 }
 
@@ -165,6 +181,45 @@ func TestGetBootScript_MissingNodeIdentifier(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("expected status 400 for missing identifier, got %d", w.Code)
+	}
+}
+
+func TestRegisterBootScriptRoute_OnlyRegistersBootScriptEndpoint(t *testing.T) {
+	backendServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/nodes":
+			writeJSONResponse(t, w, []apiv1.Node{})
+		case "/bootconfigurations":
+			writeJSONResponse(t, w, []apiv1.BootConfiguration{})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer backendServer.Close()
+
+	bootClient, err := client.NewClient(backendServer.URL, backendServer.Client())
+	if err != nil {
+		t.Fatalf("failed to create boot client: %v", err)
+	}
+
+	handler := NewLegacyHandler(*bootClient, log.New(io.Discard, "", 0))
+	router := chi.NewRouter()
+	handler.RegisterBootScriptRoute(router)
+
+	// bootscript endpoint should be present
+	req := httptest.NewRequest("GET", "/boot/v1/bootscript?mac=aa:bb:cc:dd:ee:ff", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200 for bootscript route, got %d", w.Code)
+	}
+
+	// other legacy endpoints should not be present
+	req = httptest.NewRequest("GET", "/boot/v1/bootparameters", nil)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected status 404 for bootparameters route, got %d", w.Code)
 	}
 }
 

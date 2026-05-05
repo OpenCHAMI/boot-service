@@ -59,7 +59,10 @@ func TestHSMClient_GetComponents(t *testing.T) {
 	config.CacheExpiry = 100 * time.Millisecond // Short cache for testing
 
 	logger := log.New(os.Stdout, "test: ", log.LstdFlags)
-	client := NewHSMClient(config, logger)
+	client, err := NewHSMClient(config, logger)
+	if err != nil {
+		t.Fatalf("Failed to create HSM client: %v", err)
+	}
 
 	// Test getting components
 	ctx := context.Background()
@@ -112,7 +115,10 @@ func TestHSMClient_GetComponent(t *testing.T) {
 	config.BaseURL = server.URL
 
 	logger := log.New(os.Stdout, "test: ", log.LstdFlags)
-	client := NewHSMClient(config, logger)
+	client, err := NewHSMClient(config, logger)
+	if err != nil {
+		t.Fatalf("Failed to create HSM client: %v", err)
+	}
 
 	// Test getting specific component
 	ctx := context.Background()
@@ -163,7 +169,10 @@ func TestHSMClient_GetEthernetInterfaces(t *testing.T) {
 	config.BaseURL = server.URL
 
 	logger := log.New(os.Stdout, "test: ", log.LstdFlags)
-	client := NewHSMClient(config, logger)
+	client, err := NewHSMClient(config, logger)
+	if err != nil {
+		t.Fatalf("Failed to create HSM client: %v", err)
+	}
 
 	// Test getting ethernet interfaces
 	ctx := context.Background()
@@ -228,7 +237,10 @@ func TestHSMClient_GetComponentByMAC(t *testing.T) {
 	config.BaseURL = server.URL
 
 	logger := log.New(os.Stdout, "test: ", log.LstdFlags)
-	client := NewHSMClient(config, logger)
+	client, err := NewHSMClient(config, logger)
+	if err != nil {
+		t.Fatalf("Failed to create HSM client: %v", err)
+	}
 
 	// Test getting component by MAC
 	ctx := context.Background()
@@ -280,12 +292,15 @@ func TestHSMClient_Cache(t *testing.T) {
 	config.CacheExpiry = 200 * time.Millisecond
 
 	logger := log.New(os.Stdout, "test: ", log.LstdFlags)
-	client := NewHSMClient(config, logger)
+	client, err := NewHSMClient(config, logger)
+	if err != nil {
+		t.Fatalf("Failed to create HSM client: %v", err)
+	}
 
 	ctx := context.Background()
 
 	// First call should hit the server
-	_, err := client.GetComponents(ctx)
+	_, err = client.GetComponents(ctx)
 	if err != nil {
 		t.Fatalf("Failed to get components: %v", err)
 	}
@@ -338,11 +353,14 @@ func TestHSMClient_Health(t *testing.T) {
 	config.BaseURL = server.URL
 
 	logger := log.New(os.Stdout, "test: ", log.LstdFlags)
-	client := NewHSMClient(config, logger)
+	client, err := NewHSMClient(config, logger)
+	if err != nil {
+		t.Fatalf("Failed to create HSM client: %v", err)
+	}
 
 	// Test health check
 	ctx := context.Background()
-	err := client.Health(ctx)
+	err = client.Health(ctx)
 	if err != nil {
 		t.Fatalf("Health check failed: %v", err)
 	}
@@ -367,12 +385,15 @@ func TestHSMClient_ErrorHandling(t *testing.T) {
 	config.BaseURL = server.URL
 
 	logger := log.New(os.Stdout, "test: ", log.LstdFlags)
-	client := NewHSMClient(config, logger)
+	client, err := NewHSMClient(config, logger)
+	if err != nil {
+		t.Fatalf("Failed to create HSM client: %v", err)
+	}
 
 	ctx := context.Background()
 
 	// Test 404 error
-	_, err := client.GetComponent(ctx, "nonexistent")
+	_, err = client.GetComponent(ctx, "nonexistent")
 	if err == nil {
 		t.Error("Expected error for nonexistent component")
 	}
@@ -407,9 +428,12 @@ func TestHSMClient_AuthTokenProvider(t *testing.T) {
 		return "dynamic-token", nil
 	}
 
-	client := NewHSMClient(config, log.New(os.Stdout, "test: ", log.LstdFlags))
+	client, err := NewHSMClient(config, log.New(os.Stdout, "test: ", log.LstdFlags))
+	if err != nil {
+		t.Fatalf("Failed to create HSM client: %v", err)
+	}
 
-	if _, err := client.GetComponents(context.Background()); err != nil {
+	if _, err = client.GetComponents(context.Background()); err != nil {
 		t.Fatalf("GetComponents failed: %v", err)
 	}
 
@@ -553,8 +577,12 @@ func TestHSMClient_GetStatsIncludesAuthTokenStats(t *testing.T) {
 	config.AuthTokenStatsProvider = func() map[string]interface{} {
 		return map[string]interface{}{"refresh_success_count": uint64(7)}
 	}
+	config.BaseURL = "http://example.invalid"
 
-	client := NewHSMClient(config, log.New(os.Stdout, "test: ", log.LstdFlags))
+	client, err := NewHSMClient(config, log.New(os.Stdout, "test: ", log.LstdFlags))
+	if err != nil {
+		t.Fatalf("Failed to create HSM client: %v", err)
+	}
 	stats := client.GetStats(context.Background())
 
 	authStats, ok := stats["auth_token_stats"].(map[string]interface{})
@@ -564,6 +592,16 @@ func TestHSMClient_GetStatsIncludesAuthTokenStats(t *testing.T) {
 
 	if authStats["refresh_success_count"].(uint64) != 7 {
 		t.Fatalf("expected refresh_success_count 7, got %v", authStats["refresh_success_count"])
+	}
+}
+
+func TestNewHSMClientRequiresBaseURL(t *testing.T) {
+	client, err := NewHSMClient(DefaultHSMConfig(), log.New(os.Stdout, "test: ", log.LstdFlags))
+	if err == nil {
+		t.Fatal("expected error when BaseURL is empty")
+	}
+	if client != nil {
+		t.Fatal("expected nil client when BaseURL is empty")
 	}
 }
 

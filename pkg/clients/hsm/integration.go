@@ -41,12 +41,15 @@ func DefaultIntegrationConfig() IntegrationConfig {
 }
 
 // NewIntegrationService creates a new HSM integration service
-func NewIntegrationService(config IntegrationConfig, bootClient client.Client, logger *log.Logger) *IntegrationService {
+func NewIntegrationService(config IntegrationConfig, bootClient client.Client, logger *log.Logger) (*IntegrationService, error) {
 	if logger == nil {
 		logger = log.New(log.Writer(), "hsm-integration: ", log.LstdFlags)
 	}
 
-	hsmClient := NewHSMClient(config.HSMConfig, logger)
+	hsmClient, err := NewHSMClient(config.HSMConfig, logger)
+	if err != nil {
+		return nil, err
+	}
 
 	return &IntegrationService{
 		hsmClient:    hsmClient,
@@ -54,7 +57,7 @@ func NewIntegrationService(config IntegrationConfig, bootClient client.Client, l
 		logger:       logger,
 		syncEnabled:  config.SyncEnabled,
 		syncInterval: config.SyncInterval,
-	}
+	}, nil
 }
 
 // SyncNodesFromHSM synchronizes node data from HSM to the boot service

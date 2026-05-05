@@ -34,10 +34,13 @@ Client → Chi Router → [Auth Middleware] → Generated Handlers → Storage B
 
 ```bash
 # After modifying resources in apis/boot.openchami.io/v1/
-fabrica generate --handlers --storage --openapi --client
+make generate
+
+# Validate generated files are committed
+make generate-check
 
 # Or use the Makefile
-make dev  # clean + generate + build
+make dev  # generate + build
 ```
 
 Resources are defined in `apis/boot.openchami.io/v1/` with `Spec` (desired state) and `Status` (observed state) structs.

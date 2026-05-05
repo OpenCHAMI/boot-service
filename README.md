@@ -89,7 +89,17 @@ Resource definitions live in:
 Regenerate handlers/storage/client/openapi after API changes:
 
 ```bash
-go run github.com/openchami/fabrica/cmd/fabrica generate --handlers --storage --openapi --client
+# Build automatically re-runs Fabrica generation first
+make build
+
+# CI-style drift check (requires a clean working tree)
+make generate-check
+
+# Optional: use local Fabrica checkout (sibling ../fabrica)
+(cd ../fabrica && go build -o bin/fabrica ./cmd/fabrica)
+# Makefile local mode passes --fabrica-source ../fabrica automatically
+make generate FABRICA_LOCAL=1
+make generate-check FABRICA_LOCAL=1
 ```
 
 Do not edit `*_generated.go` files manually.
@@ -142,6 +152,8 @@ export BOOT_SERVICE_HSM_URL=http://localhost:27779
 
 - `Dockerfile`: runtime image expecting a prebuilt binary
 - `Dockerfile.standalone`: multi-stage standalone build
+- The distroless runtime image does not ship `curl` or `wget`; use `/health`
+  from an external probe instead of an in-container Docker `HEALTHCHECK`.
 
 ## Troubleshooting
 

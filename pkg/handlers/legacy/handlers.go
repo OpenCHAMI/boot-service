@@ -73,6 +73,15 @@ func (h *LegacyHandler) RegisterRoutes(r chi.Router) {
 	})
 }
 
+// RegisterBootScriptRoute registers only the node bootscript endpoint.
+// This endpoint is required for node boot flow even when full legacy API
+// compatibility endpoints are disabled.
+func (h *LegacyHandler) RegisterBootScriptRoute(r chi.Router) {
+	r.Route("/boot/v1", func(r chi.Router) {
+		r.Get("/bootscript", h.GetBootScript)
+	})
+}
+
 // GetBootParameters handles GET /boot/v1/bootparameters
 func (h *LegacyHandler) GetBootParameters(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -289,10 +298,10 @@ func (h *LegacyHandler) GetBootScript(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	profile := r.URL.Query().Get("profile")
-
 	// Generate the boot script using our boot logic
-	script, err := h.controller.GenerateBootScript(ctx, identifier, profile)
+	// Ignore profile query parameter and always auto-resolve best configuration.
+	// Profile selection is driven by matching score and priority within boot logic.
+	script, err := h.controller.GenerateBootScript(ctx, identifier, "")
 	if err != nil {
 		h.writeError(w, http.StatusInternalServerError, "Failed to generate boot script", err.Error())
 		return
