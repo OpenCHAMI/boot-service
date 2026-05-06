@@ -60,6 +60,24 @@ func NewIntegrationService(config IntegrationConfig, bootClient client.Client, l
 	}, nil
 }
 
+func NewIntegrationServiceWithClient(hsmClient *HSMClient, config IntegrationConfig, bootClient client.Client, logger *log.Logger) (*IntegrationService, error) {
+	if logger == nil {
+		logger = log.New(log.Writer(), "hsm-integration: ", log.LstdFlags)
+	}
+
+	if hsmClient == nil {
+		return nil, fmt.Errorf("hsm client is required")
+	}
+
+	return &IntegrationService{
+		hsmClient:    hsmClient,
+		bootClient:   bootClient,
+		logger:       logger,
+		syncEnabled:  config.SyncEnabled,
+		syncInterval: config.SyncInterval,
+	}, nil
+}
+
 // SyncNodesFromHSM synchronizes node data from HSM to the boot service
 func (s *IntegrationService) SyncNodesFromHSM(ctx context.Context) error {
 	s.logger.Printf("Starting HSM node synchronization")
@@ -109,7 +127,15 @@ func (s *IntegrationService) SyncNodesFromHSM(ctx context.Context) error {
 	// Sync each compute node
 	var created, updated, skipped int
 	for _, comp := range computeNodes {
-		err := s.syncNode(ctx, comp, macMap, existingMap)
+		membership, err := s.hsmClient.GetMembership(ctx, comp.ID)
+		if err != nil {
+			s.logger.Printf("Warning: failed to get membership for %s: %v", comp.ID, err)
+		}
+		groups := []string{}
+		if membership != nil {
+			groups = membership.GroupLabels
+		}
+		err = s.syncNode(ctx, comp, macMap, groups, existingMap)
 		if err != nil {
 			s.logger.Printf("Warning: Failed to sync node %s: %v", comp.ID, err)
 			continue
@@ -117,7 +143,7 @@ func (s *IntegrationService) SyncNodesFromHSM(ctx context.Context) error {
 
 		// Track what we did
 		if existing, exists := existingMap[comp.ID]; exists {
-			if s.needsUpdate(comp, macMap, existing) {
+			if s.needsUpdate(comp, macMap, groups, existing) {
 				updated++
 			} else {
 				skipped++
@@ -132,7 +158,7 @@ func (s *IntegrationService) SyncNodesFromHSM(ctx context.Context) error {
 }
 
 // syncNode synchronizes a single node from HSM
-func (s *IntegrationService) syncNode(ctx context.Context, comp HSMComponent, macMap map[string]string, existingMap map[string]*v1.Node) error {
+func (s *IntegrationService) syncNode(ctx context.Context, comp HSMComponent, macMap map[string]string, groups []string, existingMap map[string]*v1.Node) error {
 	// Check if node already exists
 	existing, exists := existingMap[comp.ID]
 
@@ -146,12 +172,12 @@ func (s *IntegrationService) syncNode(ctx context.Context, comp HSMComponent, ma
 		BootMAC: bootMAC,
 		Role:    comp.Role,
 		SubRole: comp.SubRole,
-		Groups:  []string{}, // Will be populated from inventory service later
+		Groups:  groups,
 	}
 
 	if exists {
 		// Update existing node if needed
-		if s.needsUpdate(comp, macMap, existing) {
+		if s.needsUpdate(comp, macMap, groups, existing) {
 			updateReq := client.UpdateNodeRequest{
 				Spec: nodeSpec,
 			}
@@ -182,7 +208,7 @@ func (s *IntegrationService) syncNode(ctx context.Context, comp HSMComponent, ma
 }
 
 // needsUpdate checks if a node needs to be updated based on HSM data
-func (s *IntegrationService) needsUpdate(comp HSMComponent, macMap map[string]string, existing *v1.Node) bool {
+func (s *IntegrationService) needsUpdate(comp HSMComponent, macMap map[string]string, groups []string, existing *v1.Node) bool {
 	// Check if NID changed
 	if comp.NID != existing.Spec.NID {
 		return true
@@ -195,6 +221,11 @@ func (s *IntegrationService) needsUpdate(comp HSMComponent, macMap map[string]st
 
 	// Check if SubRole changed
 	if comp.SubRole != existing.Spec.SubRole {
+		return true
+	}
+
+	// Check if membership has changed
+	if !stringSlicesEqual(groups, existing.Spec.Groups) {
 		return true
 	}
 
@@ -381,4 +412,21 @@ func (s *IntegrationService) GetStats(ctx context.Context) map[string]interface{
 	}
 
 	return stats
+}
+
+func stringSlicesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	seen := make(map[string]int, len(a))
+	for _, v := range a {
+		seen[v]++
+	}
+	for _, v := range b {
+		seen[v]--
+		if seen[v] < 0 {
+			return false
+		}
+	}
+	return true
 }

@@ -161,6 +161,9 @@ func main() {
 	viper.RegisterAlias("tokensmith_bootstrap_policy_scopes_hint", "tokensmith-bootstrap-policy-scopes-hint")
 	viper.RegisterAlias("tokensmith_scopes", "tokensmith-scopes")
 	viper.RegisterAlias("tokensmith_refresh_skew_sec", "tokensmith-refresh-skew-sec")
+	viper.RegisterAlias("enable_auth", "enable-auth")
+	viper.RegisterAlias("enable_legacy_api", "enable-legacy-api")
+	viper.RegisterAlias("enable_metrics", "enable-metrics")
 
 	// Standardized TokenSmith env vars for cross-service UX consistency.
 	viper.BindEnv("tokensmith_url", "TOKENSMITH_URL")                                                   //nolint:errcheck

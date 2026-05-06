@@ -41,6 +41,8 @@ type ProviderConfig struct {
 	Type       string                   `yaml:"type"` // "hsm" or "yaml"
 	HSMConfig  *hsm.IntegrationConfig   `yaml:"hsm_config,omitempty"`
 	YAMLConfig *local.IntegrationConfig `yaml:"yaml_config,omitempty"`
+
+	HSMClient *hsm.HSMClient `yaml:"-"`
 }
 
 // NewFlexibleBootScriptController creates a controller with the specified provider
@@ -62,10 +64,18 @@ func NewFlexibleBootScriptController(bootClient client.Client, config ProviderCo
 			defaultConfig := hsm.DefaultIntegrationConfig()
 			config.HSMConfig = &defaultConfig
 		}
-
-		hsmIntegration, err := hsm.NewIntegrationService(*config.HSMConfig, bootClient, logger)
-		if err != nil {
-			return nil, err
+		var hsmIntegration *hsm.IntegrationService
+		var err error
+		if config.HSMClient == nil {
+			hsmIntegration, err = hsm.NewIntegrationService(*config.HSMConfig, bootClient, logger)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			hsmIntegration, err = hsm.NewIntegrationServiceWithClient(config.HSMClient, *config.HSMConfig, bootClient, logger)
+			if err != nil {
+				return nil, err
+			}
 		}
 		controller.nodeProvider = hsmIntegration
 		controller.syncProvider = hsmIntegration
