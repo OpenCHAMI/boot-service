@@ -108,6 +108,20 @@ func GenerateOpenAPISpec() *openapi3.T {
 	registerBootConfigurationPaths(spec)
 	registerNodePaths(spec)
 
+	// Register /health endpoint
+	healthOp := openapi3.NewOperation()
+	healthOp.OperationID = "health"
+	healthOp.Summary = "Service health"
+	healthOp.Description = "Returns service health information"
+	healthOp.Tags = []string{"Service"}
+	healthOp.Responses = openapi3.NewResponses()
+	healthOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Healthy").
+			WithJSONSchemaRef(&openapi3.SchemaRef{Value: openapi3.NewObjectSchema()}),
+	})
+	spec.Paths.Set("/health", &openapi3.PathItem{Get: healthOp})
+
 	// Register custom (non-Fabrica-generated) paths.
 	// Defined in openapi_extensions.go – safe to edit, never overwritten.
 	registerCustomOpenAPIPaths(spec)
@@ -126,6 +140,9 @@ func registerBMCPaths(spec *openapi3.T) {
 
 	updateReqSchema, _ := openapi3gen.NewSchemaRefForValue(&UpdateBMCRequest{}, spec.Components.Schemas)
 	spec.Components.Schemas["UpdateBMCRequest"] = updateReqSchema
+
+	statusSchema, _ := openapi3gen.NewSchemaRefForValue(&v1.BMCStatus{}, spec.Components.Schemas)
+	spec.Components.Schemas["BMCStatus"] = statusSchema
 
 	// Error response schema
 	if _, exists := spec.Components.Schemas["ErrorResponse"]; !exists {
@@ -223,6 +240,65 @@ func registerBMCPaths(spec *openapi3.T) {
 	updateOp.Responses.Set("404", errorResponse())
 	updateOp.Responses.Set("500", errorResponse())
 
+	// Patch BMC operation
+	patchOp := openapi3.NewOperation()
+	patchOp.OperationID = "patchBMC"
+	patchOp.Summary = "Patch a BMC resource"
+	patchOp.Description = "Partially updates an existing BMC resource using patch semantics"
+	patchOp.Tags = []string{"BMC"}
+	patchOp.RequestBody = patchRequestBody()
+	patchOp.Responses = openapi3.NewResponses()
+	patchOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Resource patched successfully").
+			WithJSONSchemaRef(&openapi3.SchemaRef{
+				Ref: "#/components/schemas/BMC",
+			}),
+	})
+	patchOp.Responses.Set("400", errorResponse())
+	patchOp.Responses.Set("404", errorResponse())
+	patchOp.Responses.Set("422", errorResponse())
+	patchOp.Responses.Set("500", errorResponse())
+
+	// Update BMC status operation
+	updateStatusOp := openapi3.NewOperation()
+	updateStatusOp.OperationID = "updateBMCStatus"
+	updateStatusOp.Summary = "Update BMC status"
+	updateStatusOp.Description = "Updates only the status subresource for an existing BMC"
+	updateStatusOp.Tags = []string{"BMC"}
+	updateStatusOp.RequestBody = &openapi3.RequestBodyRef{
+		Value: openapi3.NewRequestBody().
+			WithRequired(true).
+			WithJSONSchemaRef(&openapi3.SchemaRef{Ref: "#/components/schemas/BMCStatus"}),
+	}
+	updateStatusOp.Responses = openapi3.NewResponses()
+	updateStatusOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Status updated successfully").
+			WithJSONSchemaRef(&openapi3.SchemaRef{Ref: "#/components/schemas/BMC"}),
+	})
+	updateStatusOp.Responses.Set("400", errorResponse())
+	updateStatusOp.Responses.Set("404", errorResponse())
+	updateStatusOp.Responses.Set("500", errorResponse())
+
+	// Patch BMC status operation
+	patchStatusOp := openapi3.NewOperation()
+	patchStatusOp.OperationID = "patchBMCStatus"
+	patchStatusOp.Summary = "Patch BMC status"
+	patchStatusOp.Description = "Partially updates only the status subresource for an existing BMC"
+	patchStatusOp.Tags = []string{"BMC"}
+	patchStatusOp.RequestBody = patchRequestBody()
+	patchStatusOp.Responses = openapi3.NewResponses()
+	patchStatusOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Status patched successfully").
+			WithJSONSchemaRef(&openapi3.SchemaRef{Ref: "#/components/schemas/BMC"}),
+	})
+	patchStatusOp.Responses.Set("400", errorResponse())
+	patchStatusOp.Responses.Set("404", errorResponse())
+	patchStatusOp.Responses.Set("422", errorResponse())
+	patchStatusOp.Responses.Set("500", errorResponse())
+
 	// Delete BMC operation
 	deleteOp := openapi3.NewOperation()
 	deleteOp.OperationID = "deleteBMC"
@@ -255,7 +331,16 @@ func registerBMCPaths(spec *openapi3.T) {
 	itemPath := &openapi3.PathItem{
 		Get:    getOp,
 		Put:    updateOp,
+		Patch:  patchOp,
 		Delete: deleteOp,
+		Parameters: []*openapi3.ParameterRef{
+			{Value: uidParam},
+		},
+	}
+
+	statusPath := &openapi3.PathItem{
+		Put:   updateStatusOp,
+		Patch: patchStatusOp,
 		Parameters: []*openapi3.ParameterRef{
 			{Value: uidParam},
 		},
@@ -264,6 +349,7 @@ func registerBMCPaths(spec *openapi3.T) {
 	// Add paths to spec
 	spec.Paths.Set("/bmcs", collectionPath)
 	spec.Paths.Set("/bmcs/{uid}", itemPath)
+	spec.Paths.Set("/bmcs/{uid}/status", statusPath)
 }
 
 // registerBootConfigurationPaths registers OpenAPI paths for BootConfiguration resources
@@ -277,6 +363,9 @@ func registerBootConfigurationPaths(spec *openapi3.T) {
 
 	updateReqSchema, _ := openapi3gen.NewSchemaRefForValue(&UpdateBootConfigurationRequest{}, spec.Components.Schemas)
 	spec.Components.Schemas["UpdateBootConfigurationRequest"] = updateReqSchema
+
+	statusSchema, _ := openapi3gen.NewSchemaRefForValue(&v1.BootConfigurationStatus{}, spec.Components.Schemas)
+	spec.Components.Schemas["BootConfigurationStatus"] = statusSchema
 
 	// Error response schema
 	if _, exists := spec.Components.Schemas["ErrorResponse"]; !exists {
@@ -374,6 +463,65 @@ func registerBootConfigurationPaths(spec *openapi3.T) {
 	updateOp.Responses.Set("404", errorResponse())
 	updateOp.Responses.Set("500", errorResponse())
 
+	// Patch BootConfiguration operation
+	patchOp := openapi3.NewOperation()
+	patchOp.OperationID = "patchBootConfiguration"
+	patchOp.Summary = "Patch a BootConfiguration resource"
+	patchOp.Description = "Partially updates an existing BootConfiguration resource using patch semantics"
+	patchOp.Tags = []string{"BootConfiguration"}
+	patchOp.RequestBody = patchRequestBody()
+	patchOp.Responses = openapi3.NewResponses()
+	patchOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Resource patched successfully").
+			WithJSONSchemaRef(&openapi3.SchemaRef{
+				Ref: "#/components/schemas/BootConfiguration",
+			}),
+	})
+	patchOp.Responses.Set("400", errorResponse())
+	patchOp.Responses.Set("404", errorResponse())
+	patchOp.Responses.Set("422", errorResponse())
+	patchOp.Responses.Set("500", errorResponse())
+
+	// Update BootConfiguration status operation
+	updateStatusOp := openapi3.NewOperation()
+	updateStatusOp.OperationID = "updateBootConfigurationStatus"
+	updateStatusOp.Summary = "Update BootConfiguration status"
+	updateStatusOp.Description = "Updates only the status subresource for an existing BootConfiguration"
+	updateStatusOp.Tags = []string{"BootConfiguration"}
+	updateStatusOp.RequestBody = &openapi3.RequestBodyRef{
+		Value: openapi3.NewRequestBody().
+			WithRequired(true).
+			WithJSONSchemaRef(&openapi3.SchemaRef{Ref: "#/components/schemas/BootConfigurationStatus"}),
+	}
+	updateStatusOp.Responses = openapi3.NewResponses()
+	updateStatusOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Status updated successfully").
+			WithJSONSchemaRef(&openapi3.SchemaRef{Ref: "#/components/schemas/BootConfiguration"}),
+	})
+	updateStatusOp.Responses.Set("400", errorResponse())
+	updateStatusOp.Responses.Set("404", errorResponse())
+	updateStatusOp.Responses.Set("500", errorResponse())
+
+	// Patch BootConfiguration status operation
+	patchStatusOp := openapi3.NewOperation()
+	patchStatusOp.OperationID = "patchBootConfigurationStatus"
+	patchStatusOp.Summary = "Patch BootConfiguration status"
+	patchStatusOp.Description = "Partially updates only the status subresource for an existing BootConfiguration"
+	patchStatusOp.Tags = []string{"BootConfiguration"}
+	patchStatusOp.RequestBody = patchRequestBody()
+	patchStatusOp.Responses = openapi3.NewResponses()
+	patchStatusOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Status patched successfully").
+			WithJSONSchemaRef(&openapi3.SchemaRef{Ref: "#/components/schemas/BootConfiguration"}),
+	})
+	patchStatusOp.Responses.Set("400", errorResponse())
+	patchStatusOp.Responses.Set("404", errorResponse())
+	patchStatusOp.Responses.Set("422", errorResponse())
+	patchStatusOp.Responses.Set("500", errorResponse())
+
 	// Delete BootConfiguration operation
 	deleteOp := openapi3.NewOperation()
 	deleteOp.OperationID = "deleteBootConfiguration"
@@ -406,7 +554,16 @@ func registerBootConfigurationPaths(spec *openapi3.T) {
 	itemPath := &openapi3.PathItem{
 		Get:    getOp,
 		Put:    updateOp,
+		Patch:  patchOp,
 		Delete: deleteOp,
+		Parameters: []*openapi3.ParameterRef{
+			{Value: uidParam},
+		},
+	}
+
+	statusPath := &openapi3.PathItem{
+		Put:   updateStatusOp,
+		Patch: patchStatusOp,
 		Parameters: []*openapi3.ParameterRef{
 			{Value: uidParam},
 		},
@@ -415,6 +572,7 @@ func registerBootConfigurationPaths(spec *openapi3.T) {
 	// Add paths to spec
 	spec.Paths.Set("/bootconfigurations", collectionPath)
 	spec.Paths.Set("/bootconfigurations/{uid}", itemPath)
+	spec.Paths.Set("/bootconfigurations/{uid}/status", statusPath)
 }
 
 // registerNodePaths registers OpenAPI paths for Node resources
@@ -428,6 +586,9 @@ func registerNodePaths(spec *openapi3.T) {
 
 	updateReqSchema, _ := openapi3gen.NewSchemaRefForValue(&UpdateNodeRequest{}, spec.Components.Schemas)
 	spec.Components.Schemas["UpdateNodeRequest"] = updateReqSchema
+
+	statusSchema, _ := openapi3gen.NewSchemaRefForValue(&v1.NodeStatus{}, spec.Components.Schemas)
+	spec.Components.Schemas["NodeStatus"] = statusSchema
 
 	// Error response schema
 	if _, exists := spec.Components.Schemas["ErrorResponse"]; !exists {
@@ -525,6 +686,65 @@ func registerNodePaths(spec *openapi3.T) {
 	updateOp.Responses.Set("404", errorResponse())
 	updateOp.Responses.Set("500", errorResponse())
 
+	// Patch Node operation
+	patchOp := openapi3.NewOperation()
+	patchOp.OperationID = "patchNode"
+	patchOp.Summary = "Patch a Node resource"
+	patchOp.Description = "Partially updates an existing Node resource using patch semantics"
+	patchOp.Tags = []string{"Node"}
+	patchOp.RequestBody = patchRequestBody()
+	patchOp.Responses = openapi3.NewResponses()
+	patchOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Resource patched successfully").
+			WithJSONSchemaRef(&openapi3.SchemaRef{
+				Ref: "#/components/schemas/Node",
+			}),
+	})
+	patchOp.Responses.Set("400", errorResponse())
+	patchOp.Responses.Set("404", errorResponse())
+	patchOp.Responses.Set("422", errorResponse())
+	patchOp.Responses.Set("500", errorResponse())
+
+	// Update Node status operation
+	updateStatusOp := openapi3.NewOperation()
+	updateStatusOp.OperationID = "updateNodeStatus"
+	updateStatusOp.Summary = "Update Node status"
+	updateStatusOp.Description = "Updates only the status subresource for an existing Node"
+	updateStatusOp.Tags = []string{"Node"}
+	updateStatusOp.RequestBody = &openapi3.RequestBodyRef{
+		Value: openapi3.NewRequestBody().
+			WithRequired(true).
+			WithJSONSchemaRef(&openapi3.SchemaRef{Ref: "#/components/schemas/NodeStatus"}),
+	}
+	updateStatusOp.Responses = openapi3.NewResponses()
+	updateStatusOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Status updated successfully").
+			WithJSONSchemaRef(&openapi3.SchemaRef{Ref: "#/components/schemas/Node"}),
+	})
+	updateStatusOp.Responses.Set("400", errorResponse())
+	updateStatusOp.Responses.Set("404", errorResponse())
+	updateStatusOp.Responses.Set("500", errorResponse())
+
+	// Patch Node status operation
+	patchStatusOp := openapi3.NewOperation()
+	patchStatusOp.OperationID = "patchNodeStatus"
+	patchStatusOp.Summary = "Patch Node status"
+	patchStatusOp.Description = "Partially updates only the status subresource for an existing Node"
+	patchStatusOp.Tags = []string{"Node"}
+	patchStatusOp.RequestBody = patchRequestBody()
+	patchStatusOp.Responses = openapi3.NewResponses()
+	patchStatusOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Status patched successfully").
+			WithJSONSchemaRef(&openapi3.SchemaRef{Ref: "#/components/schemas/Node"}),
+	})
+	patchStatusOp.Responses.Set("400", errorResponse())
+	patchStatusOp.Responses.Set("404", errorResponse())
+	patchStatusOp.Responses.Set("422", errorResponse())
+	patchStatusOp.Responses.Set("500", errorResponse())
+
 	// Delete Node operation
 	deleteOp := openapi3.NewOperation()
 	deleteOp.OperationID = "deleteNode"
@@ -557,7 +777,16 @@ func registerNodePaths(spec *openapi3.T) {
 	itemPath := &openapi3.PathItem{
 		Get:    getOp,
 		Put:    updateOp,
+		Patch:  patchOp,
 		Delete: deleteOp,
+		Parameters: []*openapi3.ParameterRef{
+			{Value: uidParam},
+		},
+	}
+
+	statusPath := &openapi3.PathItem{
+		Put:   updateStatusOp,
+		Patch: patchStatusOp,
 		Parameters: []*openapi3.ParameterRef{
 			{Value: uidParam},
 		},
@@ -566,6 +795,22 @@ func registerNodePaths(spec *openapi3.T) {
 	// Add paths to spec
 	spec.Paths.Set("/nodes", collectionPath)
 	spec.Paths.Set("/nodes/{uid}", itemPath)
+	spec.Paths.Set("/nodes/{uid}/status", statusPath)
+}
+
+func patchRequestBody() *openapi3.RequestBodyRef {
+	patchSchema := &openapi3.SchemaRef{Value: openapi3.NewObjectSchema()}
+	return &openapi3.RequestBodyRef{
+		Value: &openapi3.RequestBody{
+			Required: true,
+			Content: openapi3.Content{
+				"application/merge-patch+json": &openapi3.MediaType{Schema: patchSchema},
+				"application/json-patch+json":  &openapi3.MediaType{Schema: patchSchema},
+				"application/shorthand-patch":  &openapi3.MediaType{Schema: patchSchema},
+				"application/json":             &openapi3.MediaType{Schema: patchSchema},
+			},
+		},
+	}
 }
 
 // Helper function for error responses
