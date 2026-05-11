@@ -13,6 +13,7 @@ TEST_TIMEOUT ?= 5m
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+DOCKER_GO_VERSION ?= $(shell awk '/^go / {print $$2; exit}' go.mod)
 LDFLAGS=-ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)"
 FABRICA_CMD ?= go run github.com/openchami/fabrica/cmd/fabrica@latest
 FABRICA_SOURCE_ARG ?=
@@ -87,7 +88,12 @@ run: build ## Build and run the application
 	./bin/$(BINARY_NAME)
 
 docker-build: ## Build Docker image
-	docker build -t $(BINARY_NAME):latest .
+	docker build -f Dockerfile.standalone \
+		--build-arg GO_VERSION=$(DOCKER_GO_VERSION) \
+		--build-arg VERSION=$(VERSION) \
+		--build-arg COMMIT=$(COMMIT) \
+		--build-arg DATE=$(DATE) \
+		-t $(BINARY_NAME):latest .
 
 docker-run: docker-build ## Build and run Docker container
 	docker run --rm $(BINARY_NAME):latest
