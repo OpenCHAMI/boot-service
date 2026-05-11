@@ -31,13 +31,5 @@ jobs:
         with:
           go-version: stable
 
-      - name: Run code generation
-        run: make generate
-
       - name: Verify generated code is committed
-        run: |
-          if ! git diff --quiet; then
-            echo "Generated files are out of sync. Run 'make generate' and commit the results."
-            git --no-pager diff --stat
-            exit 1
-          fi
+        run: make generate-check
