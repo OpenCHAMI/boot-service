@@ -1,165 +1,102 @@
 <!--
-SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+SPDX-FileCopyrightText: 2026 OpenCHAMI Contributors
 
 SPDX-License-Identifier: MIT
 -->
 
 # Authentication Testing Framework
 
-This document describes the comprehensive authentication testing framework built for the OpenCHAMI boot service using TokenSmith middleware.
+This document describes the auth test utilities and integration tests in
+`pkg/auth`.
 
-## 🎉 Successfully Implemented
+It covers the package-level auth helpers, not route protection in the current
+server entrypoint.
 
-### ✅ TokenSmith Integration
-- **Complete middleware integration** with OpenCHAMI TokenSmith
-- **RSA key parsing** from PEM format for static key validation
-- **NIST-compliant JWT tokens** with all required claims (auth_level, auth_factors, etc.)
-- **Multiple authentication modes**: disabled, non-enforcing, enforcing
-- **Scope-based authorization** with granular permissions
+## What Is Covered Today
 
-### ✅ Testing Framework
-- **Local JWT generation** with properly formatted RSA key pairs
-- **Test utilities** for creating tokens with various scopes and claims
-- **Integration tests** covering all authentication scenarios
-- **Example server** demonstrating practical usage patterns
+The current integration tests cover:
 
-## Testing Capabilities
+- non-enforcing mode
+- static-key JWT validation
+- scope middleware behavior
+- service-to-service token checks
+- expired token handling
+- invalid token handling
 
-### 1. **Non-Enforcing Mode** ✅
+The current tests use locally generated RSA keys and static-key validation.
+
+## Key Test Helpers
+
+From `pkg/auth/testing.go`:
+
+- `TestingConfig(publicKeyPEM string)`
+- `NonEnforcingConfig()`
+- `GenerateTestKeyPair()`
+- `CreateTestToken(...)`
+- `CreateTestTokenWithScopes(...)`
+- `CreateServiceToken(...)`
+- `CreateStaticKeyConfig(...)`
+
+## Example Test Flows
+
+### Non-Enforcing Mode
+
 ```go
 config := NonEnforcingConfig()
-// - Allows requests without tokens
-// - Logs authentication errors but doesn't block
-// - Perfect for development and debugging
+middleware := config.CreateMiddleware(nil)
 ```
 
-### 2. **Static Key Validation** ✅
+### Static-Key Validation
+
 ```go
 keyPair, _ := GenerateTestKeyPair()
 config := CreateStaticKeyConfig(keyPair.PublicKeyPEM)
-// - Uses locally generated RSA keys
-// - Validates JWT signatures properly
-// - Supports all TokenSmith claim requirements
+middleware := config.CreateMiddleware(nil)
 ```
 
-### 3. **Scope-Based Authorization** ✅
+### Scope Checks
+
 ```go
-// Create tokens with specific scopes
-readToken := CreateTestTokenWithScopes(keyPair, []string{"read"})
-writeToken := CreateTestTokenWithScopes(keyPair, []string{"write"})
-
-// Protect routes with scope requirements
-middleware := CreateScopeMiddleware("read", "write")
+tokenWithReadScope, _ := CreateTestTokenWithScopes(keyPair, []string{"read"})
+scopeMiddleware := CreateScopeMiddleware("read", "write")
 ```
 
-### 4. **Service-to-Service Authentication** ✅
+### Service-to-Service Checks
+
 ```go
-// Service tokens with proper NIST compliance
-serviceToken := CreateServiceToken(keyPair, "client-service", "boot-service", []string{"service:boot"})
+serviceToken, _ := CreateServiceToken(keyPair, "test-service", "boot-service", []string{"service:boot"})
+serviceMiddleware := CreateServiceTokenMiddleware("boot-service")
 ```
 
-## Test Results
+## What Is Not Covered Here
 
-All tests passing:
-```
-=== RUN   TestAuthenticationIntegration
-=== RUN   TestAuthenticationIntegration/NonEnforcingMode                     ✅ PASS
-=== RUN   TestAuthenticationIntegration/ValidTokenWithStaticKey             ✅ PASS
-=== RUN   TestAuthenticationIntegration/ScopeBasedAuthorization             ✅ PASS
-=== RUN   TestAuthenticationIntegration/ServiceToServiceAuthentication      ✅ PASS
-=== RUN   TestAuthenticationIntegration/ExpiredTokenHandling                ✅ PASS
-=== RUN   TestAuthenticationIntegration/InvalidTokenHandling                ✅ PASS
---- PASS: TestAuthenticationIntegration (0.72s)
-```
+- attaching auth middleware to the standalone server's generated routes
+- policy engine wiring in `cmd/server`
+- HSM bootstrap-token exchange in `cmd/server/main.go`
 
-## Key Issues Resolved
+Those are separate concerns from the package tests.
 
-### 🔧 **RSA Key Parsing**
-**Problem**: TokenSmith middleware expected `*rsa.PublicKey` but was getting string
-**Solution**: Added proper PEM parsing in `config.go`:
-```go
-keyPem, _ := pem.Decode([]byte(c.JWTPublicKey))
-pubKey, _ := x509.ParsePKIXPublicKey(keyPem.Bytes)
-rsaKey := pubKey.(*rsa.PublicKey)
-```
+## JWKS Status
 
-### 🔧 **Non-Enforcing Mode**
-**Problem**: Middleware was still requiring tokens even in non-enforcing mode
-**Solution**: Used `AllowEmptyToken: true` option:
-```go
-config.AllowEmptyToken = true  // Allow requests without tokens
-config.NonEnforcing = true     // Log errors but don't fail
+JWKS support already exists in `pkg/auth/config.go`.
+
+Current auth integration tests focus on static-key validation because it is a
+cheap and deterministic test surface. A lack of JWKS-specific tests does not
+mean JWKS support is absent.
+
+## Example Server
+
+The example server at `examples/auth-testing/main.go` remains useful for manual
+exploration of the auth package behavior.
+
+Run it with:
+
+```bash
+go run examples/auth-testing/main.go
 ```
 
-### 🔧 **NIST Claims Compliance**
-**Problem**: TokenSmith requires specific claims for NIST SP 800-63B compliance
-**Solution**: Added all required claims to test tokens:
-```go
-claims := &token.TSClaims{
-    AuthLevel:   "IAL2",
-    AuthFactors: 2,
-    AuthMethods: []string{"password", "mfa"},
-    SessionID:   "test-session-123",
-    SessionExp:  now.Add(1 * time.Hour).Unix(),
-    AuthEvents:  []string{"login"},
-    // ... other standard JWT claims
-}
-```
+## Summary
 
-### 🔧 **Scope Consistency**
-**Problem**: Mismatched scope names between tokens and middleware expectations
-**Solution**: Standardized on simple scope names (`read`, `write`, `service:boot`)
-
-## Usage Examples
-
-### Development Mode (No Auth)
-```go
-config := auth.DevConfig()  // Disabled authentication
-middleware := config.CreateMiddleware(logger)
-```
-
-### Non-Enforcing Mode (Logs Only)
-```go
-config := auth.NonEnforcingConfig()  // Allows empty tokens
-middleware := config.CreateMiddleware(logger)
-```
-
-### Production Mode (Full Validation)
-```go
-config := auth.DefaultConfig()
-config.JWTPublicKey = publicKeyPEM
-middleware := config.CreateMiddleware(logger)
-```
-
-### Scope Protection
-```go
-// Protect routes requiring specific scopes
-readOnlyMiddleware := auth.CreateScopeMiddleware("read")
-writeMiddleware := auth.CreateScopeMiddleware("read", "write")
-```
-
-## Manual Testing
-
-The example server (`examples/auth-testing/main.go`) provides:
-- **Generated test tokens** for immediate use
-- **Multiple auth configurations** (dev, non-enforcing, enforcing)
-- **Sample curl commands** for manual testing
-- **Different route protections** demonstrating scope requirements
-
-Run with: `go run examples/auth-testing/main.go`
-
-## Files Created/Modified
-
-- `pkg/auth/config.go` - RSA key parsing fixes
-- `pkg/auth/testing.go` - Test utilities and token generation
-- `pkg/auth/integration_test.go` - Comprehensive integration tests
-- `examples/auth-testing/main.go` - Practical demonstration server
-
-## Next Steps
-
-1. **JWKS Support**: Add integration with JWKS URLs for dynamic key rotation
-2. **Policy Integration**: Connect with OpenCHAMI policy engines for dynamic authorization
-3. **Metrics**: Add authentication metrics and monitoring
-4. **Documentation**: Complete API documentation with authentication examples
-
-The authentication framework is now **production-ready** with comprehensive testing capabilities for both local development and integration with OpenCHAMI TokenSmith in deployed environments.
+The auth package is tested and reusable. The most important distinction is that
+these package tests do not imply that the standalone server binary is currently
+wiring request auth middleware onto its route tree.

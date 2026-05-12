@@ -59,8 +59,6 @@ GOPROXY=direct go build -o bin/boot-service ./cmd/server
 make build
 ```
 
-**Note**: `go.mod` has `replace github.com/openchami/fabrica => ../fabrica` for local development.
-
 ### Running
 
 ```bash
@@ -68,10 +66,10 @@ make build
 cp config.example.yaml config.yaml
 
 # Run with config file
-./bin/boot-service serve
+./bin/server serve
 
 # Override with flags
-./bin/boot-service serve --port 8082 --enable-auth --hsm-url http://localhost:27779
+./bin/server serve --port 8082 --enable-auth --hsm-url http://localhost:27779
 ```
 
 ### Testing
@@ -148,7 +146,7 @@ Three templates exist: `DefaultIPXETemplate`, `MinimalIPXETemplate`, `ErrorIPXET
 
 ### TokenSmith Integration
 
-Authentication is **optional** and controlled via config. Three modes:
+The repository contains a reusable `pkg/auth` package with three common modes:
 
 ```go
 // Development - auth disabled
@@ -162,6 +160,11 @@ config := auth.DefaultConfig()
 config.JWKSURL = "https://auth.openchami.org/.well-known/jwks.json"
 config.RequiredScopes = []string{"boot:read"}
 ```
+
+**Important current runtime note**: the standalone server in `cmd/server/main.go`
+does not currently attach `pkg/auth.CreateMiddleware(...)` to its route tree.
+`enable_auth` currently affects startup validation and TokenSmith-backed HSM
+service-token exchange, not documented request-time route enforcement.
 
 ### Middleware Application
 
@@ -200,17 +203,15 @@ Common scopes: `boot:read`, `boot:write`, `boot:admin`, `node:read`, `node:write
 # config.yaml structure
 port: 8080
 enable_auth: false
-enable_metrics: true
+enable_metrics: false
 enable_legacy_api: true
+metrics_port: 9090
 hsm_url: "http://localhost:27779"
-
-auth:
-  enabled: false
-  jwks_url: "https://auth.example.com/.well-known/jwks.json"
-  required_scopes: ["boot:read"]
+tokensmith_url: "http://localhost:8080"
 ```
 
-Environment variables use prefix `BOOT_SERVICE_` (e.g., `BOOT_SERVICE_PORT=8082`).
+Environment variables use prefix `BOOT_SERVICE_` for standard server settings,
+plus `TOKENSMITH_*` for bootstrap-token exchange settings.
 
 ## External Service Integration
 
@@ -218,17 +219,20 @@ Environment variables use prefix `BOOT_SERVICE_` (e.g., `BOOT_SERVICE_PORT=8082`
 
 **Auto-enabled** when `--hsm-url` flag is provided or `hsm_url` is set in config.
 
-**Current Status**: HSM client is initialized and validates connectivity, but not yet fully integrated into the boot script generation pipeline.
+**Current Status**: HSM-backed node resolution is wired into the server through
+`FlexibleBootScriptController` in `cmd/server/server_extensions.go` when
+`hsm_url` is configured.
 
 **Implementation**:
 - HSM client: `pkg/clients/hsm/client.go` - HTTP client for HSM v2 API with caching
 - Integration service: `pkg/clients/hsm/integration.go` - Wraps HSM client with node provider interface
 - Flexible controller: `pkg/controllers/bootscript/flexible_controller.go` - Supports pluggable node providers
 
-**Integration Options** (see TODOs in `cmd/server/main.go`):
-1. **FlexibleBootScriptController**: Use `NewFlexibleBootScriptController` with HSM provider config
-2. **Controller-level**: Add NodeProvider parameter to BootScriptController
-3. **Storage-level**: Add HSM fallback in storage.GetNode() for transparent integration
+**Current Integration Path**:
+1. Build an HSM client in `cmd/server/main.go`
+2. Create `FlexibleBootScriptController` in `cmd/server/server_extensions.go`
+3. Register legacy routes with `NewLegacyHandlerWithController(...)`
+4. Start optional HSM background sync when enabled
 
 **Node resolution with HSM** (when integrated):
 - XName lookups: Direct HSM component query (`/hsm/v2/State/Components/{xname}`)
@@ -237,7 +241,9 @@ Environment variables use prefix `BOOT_SERVICE_` (e.g., `BOOT_SERVICE_PORT=8082`
 
 **Caching**: HSM responses are cached (default: 5 minutes) to reduce load on HSM service.
 
-**Current Limitation**: Legacy BSS API handlers use standard BootScriptController which queries local storage only. To enable HSM for boot scripts, modify handlers to accept controller interface and pass FlexibleBootScriptController instance.
+**Current Limitation**: The legacy `/boot/v1/bootscript` HTTP route ignores the
+`profile` query parameter and always asks the controller to auto-resolve the
+best configuration across profiles.
 
 ### TokenSmith
 
