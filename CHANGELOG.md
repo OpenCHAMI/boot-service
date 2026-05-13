@@ -15,6 +15,8 @@ Changes remain under `Unreleased` until they ship in the next tagged release.
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-05-13
+
 ### Added
 
 - Added `GET /health` and a generated `client health` command for quick service checks.
