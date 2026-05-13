@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-.PHONY: help build test test-integration lint clean install run docker-build docker-run release-test check-no-pkg-resources-imports generate generate-check dev
+.PHONY: help build test test-integration lint clean install run container-build container-run release-test check-no-pkg-resources-imports generate generate-check dev
 
 # Variables
 BINARY_NAME=boot-service
@@ -13,7 +13,8 @@ TEST_TIMEOUT ?= 5m
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
-DOCKER_GO_VERSION ?= $(shell awk '/^go / {print $$2; exit}' go.mod)
+CONTAINER_PROG ?= $(shell command -v docker 2>/dev/null)
+CONTAINER_GO_VERSION ?= $(shell awk '/^go / {print $$2; exit}' go.mod)
 FABRICA_VERSION ?= $(shell awk '/github.com\/openchami\/fabrica[[:space:]]+v/ {print $$2; exit}' go.mod)
 LDFLAGS=-ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)"
 FABRICA_CMD ?= go run github.com/openchami/fabrica/cmd/fabrica@$(FABRICA_VERSION)
@@ -88,16 +89,16 @@ tidy: ## Tidy go.mod
 run: build ## Build and run the application
 	./bin/$(BINARY_NAME)
 
-docker-build: ## Build Docker image
-	docker build -f Dockerfile.standalone \
-		--build-arg GO_VERSION=$(DOCKER_GO_VERSION) \
+container-build: ## Build container image
+	$(CONTAINER_PROG) build -f Dockerfile.standalone \
+		--build-arg GO_VERSION=$(CONTAINER_GO_VERSION) \
 		--build-arg VERSION=$(VERSION) \
 		--build-arg COMMIT=$(COMMIT) \
 		--build-arg DATE=$(DATE) \
 		-t $(BINARY_NAME):latest .
 
-docker-run: docker-build ## Build and run Docker container
-	docker run --rm $(BINARY_NAME):latest
+container-run: container-build ## Build and run container
+	$(CONTAINER_PROG) run --rm $(BINARY_NAME):latest
 
 release-snapshot: ## Create a snapshot release with GoReleaser
 	goreleaser release --snapshot --clean
