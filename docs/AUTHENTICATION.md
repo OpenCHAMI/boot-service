@@ -86,11 +86,11 @@ tokensmith_refresh_skew_sec: 120
 
 Standardized environment variables:
 
-- `TOKENSMITH_URL`
-- `TOKENSMITH_BOOTSTRAP_TOKEN`
-- `TOKENSMITH_TARGET_SERVICE`
-- `TOKENSMITH_BOOTSTRAP_POLICY_SCOPES_HINT`
-- `TOKENSMITH_REFRESH_SKEW_SEC`
+- `TOKENSMITH_URL`: base TokenSmith URL used when `enable_auth` triggers startup validation or HSM service-token exchange, for example `http://localhost:8080`
+- `TOKENSMITH_BOOTSTRAP_TOKEN`: bootstrap JWT exchanged for short-lived HSM service tokens
+- `TOKENSMITH_TARGET_SERVICE`: target service name requested from TokenSmith, typically `hsm`
+- `TOKENSMITH_BOOTSTRAP_POLICY_SCOPES_HINT`: optional scope hint used in diagnostics, for example `hsm:read`
+- `TOKENSMITH_REFRESH_SKEW_SEC`: refresh skew in seconds before a cached service token is treated as stale
 
 Deprecated compatibility environment variable:
 

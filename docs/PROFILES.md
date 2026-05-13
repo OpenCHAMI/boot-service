@@ -17,7 +17,7 @@ same:
 1. The boot script controller supports requested profiles and fallback to the default profile.
 2. The legacy HTTP bootscript endpoint ignores the `profile` query parameter and auto-selects the best match across profiles.
 
-That distinction matters more than anything else in this document.
+**That distinction matters more than anything else in this document.**
 
 ## Profile Model
 
@@ -78,15 +78,15 @@ curl -X POST http://boot-service:8080/bootconfigurations \
 
 Useful fields on `BootConfiguration.spec`:
 
-- `profile`
-- `hosts`
-- `macs`
-- `nids`
-- `groups`
-- `kernel`
-- `initrd`
-- `params`
-- `priority`
+- `profile`: logical profile label such as `compute` or `debug`
+- `hosts`: XName or hostname glob patterns used for node matching
+- `macs`: exact boot MAC addresses with the highest match score
+- `nids`: numeric node identifiers used for explicit node targeting
+- `groups`: group labels matched against node group membership
+- `kernel`: kernel image URL served to iPXE
+- `initrd`: initramfs image URL served to iPXE
+- `params`: kernel command-line arguments appended to the boot entry
+- `priority`: tie-breaker used after the match score is computed
 
 ## Controller Behavior
 

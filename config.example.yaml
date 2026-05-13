@@ -19,26 +19,37 @@
 # SERVER
 # =============================================================================
 
+# Main HTTP listen port for the API server.
 port: 8080
+# Interface to bind for the main HTTP listener.
 host: "0.0.0.0"
+# Read deadline in seconds for inbound HTTP requests.
 read_timeout: 30
+# Write deadline in seconds for outbound HTTP responses.
 write_timeout: 30
+# Keep-alive timeout in seconds for idle connections.
 idle_timeout: 120
 
 # =============================================================================
 # STORAGE
 # =============================================================================
 
+# Directory used by the file-backed storage implementation.
 data_dir: "./data"
+# Storage backend type. The current server supports "file".
 storage_type: "file"
 
 # =============================================================================
 # FEATURE FLAGS
 # =============================================================================
 
+# Enables TokenSmith-dependent startup validation and HSM token exchange.
 enable_auth: false
+# Enables Prometheus metrics endpoints.
 enable_metrics: false
+# Controls legacy BSS-compatible endpoints other than /boot/v1/bootscript.
 enable_legacy_api: true
+# Metrics listener port used when enable_metrics is true.
 metrics_port: 9090
 
 # =============================================================================
@@ -53,6 +64,7 @@ tokensmith_url: ""
 # Prefer environment variable TOKENSMITH_BOOTSTRAP_TOKEN for real deployments.
 # tokensmith_bootstrap_token: "<bootstrap-jwt>"
 
+# Target service name requested during TokenSmith service-token exchange.
 tokensmith_target_service: "hsm"
 
 # Optional comma-separated scope hint used for diagnostics when exchanging HSM
@@ -62,11 +74,14 @@ tokensmith_bootstrap_policy_scopes_hint: ""
 # Deprecated legacy alias still accepted by current code.
 # tokensmith_scopes: "hsm:read"
 
+# Refresh skew in seconds applied before service tokens are considered stale.
 tokensmith_refresh_skew_sec: 120
 
 # HSM-backed node resolution is enabled when this URL is provided.
 hsm_url: ""
+# Enables background synchronization against the HSM provider.
 hsm_sync_enabled: true
+# Interval in minutes between HSM background sync runs.
 hsm_sync_interval: 5
 
 # =============================================================================

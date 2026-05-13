@@ -205,6 +205,8 @@ port: 8080
 enable_auth: false
 enable_metrics: false
 enable_legacy_api: true
+# metrics_port is configured separately because it becomes active as soon as
+# metrics are enabled, even though metrics default to off.
 metrics_port: 9090
 hsm_url: "http://localhost:27779"
 tokensmith_url: "http://localhost:8080"

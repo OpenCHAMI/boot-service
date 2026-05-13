@@ -28,9 +28,9 @@ startup path.
 
 3. Override settings with flags or environment variables when needed.
 
-## Configuration Precedence
+## Configuration Precedence Order
 
-The server resolves configuration in this order:
+The server applies configuration in this precedence order:
 
 1. Command-line flags
 2. Environment variables
@@ -45,41 +45,39 @@ environment variables.
 
 ### Server and Storage
 
-```yaml
-port: 8080
-host: "0.0.0.0"
-read_timeout: 30
-write_timeout: 30
-idle_timeout: 120
-
-data_dir: "./data"
-storage_type: "file"
-```
+| Key | Example | Description |
+| --- | --- | --- |
+| `port` | `8080` | Main HTTP listen port for the API router. |
+| `host` | `"0.0.0.0"` | Interface address bound by the main HTTP listener. |
+| `read_timeout` | `30` | Request read timeout in seconds. |
+| `write_timeout` | `30` | Response write timeout in seconds. |
+| `idle_timeout` | `120` | Keep-alive timeout in seconds for idle connections. |
+| `data_dir` | `"./data"` | Filesystem path used by the file-backed storage implementation. |
+| `storage_type` | `"file"` | Storage backend selector. The current server supports `file`. |
 
 ### Feature Flags
 
-```yaml
-enable_auth: false
-enable_metrics: false
-enable_legacy_api: true
-metrics_port: 9090
-```
+| Key | Example | Description |
+| --- | --- | --- |
+| `enable_auth` | `false` | Enables TokenSmith-related startup validation and HSM service-token exchange. It does not currently attach request middleware in `cmd/server/main.go`. |
+| `enable_metrics` | `false` | Enables Prometheus metrics exposure. |
+| `enable_legacy_api` | `true` | Keeps the legacy BSS-compatible endpoints enabled. `GET /boot/v1/bootscript` remains available even when this is `false`. |
+| `metrics_port` | `9090` | Port used for the dedicated metrics listener once `enable_metrics` is set to `true`. |
 
 `enable_legacy_api: false` still leaves `GET /boot/v1/bootscript` available for
 node boot flow. It only disables the rest of the legacy BSS compatibility API.
 
 ### TokenSmith and HSM
 
-```yaml
-tokensmith_url: ""
-tokensmith_target_service: "hsm"
-tokensmith_bootstrap_policy_scopes_hint: ""
-tokensmith_refresh_skew_sec: 120
-
-hsm_url: ""
-hsm_sync_enabled: true
-hsm_sync_interval: 5
-```
+| Key | Example | Description |
+| --- | --- | --- |
+| `tokensmith_url` | `"http://localhost:8080"` | Base URL for TokenSmith when startup validation or HSM token exchange is enabled. |
+| `tokensmith_target_service` | `"hsm"` | Service name requested during TokenSmith service-token exchange. |
+| `tokensmith_bootstrap_policy_scopes_hint` | `"hsm:read"` | Optional comma-separated scope hint used for diagnostics during bootstrap exchange. |
+| `tokensmith_refresh_skew_sec` | `120` | Number of seconds before expiry that cached service tokens should be treated as stale. |
+| `hsm_url` | `"http://localhost:27779"` | Enables HSM-backed node resolution when set. |
+| `hsm_sync_enabled` | `true` | Turns the optional background HSM sync loop on or off. |
+| `hsm_sync_interval` | `5` | Background HSM sync interval in minutes. |
 
 Optional bootstrap token input:
 
