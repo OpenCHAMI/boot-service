@@ -1,311 +1,184 @@
 <!--
-SPDX-FileCopyrightText: 2025 OpenCHAMI Contributors
+SPDX-FileCopyrightText: 2026 OpenCHAMI Contributors
 
 SPDX-License-Identifier: MIT
 -->
 
 # Configuration Guide
 
-This document explains how to configure the OpenCHAMI boot service.
+This document describes the configuration keys the current server binary reads
+from `cmd/server/main.go`.
+
+If a key is not listed here, assume it is not currently consumed by the server
+startup path.
 
 ## Quick Start
 
-1. **Copy the example configuration**:
+1. Copy the example configuration:
+
    ```bash
    cp config.example.yaml config.yaml
    ```
 
-2. **Edit for your environment**:
+2. Start the service:
+
    ```bash
-   # Edit the configuration file
-   nano config.yaml  # or your preferred editor
+   ./bin/server serve
    ```
 
-3. **Start the service**:
-   ```bash
-   ./bin/boot-service serve
-   ```
+3. Override settings with flags or environment variables when needed.
 
-## Configuration Methods
+## Configuration Precedence Order
 
-The boot service supports multiple configuration methods in order of precedence:
+The server applies configuration in this precedence order:
 
-1. **Command-line flags** (highest priority)
-2. **Environment variables** (e.g., `BOOT_SERVICE_PORT=8082`)
-3. **Configuration file** (`config.yaml`)
-4. **Default values** (lowest priority)
+1. Command-line flags
+2. Environment variables
+3. `config.yaml`
+4. Built-in defaults
 
-## Boot Profiles
+The standard server environment variable prefix is `BOOT_SERVICE_`. TokenSmith
+bootstrap settings for HSM auth also support standardized `TOKENSMITH_*`
+environment variables.
 
-**⚠️ This section is an overview. See [PROFILES.md](PROFILES.md) for comprehensive documentation.**
+## Supported Runtime Keys
 
-Boot profiles allow you to organize boot configurations by operational scenario or node type:
+### Server and Storage
 
-```bash
-# Standard compute profile
-curl "http://boot-service:8080/boot/v1/bootscript?mac=aa:bb:cc:dd:ee:ff&profile=compute"
+| Key | Example | Description |
+| --- | --- | --- |
+| `port` | `8080` | Main HTTP listen port for the API router. |
+| `host` | `"0.0.0.0"` | Interface address bound by the main HTTP listener. |
+| `read_timeout` | `30` | Request read timeout in seconds. |
+| `write_timeout` | `30` | Response write timeout in seconds. |
+| `idle_timeout` | `120` | Keep-alive timeout in seconds for idle connections. |
+| `data_dir` | `"./data"` | Filesystem path used by the file-backed storage implementation. |
+| `storage_type` | `"file"` | Storage backend selector. The current server supports `file`. |
 
-# Debug profile
-curl "http://boot-service:8080/boot/v1/bootscript?host=x0c0s0b0n0&profile=debug"
+### Feature Flags
 
-# Default profile (omit profile parameter)
-curl "http://boot-service:8080/boot/v1/bootscript?nid=42"
-```
+| Key | Example | Description |
+| --- | --- | --- |
+| `enable_auth` | `false` | Enables TokenSmith-related startup validation and HSM service-token exchange. It does not currently attach request middleware in `cmd/server/main.go`. |
+| `enable_metrics` | `false` | Enables Prometheus metrics exposure. |
+| `enable_legacy_api` | `true` | Keeps the legacy BSS-compatible endpoints enabled. `GET /boot/v1/bootscript` remains available even when this is `false`. |
+| `metrics_port` | `9090` | Port used for the dedicated metrics listener once `enable_metrics` is set to `true`. |
 
-Boot configurations specify a profile in their spec:
+`enable_legacy_api: false` still leaves `GET /boot/v1/bootscript` available for
+node boot flow. It only disables the rest of the legacy BSS compatibility API.
+
+### TokenSmith and HSM
+
+| Key | Example | Description |
+| --- | --- | --- |
+| `tokensmith_url` | `"http://localhost:8080"` | Base URL for TokenSmith when startup validation or HSM token exchange is enabled. |
+| `tokensmith_target_service` | `"hsm"` | Service name requested during TokenSmith service-token exchange. |
+| `tokensmith_bootstrap_policy_scopes_hint` | `"hsm:read"` | Optional comma-separated scope hint used for diagnostics during bootstrap exchange. |
+| `tokensmith_refresh_skew_sec` | `120` | Number of seconds before expiry that cached service tokens should be treated as stale. |
+| `hsm_url` | `"http://localhost:27779"` | Enables HSM-backed node resolution when set. |
+| `hsm_sync_enabled` | `true` | Turns the optional background HSM sync loop on or off. |
+| `hsm_sync_interval` | `5` | Background HSM sync interval in minutes. |
+
+Optional bootstrap token input:
 
 ```yaml
-apiVersion: boot.openchami.io/v1
-kind: BootConfiguration
-metadata:
-  name: compute-standard
-spec:
-  profile: "compute"           # Optional profile identifier
-  kernel: "http://files.openchami.org/vmlinuz-compute"
-  initrd: "http://files.openchami.org/initramfs-compute.img"
-  params: "console=ttyS0,115200"
+# tokensmith_bootstrap_token: "<bootstrap-jwt>"
 ```
 
-Key behaviors:
+Environment fallback:
 
-- Configurations without a profile are treated as the **default** profile
-- When requesting a profile not found, the service falls back to the default
-- Higher priority scores and exact identifier matches determine selection within a profile
+```bash
+export TOKENSMITH_BOOTSTRAP_TOKEN="<bootstrap-jwt>"
+```
 
-→ **Read [PROFILES.md](PROFILES.md)** for detailed examples, selection logic, best practices, and migration guides.
+Deprecated compatibility input still accepted:
 
-### Configuration File
+```yaml
+# tokensmith_scopes: "hsm:read"
+```
 
-The recommended approach for most deployments is to use a configuration file:
+## Current Auth Behavior
 
-- **Location**: `config.yaml` in the working directory
-- **Format**: YAML
-- **Example**: See `config.example.yaml` for comprehensive documentation
-- **Git**: The actual `config.yaml` is gitignored to prevent accidental commits of sensitive data
+`enable_auth` does **not** currently attach the `pkg/auth` request middleware to
+the server routes in `cmd/server/main.go`.
 
-### Environment Variables
+Today, `enable_auth` affects the server in these ways:
 
-Useful for containerized deployments:
+- startup validation requires `tokensmith_url` when `enable_auth: true`
+- HSM service-token exchange is enabled only when `enable_auth: true`
+- if `hsm_url` and `tokensmith_url` are both set while auth is enabled, a bootstrap token is required
+
+If `enable_auth: false`, `tokensmith_url` is ignored for HSM integration.
+
+For package-level JWT and JWKS middleware usage, see `docs/AUTHENTICATION.md`.
+
+## Metrics Behavior
+
+Metrics are disabled by default. When enabled, the server:
+
+- serves `/metrics` on the main router
+- starts a separate metrics listener on `host:metrics_port`
+
+## Boot Profiles and HTTP Behavior
+
+Boot profiles are stored on `BootConfiguration.spec.profile`, but the legacy
+HTTP bootscript endpoint currently ignores the `profile` query parameter and
+auto-selects the best configuration across profiles.
+
+See `docs/PROFILES.md` for the exact behavior split between controller logic and
+the legacy HTTP endpoint.
+
+## Unsupported Older Examples
+
+Older docs and examples may still mention nested sections such as:
+
+- `auth:`
+- `tokensmith:`
+- `logging:`
+- `health:`
+- `limits:`
+- `development:`
+- `bss:`
+
+Those sections are not currently unmarshaled by the server config struct in
+`cmd/server/main.go`.
+
+## Example Environment Overrides
 
 ```bash
 export BOOT_SERVICE_PORT=8082
-export BOOT_SERVICE_ENABLE_AUTH=true
-export BOOT_SERVICE_HSM_URL=http://smd:27779
-./bin/boot-service serve
+export BOOT_SERVICE_ENABLE_METRICS=true
+export BOOT_SERVICE_HSM_URL=http://localhost:27779
+./bin/server serve
 ```
 
-### Command-line Flags
-
-Useful for quick testing and overrides:
+For HSM service-token exchange:
 
 ```bash
-./bin/boot-service serve --port 8082 --enable-auth --hsm-url http://localhost:27779
+export BOOT_SERVICE_ENABLE_AUTH=true
+export TOKENSMITH_URL=http://localhost:8080
+export TOKENSMITH_BOOTSTRAP_TOKEN="<bootstrap-jwt>"
+./bin/server serve --hsm-url http://localhost:27779
 ```
 
-## Configuration Sections
+## Validation and Troubleshooting
 
-### Core Server Settings
+The current startup validation fails when:
 
-```yaml
-port: 8082                    # HTTP server port
-host: "0.0.0.0"              # Bind interface
-read_timeout: 30             # Request read timeout (seconds)
-write_timeout: 30            # Response write timeout (seconds)
-idle_timeout: 120            # Connection idle timeout (seconds)
-```
+- `port` is outside the valid TCP range
+- `enable_auth: true` but `tokensmith_url` is empty
+- `tokensmith_refresh_skew_sec` is negative
+- `enable_auth: true`, `hsm_url` is set, `tokensmith_url` is set, and no bootstrap token is available
 
-### Storage Configuration
+Common checks:
 
-```yaml
-data_dir: "./data"           # Directory for file storage
-storage_type: "file"         # Storage backend (file, database)
-```
-
-### Feature Toggles
-
-```yaml
-enable_auth: false           # Enable JWT authentication
-enable_metrics: true         # Enable Prometheus metrics
-enable_legacy_api: true      # Enable BSS-compatible API
-metrics_port: 9092          # Metrics endpoint port
-```
-
-### Authentication (when enable_auth: true)
-
-```yaml
-auth:
-  enabled: true
-  jwks_url: "https://auth.example.com/.well-known/jwks.json"
-  jwt_issuer: "https://auth.example.com"
-  jwt_audience: "boot-service"
-  required_scopes: ["boot:read"]
-```
-
-### External Services
-
-```yaml
-hsm_url: "http://localhost:27779"    # Hardware State Manager
-
-tokensmith:
-  url: "http://localhost:8080"       # TokenSmith auth service
-  timeout: 30
-```
-
-### HSM Service-Token Auth (TokenSmith)
-
-When both `hsm_url` and `tokensmith_url` are set, boot-service performs a
-bootstrap-token exchange against TokenSmith (`POST /oauth/token`) and uses the
-short-lived service token for HSM API calls.
-
-If `enable_auth: false`, `tokensmith_url` is ignored for HSM integration and no
-bootstrap token is required.
-
-```yaml
-tokensmith_url: "http://localhost:8080"
-tokensmith_target_service: "hsm"
-tokensmith_bootstrap_policy_scopes_hint: "hsm:read"
-tokensmith_refresh_skew_sec: 120
-# tokensmith_bootstrap_token: "<bootstrap-jwt>"   # Prefer env var
-```
-
-`tokensmith_bootstrap_token` may be provided via config, or by environment
-variable `TOKENSMITH_BOOTSTRAP_TOKEN`.
-
-## Environment-Specific Examples
-
-### Development
-
-```yaml
-# Minimal development configuration
-enable_auth: false
-enable_metrics: true
-logging:
-  level: "debug"
-development:
-  enabled: true
-```
-
-### Production
-
-```yaml
-# Production configuration with full security
-enable_auth: true
-auth:
-  enabled: true
-  jwks_url: "https://auth.openchami.org/.well-known/jwks.json"
-  jwt_issuer: "https://auth.openchami.org"
-  jwt_audience: "boot-service"
-  required_scopes: ["boot:read"]
-logging:
-  level: "info"
-  format: "json"
-```
-
-### Kubernetes/Container
-
-```yaml
-# Container-friendly configuration
-port: 8080
-host: "0.0.0.0"
-data_dir: "/data"
-auth:
-  jwks_url: "http://tokensmith:8080/.well-known/jwks.json"
-  jwt_issuer: "openchami-tokensmith"
-hsm_url: "http://smd:27779"
-logging:
-  format: "json"
-  output: "stdout"
-```
-
-The runtime image is distroless, so it does not include `curl` or `wget` for an
-in-container Docker `HEALTHCHECK`. Probe `/health` from Kubernetes, your
-container runtime, or an external monitor instead.
-
-## Validation
-
-The service validates configuration at startup and will exit with an error if:
-
-- Required authentication settings are missing when auth is enabled
-- Invalid URLs are provided for external services
-- Conflicting settings are detected
-
-Check the startup logs for configuration validation results:
-
-```
-2025/10/09 11:00:27 Starting boot service with configuration:
-2025/10/09 11:00:27   Server: 0.0.0.0:8082
-2025/10/09 11:00:27   Storage: file (./data)
-2025/10/09 11:00:27   Features: auth=false, hsm=true, metrics=true, legacy-api=true
-```
-
-## Security Considerations
-
-### Configuration File Security
-
-- **Never commit** `config.yaml` to version control (it's gitignored)
-- **Use restrictive permissions**: `chmod 600 config.yaml`
-- **Store secrets securely**: Consider using environment variables for sensitive data
-
-### Production Checklist
-
-- ✅ Enable authentication (`enable_auth: true`)
-- ✅ Use JWKS for key rotation (`jwks_url`)
-- ✅ Validate issuer and audience (`validate_issuer: true`, `validate_audience: true`)
-- ✅ Require appropriate scopes (`required_scopes`)
-- ✅ Use HTTPS for external service URLs
-- ✅ Set reasonable timeouts
-- ✅ Enable structured logging (`format: "json"`)
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Service won't start**:
-   - Check configuration file syntax: `yamllint config.yaml`
-   - Verify file permissions and existence
-   - Check logs for specific validation errors
-
-2. **Authentication not working**:
-   - Verify `enable_auth` matches `auth.enabled`
-   - Check JWKS URL accessibility
-   - Validate issuer/audience claims in tokens
-
-3. **External services unreachable**:
-   - Verify URLs are accessible from the service
-   - Check network connectivity and DNS resolution
-   - Review timeout settings
-
-### Debug Configuration
-
-For troubleshooting configuration issues:
-
-```yaml
-logging:
-  level: "debug"              # Verbose logging
-auth:
-  non_enforcing: true         # Log auth errors but don't block
-development:
-  enabled: true              # Additional debug features
-```
-
-## Migration
-
-### From Command-line Flags
-
-1. Create `config.yaml` based on your current flags
-2. Test that the service starts correctly
-3. Remove flags from your startup scripts
-
-### Adding Authentication
-
-1. Start with `enable_auth: false`
-2. Configure auth section with permissive settings
-3. Test with valid tokens
-4. Gradually tighten validation requirements
-5. Enable enforcement: `enable_auth: true`
+1. If the service will not start, run `./bin/server serve` directly and inspect the startup error.
+2. If metrics do not appear, confirm `enable_metrics: true` and check port `9090` unless you changed `metrics_port`.
+3. If HSM integration fails while auth is enabled, confirm `TOKENSMITH_BOOTSTRAP_TOKEN` is set.
 
 ## See Also
 
-- [Authentication Documentation](AUTHENTICATION.md) - Detailed auth configuration
-- [API Documentation](API.md) - REST API reference
-- `config.example.yaml` - Comprehensive configuration example with comments
+- [API.md](API.md) for the current HTTP surface
+- [AUTHENTICATION.md](AUTHENTICATION.md) for package-level auth behavior and current server auth notes
+- [PROFILES.md](PROFILES.md) for boot profile behavior
+- `config.example.yaml` for a sample config that matches the current runtime keys

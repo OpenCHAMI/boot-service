@@ -7,15 +7,27 @@ SPDX-License-Identifier: MIT
 # boot-service
 
 OpenCHAMI Boot Service is a Fabrica-generated REST API for managing node boot
-configuration in HPC environments, with legacy BSS-compatible endpoints.
+configuration in HPC environments. It exposes modern resource APIs for
+`BMC`, `BootConfiguration`, and `Node` objects, plus a legacy BSS-compatible
+surface under `/boot/v1/`.
+
+## What Is In This Repo
+
+- Generated CRUD and status endpoints for `/bmcs`, `/bootconfigurations`, and `/nodes`
+- Legacy boot endpoints for `/boot/v1/bootparameters`, `/boot/v1/bootscript`, and service metadata
+- Boot script generation with node matching by XName, NID, or MAC address
+- A reusable TokenSmith auth package plus generated AuthZ classifier scaffolding
+- Optional HSM-backed node resolution, including TokenSmith service-token exchange
+- OpenAPI publishing at `/openapi.json` and `/docs`
+- A generated CLI client with commands such as `./bin/client health`
 
 ## Quick Start
 
 ### Prerequisites
 
-- Go 1.24+
 - GNU Make
-- `pre-commit` (optional, for local CI-style checks)
+- A Go toolchain compatible with `go.mod` (this branch currently declares `go 1.26.3`)
+- `pre-commit` if you want local CI-style checks
 
 ### Configure
 
@@ -23,12 +35,16 @@ configuration in HPC environments, with legacy BSS-compatible endpoints.
 cp config.example.yaml config.yaml
 ```
 
-Configuration precedence (highest to lowest):
+Configuration precedence is:
 
 1. Command-line flags
-2. Environment variables (prefix `BOOT_SERVICE_`)
+2. Environment variables
 3. `config.yaml`
 4. Built-in defaults
+
+The server reads `BOOT_SERVICE_*` environment variables. TokenSmith bootstrap
+settings for HSM auth also support the standardized `TOKENSMITH_*` variables
+documented in `config.example.yaml`.
 
 ### Build
 
@@ -36,7 +52,7 @@ Configuration precedence (highest to lowest):
 make build
 ```
 
-Build artifacts:
+Local build artifacts:
 
 - `bin/server`
 - `bin/client`
@@ -47,86 +63,108 @@ Build artifacts:
 # Run from source
 go run ./cmd/server serve
 
-# Run built binary
+# Run the built server
 ./bin/server serve
 
-# Example overrides
-./bin/server serve --port 8082 --enable-auth --hsm-url http://localhost:27779
+# Optional client smoke test
+./bin/client --server http://localhost:8080 health
 ```
 
-## API Surface
+Example overrides:
 
-### Health and Docs
+```bash
+./bin/server serve \
+  --port 8082 \
+  --enable-auth \
+  --hsm-url http://localhost:27779 \
+  --tokensmith_url http://localhost:8080
+```
 
-- `GET /health`
-- `GET /openapi.json`
-- `GET /docs`
+## Current API Behavior
 
-### Resource APIs
+### Health, Docs, and Metrics
 
-Generated CRUD/status endpoints for:
+- `GET /health` returns a small JSON health response
+- `GET /openapi.json` serves the generated OpenAPI document
+- `GET /docs` serves Swagger UI
+- When metrics are enabled, Prometheus metrics are exposed at `/metrics` and on the separate metrics listener configured by `metrics_port`
+
+### Modern Resource APIs
+
+The generated API supports the current resource set:
 
 - `/bmcs`
 - `/bootconfigurations`
 - `/nodes`
 
-Routes are generated with trailing slashes and normalized by Chi middleware.
+The current generated surface includes `PATCH` support for these resources.
+Routes are registered with trailing slashes and normalized by Chi middleware.
 
 ### Legacy BSS Compatibility
 
 When `enable_legacy_api: true`, legacy routes are available under `/boot/v1/`.
 
+Important current behavior: the legacy `GET /boot/v1/bootscript` handler accepts
+node identifiers (`host`, `mac`, or `nid`) but ignores the `profile` query
+parameter. It always asks the controller to auto-resolve the best matching boot
+configuration by score and priority.
+
+### Boot Profiles
+
+Boot profiles are supported in the boot script controller and modern
+`BootConfiguration` resources. When a requested profile is empty, the controller
+selects the best matching configuration across profiles; when a requested
+profile has no match, it falls back to the default profile.
+
+See `docs/PROFILES.md` for the full model and examples.
+
+### Authentication and HSM Integration
+
+- The repository includes a reusable `pkg/auth` package for JWT, JWKS, scope, and service-token middleware patterns
+- The current server binary does not attach `pkg/auth` request middleware in `cmd/server/main.go`
+- `enable_auth: true` currently gates TokenSmith-dependent startup behavior and requires `tokensmith_url`
+- Supplying `hsm_url` enables HSM-backed node lookups
+- If both `enable_auth: true` and `tokensmith_url` are set, the server can exchange a bootstrap token for short-lived HSM service tokens
+
 ## Development Workflow
 
 ### Fabrica Generation
 
-Resource definitions live in:
-
-- `.fabrica.yaml`
-- `apis.yaml`
-- `apis/boot.openchami.io/v1/*_types.go`
-
-Regenerate handlers/storage/client/openapi after API changes:
-
-```bash
-# Build automatically re-runs Fabrica generation first
-make build
-
-# CI-style drift check (requires a clean working tree)
-make generate-check
-
-# Optional: use local Fabrica checkout (sibling ../fabrica)
-(cd ../fabrica && go build -o bin/fabrica ./cmd/fabrica)
-# Makefile local mode passes --fabrica-source ../fabrica automatically
-make generate FABRICA_LOCAL=1
-make generate-check FABRICA_LOCAL=1
-```
+Resource definitions live under `apis/boot.openchami.io/v1/` and are wired by
+`.fabrica.yaml` and `apis.yaml`.
 
 Do not edit `*_generated.go` files manually.
 
-### Tests
+Regenerate handlers, storage, client code, and OpenAPI after API changes:
 
 ```bash
-# Main unit/integration-safe suite (examples excluded)
-make test
-
-# Bootscript integration test (opt-in)
-make test-integration
-
-# Override test timeout
-make test TEST_TIMEOUT=4m
+make generate
+make generate-check
 ```
 
-`make test-integration` sets `BOOT_SERVICE_RUN_INTEGRATION=1` and runs:
+`make generate-check` requires a clean git tree and fails if regeneration would
+change tracked files.
 
-- `TestBootLogicWithExistingData`
-
-### Lint and Local CI
+If you are working against a local Fabrica checkout, point the Makefile at that
+directory instead of using the old `FABRICA_LOCAL=1` pattern:
 
 ```bash
+(cd ../fabrica && go build -o bin/fabrica ./cmd/fabrica)
+make generate LOCAL_FABRICA=../fabrica
+make generate-check LOCAL_FABRICA=../fabrica
+```
+
+### Test and Lint
+
+```bash
+make test
+make test-integration
 make lint
 make pre-commit-run
 ```
+
+`make test-integration` sets `BOOT_SERVICE_RUN_INTEGRATION=1` and runs
+`TestBootLogicWithExistingData`.
 
 Useful setup:
 
@@ -134,37 +172,29 @@ Useful setup:
 make setup-dev
 ```
 
-## Configuration Notes
+## Release Notes
 
-Key settings are documented in `config.example.yaml` and in
-`docs/CONFIGURATION.md`.
-
-Common environment variable examples:
-
-```bash
-export BOOT_SERVICE_PORT=8082
-export BOOT_SERVICE_ENABLE_AUTH=true
-export BOOT_SERVICE_HSM_URL=http://localhost:27779
-./bin/server serve
-```
+- `CHANGELOG.md` tracks release history and the next unreleased entry
+- `.github/workflows/Release.yaml` publishes tagged releases with GoReleaser on `v*` tags
+- `make release-snapshot` creates a local snapshot release for verification
 
 ## Docker
 
-- `Dockerfile`: runtime image expecting a prebuilt binary
-- `Dockerfile.standalone`: multi-stage standalone build
-- The distroless runtime image does not ship `curl` or `wget`; use `/health`
-  from an external probe instead of an in-container Docker `HEALTHCHECK`.
+- `Dockerfile` expects a prebuilt binary and is used by the release flow
+- `Dockerfile.standalone` performs a multi-stage container build
+- The distroless runtime image does not include `curl` or `wget`; probe `/health` externally instead of using an in-container Docker `HEALTHCHECK`
 
 ## Troubleshooting
 
-- If building with local Fabrica replacements and hitting module proxy issues,
-  try: `GOPROXY=direct go build -o bin/server ./cmd/server`
-- If a legacy test appears to require an externally running server, use
-  `make test-integration` instead of `make test`.
+- If local Fabrica development hits Go proxy issues, try `GOPROXY=direct go build -o bin/server ./cmd/server`
+- If you want to verify only generated-file drift, start from a clean tree and run `make generate-check`
+- If an integration test seems to assume a running server, use `make test-integration` instead of `make test`
 
 ## Documentation
 
-- `docs/PROFILES.md` - Boot profiles for configuration management
-- `docs/CONFIGURATION.md` - Service configuration guide
-- `docs/AUTHENTICATION.md` - JWT authentication with TokenSmith
-- `docs/AUTHENTICATION_TESTING.md` - Testing authentication flows
+- `docs/PROFILES.md` for boot profile behavior and examples
+- `docs/API.md` for the current HTTP endpoint surface
+- `docs/CONFIGURATION.md` for configuration details
+- `docs/AUTHENTICATION.md` for TokenSmith JWT integration
+- `docs/AUTHENTICATION_TESTING.md` for auth test coverage and examples
+- `CHANGELOG.md` for release history

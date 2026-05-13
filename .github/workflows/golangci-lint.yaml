@@ -12,7 +12,7 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Set up latest stable Go
         uses: actions/setup-go@v6.4.0
