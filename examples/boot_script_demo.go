@@ -30,7 +30,7 @@ func main() {
 	}
 
 	// Create client
-	bootClient, err := client.NewClient("http://localhost:8080", &http.Client{Timeout: 30 * time.Second})
+	bootClient, err := client.NewClient("http://localhost:8080", &http.Client{Timeout: 30 * time.Second}, client.DefaultLogger())
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
 	}

@@ -32,7 +32,7 @@ func registerCustomServerIntegrations(r chi.Router, config Config, hsmClient *hs
 	RegisterGeneratedRoutes(r)
 
 	bootClient, err := client.NewClient(fmt.Sprintf("http://%s:%d", config.Host, config.Port),
-		&http.Client{Timeout: 30 * time.Second})
+		&http.Client{Timeout: 30 * time.Second}, client.DefaultLogger())
 	if err != nil {
 		return fmt.Errorf("failed to create boot script API client: %v", err)
 	}

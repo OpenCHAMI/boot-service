@@ -48,7 +48,7 @@ func TestEnhancedController_HSMIntegration(t *testing.T) {
 	hsmConfig.SyncEnabled = false // Disable auto-sync for testing
 
 	// Create boot service client (assuming live server)
-	bootClient, err := client.NewClient("http://localhost:8080", &http.Client{Timeout: 5 * time.Second})
+	bootClient, err := client.NewClient("http://localhost:8080", &http.Client{Timeout: 5 * time.Second}, client.DefaultLogger())
 	if err != nil {
 		t.Fatalf("Failed to create boot client: %v", err)
 	}
@@ -251,7 +251,7 @@ func TestEnhancedController_HSMSyncWorker(t *testing.T) {
 	hsmConfig.SyncInterval = 200 * time.Millisecond
 
 	// Create boot service client
-	bootClient, err := client.NewClient("http://localhost:8080", &http.Client{Timeout: 5 * time.Second})
+	bootClient, err := client.NewClient("http://localhost:8080", &http.Client{Timeout: 5 * time.Second}, client.DefaultLogger())
 	if err != nil {
 		t.Fatalf("Failed to create boot client: %v", err)
 	}
@@ -299,7 +299,7 @@ func BenchmarkEnhancedController_WithHSM(b *testing.B) {
 	hsmConfig.SyncEnabled = false
 
 	// Create boot service client
-	bootClient, err := client.NewClient("http://localhost:8080", &http.Client{Timeout: 5 * time.Second})
+	bootClient, err := client.NewClient("http://localhost:8080", &http.Client{Timeout: 5 * time.Second}, client.DefaultLogger())
 	if err != nil {
 		b.Fatalf("Failed to create boot client: %v", err)
 	}
