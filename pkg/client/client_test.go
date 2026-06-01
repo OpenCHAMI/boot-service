@@ -173,10 +173,9 @@ func TestWithVersion_PreservesLogger(t *testing.T) {
 	// If logger is not preserved, the test may panic or fail differently.
 	t.Logf("Logger output length: %d bytes", buf.Len())
 
-	// TODO: Once fabrica is fixed, uncomment this assertion:
-	// if buf.Len() == 0 {
-	// 	t.Error("Logger was not preserved - no debug output captured")
-	// }
+	if buf.Len() == 0 {
+		t.Error("Logger was not preserved - no debug output captured")
+	}
 }
 
 // TestWithBearerToken_PreservesLogger is CRITICAL - catches the fabrica bug!
@@ -221,10 +220,9 @@ func TestWithBearerToken_PreservesLogger(t *testing.T) {
 
 	t.Logf("Logger output length: %d bytes", buf.Len())
 
-	// TODO: Once fabrica is fixed, uncomment this assertion:
-	// if buf.Len() == 0 {
-	// 	t.Error("Logger was not preserved - no debug output captured")
-	// }
+	if buf.Len() == 0 {
+		t.Error("Logger was not preserved - no debug output captured")
+	}
 }
 
 // TestWithVersion_PreservesAllFields verifies all fields are copied
