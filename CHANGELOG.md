@@ -15,6 +15,17 @@ Changes remain under `Unreleased` until they ship in the next tagged release.
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-06-01
+
+### Added
+
+- Added `--log-level`/`-l` flag and debug messages containing HTTP request/response details
+- Added client unit tests
+
+### Changed
+
+- Regenerated server and client using Fabrica v0.4.7
+
 ## [0.1.5] - 2026-05-13
 
 ### Added
