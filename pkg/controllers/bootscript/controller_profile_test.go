@@ -215,7 +215,7 @@ func newTestControllerWithData(t *testing.T, nodes []apiv1.Node, configs []apiv1
 	}))
 	t.Cleanup(server.Close)
 
-	bootClient, err := client.NewClient(server.URL, server.Client())
+	bootClient, err := client.NewClient(server.URL, server.Client(), client.DefaultLogger())
 	if err != nil {
 		t.Fatalf("failed to create test client: %v", err)
 	}

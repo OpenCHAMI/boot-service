@@ -37,7 +37,7 @@ func TestBootLogicWithExistingData(t *testing.T) {
 	baseURL, stopServer := startTestServer(t)
 	defer stopServer()
 
-	bootClient, err := client.NewClient(baseURL, &http.Client{Timeout: 30 * time.Second})
+	bootClient, err := client.NewClient(baseURL, &http.Client{Timeout: 30 * time.Second}, client.DefaultLogger())
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}

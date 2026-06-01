@@ -138,7 +138,7 @@ func TestFlexibleController_YAMLProvider(t *testing.T) {
 	defer bootServer.Close()
 
 	// Create boot client
-	bootClient, err := client.NewClient(bootServer.URL, &http.Client{Timeout: 5 * time.Second})
+	bootClient, err := client.NewClient(bootServer.URL, &http.Client{Timeout: 5 * time.Second}, client.DefaultLogger())
 	if err != nil {
 		t.Fatalf("Failed to create boot client: %v", err)
 	}
@@ -241,7 +241,7 @@ func TestFlexibleController_HSMProvider(t *testing.T) {
 	defer hsmServer.Close()
 
 	// Create boot client
-	bootClient, err := client.NewClient(bootServer.URL, &http.Client{Timeout: 5 * time.Second})
+	bootClient, err := client.NewClient(bootServer.URL, &http.Client{Timeout: 5 * time.Second}, client.DefaultLogger())
 	if err != nil {
 		t.Fatalf("Failed to create boot client: %v", err)
 	}
@@ -321,7 +321,7 @@ func TestFlexibleController_ProviderComparison(t *testing.T) {
 	defer hsmServer.Close()
 
 	// Create boot client
-	bootClient, err := client.NewClient(bootServer.URL, &http.Client{Timeout: 5 * time.Second})
+	bootClient, err := client.NewClient(bootServer.URL, &http.Client{Timeout: 5 * time.Second}, client.DefaultLogger())
 	if err != nil {
 		t.Fatalf("Failed to create boot client: %v", err)
 	}
@@ -390,7 +390,7 @@ func BenchmarkFlexibleController_YAML(b *testing.B) {
 	bootServer := createMockBootService(&testing.T{})
 	defer bootServer.Close()
 
-	bootClient, _ := client.NewClient(bootServer.URL, &http.Client{Timeout: 5 * time.Second})
+	bootClient, _ := client.NewClient(bootServer.URL, &http.Client{Timeout: 5 * time.Second}, client.DefaultLogger())
 	yamlConfig := local.IntegrationConfig{
 		YAMLFile:    yamlFile,
 		AutoReload:  false, // Disable auto-reload for benchmarking

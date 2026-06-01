@@ -64,7 +64,7 @@ func TestGetBootScript_ProfileQueryParameterIgnored(t *testing.T) {
 	defer backendServer.Close()
 
 	// Create boot client pointing to backend
-	bootClient, err := client.NewClient(backendServer.URL, backendServer.Client())
+	bootClient, err := client.NewClient(backendServer.URL, backendServer.Client(), client.DefaultLogger())
 	if err != nil {
 		t.Fatalf("failed to create boot client: %v", err)
 	}
@@ -165,7 +165,7 @@ func TestGetBootScript_MissingNodeIdentifier(t *testing.T) {
 	}))
 	defer backendServer.Close()
 
-	bootClient, err := client.NewClient(backendServer.URL, backendServer.Client())
+	bootClient, err := client.NewClient(backendServer.URL, backendServer.Client(), client.DefaultLogger())
 	if err != nil {
 		t.Fatalf("failed to create boot client: %v", err)
 	}
@@ -197,7 +197,7 @@ func TestRegisterBootScriptRoute_OnlyRegistersBootScriptEndpoint(t *testing.T) {
 	}))
 	defer backendServer.Close()
 
-	bootClient, err := client.NewClient(backendServer.URL, backendServer.Client())
+	bootClient, err := client.NewClient(backendServer.URL, backendServer.Client(), client.DefaultLogger())
 	if err != nil {
 		t.Fatalf("failed to create boot client: %v", err)
 	}

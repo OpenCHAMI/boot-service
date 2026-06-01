@@ -70,7 +70,7 @@ func TestGeneratedClientWorksAgainstSlashlessCollectionPaths(t *testing.T) {
 	server := httptest.NewServer(newGeneratedRouterForTest(t))
 	defer server.Close()
 
-	client, err := bootclient.NewClient(server.URL, server.Client())
+	client, err := bootclient.NewClient(server.URL, server.Client(), bootclient.DefaultLogger())
 	if err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
@@ -174,7 +174,7 @@ func newRouterWithLegacyModeForTest(t *testing.T, enableLegacyAPI bool) http.Han
 	}))
 	t.Cleanup(backendServer.Close)
 
-	bootClient, err := bootclient.NewClient(backendServer.URL, backendServer.Client())
+	bootClient, err := bootclient.NewClient(backendServer.URL, backendServer.Client(), bootclient.DefaultLogger())
 	if err != nil {
 		t.Fatalf("failed to create boot client: %v", err)
 	}
