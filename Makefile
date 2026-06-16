@@ -14,6 +14,7 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 CONTAINER_PROG ?= $(shell command -v docker 2>/dev/null)
+CONTAINER_TAG ?= latest
 CONTAINER_GO_VERSION ?= $(shell awk '/^go / {print $$2; exit}' go.mod)
 FABRICA_VERSION ?= $(shell awk '/github.com\/openchami\/fabrica[[:space:]]+v/ {print $$2; exit}' go.mod)
 LDFLAGS=-ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)"
@@ -95,10 +96,10 @@ container-build: ## Build container image
 		--build-arg VERSION=$(VERSION) \
 		--build-arg COMMIT=$(COMMIT) \
 		--build-arg DATE=$(DATE) \
-		-t $(BINARY_NAME):latest .
+		-t $(BINARY_NAME):$(CONTAINER_TAG) .
 
 container-run: container-build ## Build and run container
-	$(CONTAINER_PROG) run --rm $(BINARY_NAME):latest
+	$(CONTAINER_PROG) run --rm $(BINARY_NAME):$(CONTAINER_TAG)
 
 release-snapshot: ## Create a snapshot release with GoReleaser
 	goreleaser release --snapshot --clean
