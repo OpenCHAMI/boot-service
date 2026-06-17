@@ -15,6 +15,16 @@ Changes remain under `Unreleased` until they ship in the next tagged release.
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-06-17
+
+### Added
+
+- Added YAML struct tags to allow marshalling/unmarshalling YAML data for resources
+
+### Changed
+
+- Regenerated server and client using Fabrica v0.4.8
+
 ## [0.1.6] - 2026-06-01
 
 ### Added
