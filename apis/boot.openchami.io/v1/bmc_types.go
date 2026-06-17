@@ -13,32 +13,32 @@ import (
 
 // BMC represents a BMC resource.
 type BMC struct {
-	APIVersion string            `json:"apiVersion"`
-	Kind       string            `json:"kind"`
-	Metadata   resource.Metadata `json:"metadata"`
-	Spec       BMCSpec           `json:"spec" validate:"required"`
-	Status     BMCStatus         `json:"status,omitempty"`
+	APIVersion string            `json:"apiVersion" yaml:"apiVersion"`
+	Kind       string            `json:"kind" yaml:"kind"`
+	Metadata   resource.Metadata `json:"metadata" yaml:"metadata"`
+	Spec       BMCSpec           `json:"spec" yaml:"spec" validate:"required"`
+	Status     BMCStatus         `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
 // BMCSpec defines the desired state of BMC.
 type BMCSpec struct { // nolint:revive
-	XName       string       `json:"xname,omitempty"`
-	Description string       `json:"description,omitempty" validate:"max=200"`
-	Interface   BMCInterface `json:"interface,omitempty"`
+	XName       string       `json:"xname,omitempty" yaml:"xname,omitempty"`
+	Description string       `json:"description,omitempty" yaml:"description,omitempty" validate:"max=200"`
+	Interface   BMCInterface `json:"interface,omitempty" yaml:"interface,omitempty"`
 }
 
 // BMCInterface defines the Ethernet interface details.
 type BMCInterface struct {
-	MAC  string `json:"mac,omitempty"`
-	IP   string `json:"ip,omitempty"`
-	Type string `json:"type,omitempty"`
+	MAC  string `json:"mac,omitempty" yaml:"mac,omitempty"`
+	IP   string `json:"ip,omitempty" yaml:"ip,omitempty"`
+	Type string `json:"type,omitempty" yaml:"type,omitempty"`
 }
 
 // BMCStatus defines the observed state of BMC.
 type BMCStatus struct { // nolint:revive
-	Phase   string `json:"phase,omitempty"`
-	Message string `json:"message,omitempty"`
-	Ready   bool   `json:"ready"`
+	Phase   string `json:"phase,omitempty" yaml:"phase,omitempty"`
+	Message string `json:"message,omitempty" yaml:"message,omitempty"`
+	Ready   bool   `json:"ready" yaml:"ready"`
 }
 
 // Validate implements custom validation logic for BMC.

@@ -43,50 +43,50 @@ import (
 
 // CreateBMCRequest represents a request to create a BMC
 type CreateBMCRequest struct {
-	Metadata    fabrica.Metadata  `json:"metadata" validate:"required"`
-	Spec        v1.BMCSpec        `json:"spec" validate:"required"`
-	Labels      map[string]string `json:"labels,omitempty"`
-	Annotations map[string]string `json:"annotations,omitempty"`
+	Metadata    fabrica.Metadata  `json:"metadata" yaml:"metadata" validate:"required"`
+	Spec        v1.BMCSpec        `json:"spec" yaml:"spec" validate:"required"`
+	Labels      map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
 // UpdateBMCRequest represents a request to update a BMC
 type UpdateBMCRequest struct {
-	Metadata    fabrica.Metadata  `json:"metadata,omitempty"`
-	Spec        v1.BMCSpec        `json:"spec,omitempty" validate:"omitempty"`
-	Labels      map[string]string `json:"labels,omitempty"`
-	Annotations map[string]string `json:"annotations,omitempty"`
+	Metadata    fabrica.Metadata  `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	Spec        v1.BMCSpec        `json:"spec,omitempty" yaml:"spec,omitempty" validate:"omitempty"`
+	Labels      map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
 // CreateBootConfigurationRequest represents a request to create a BootConfiguration
 type CreateBootConfigurationRequest struct {
-	Metadata    fabrica.Metadata         `json:"metadata" validate:"required"`
-	Spec        v1.BootConfigurationSpec `json:"spec" validate:"required"`
-	Labels      map[string]string        `json:"labels,omitempty"`
-	Annotations map[string]string        `json:"annotations,omitempty"`
+	Metadata    fabrica.Metadata         `json:"metadata" yaml:"metadata" validate:"required"`
+	Spec        v1.BootConfigurationSpec `json:"spec" yaml:"spec" validate:"required"`
+	Labels      map[string]string        `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string        `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
 // UpdateBootConfigurationRequest represents a request to update a BootConfiguration
 type UpdateBootConfigurationRequest struct {
-	Metadata    fabrica.Metadata         `json:"metadata,omitempty"`
-	Spec        v1.BootConfigurationSpec `json:"spec,omitempty" validate:"omitempty"`
-	Labels      map[string]string        `json:"labels,omitempty"`
-	Annotations map[string]string        `json:"annotations,omitempty"`
+	Metadata    fabrica.Metadata         `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	Spec        v1.BootConfigurationSpec `json:"spec,omitempty" yaml:"spec,omitempty" validate:"omitempty"`
+	Labels      map[string]string        `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string        `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
 // CreateNodeRequest represents a request to create a Node
 type CreateNodeRequest struct {
-	Metadata    fabrica.Metadata  `json:"metadata" validate:"required"`
-	Spec        v1.NodeSpec       `json:"spec" validate:"required"`
-	Labels      map[string]string `json:"labels,omitempty"`
-	Annotations map[string]string `json:"annotations,omitempty"`
+	Metadata    fabrica.Metadata  `json:"metadata" yaml:"metadata" validate:"required"`
+	Spec        v1.NodeSpec       `json:"spec" yaml:"spec" validate:"required"`
+	Labels      map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
 // UpdateNodeRequest represents a request to update a Node
 type UpdateNodeRequest struct {
-	Metadata    fabrica.Metadata  `json:"metadata,omitempty"`
-	Spec        v1.NodeSpec       `json:"spec,omitempty" validate:"omitempty"`
-	Labels      map[string]string `json:"labels,omitempty"`
-	Annotations map[string]string `json:"annotations,omitempty"`
+	Metadata    fabrica.Metadata  `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	Spec        v1.NodeSpec       `json:"spec,omitempty" yaml:"spec,omitempty" validate:"omitempty"`
+	Labels      map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
 // DeleteResponse represents a successful deletion response

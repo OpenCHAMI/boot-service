@@ -14,11 +14,11 @@ import (
 
 // BootConfiguration represents a BootConfiguration resource.
 type BootConfiguration struct {
-	APIVersion string                  `json:"apiVersion"`
-	Kind       string                  `json:"kind"`
-	Metadata   resource.Metadata       `json:"metadata"`
-	Spec       BootConfigurationSpec   `json:"spec"`
-	Status     BootConfigurationStatus `json:"status,omitempty"`
+	APIVersion string                  `json:"apiVersion" yaml:"apiVersion"`
+	Kind       string                  `json:"kind" yaml:"kind"`
+	Metadata   resource.Metadata       `json:"metadata" yaml:"metadata"`
+	Spec       BootConfigurationSpec   `json:"spec" yaml:"spec"`
+	Status     BootConfigurationStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
 // BootConfigurationSpec defines the desired state of BootConfiguration.
@@ -37,32 +37,32 @@ type BootConfiguration struct {
 // See docs/PROFILES.md for comprehensive profile documentation.
 type BootConfigurationSpec struct { // nolint:revive
 	// Node targeting criteria (at least one required)
-	Hosts  []string `json:"hosts,omitempty"`  // XName patterns (e.g., "x0c0s*")
-	MACs   []string `json:"macs,omitempty"`   // MAC addresses (case-insensitive)
-	NIDs   []int32  `json:"nids,omitempty"`   // Numeric node IDs
-	Groups []string `json:"groups,omitempty"` // Inventory group memberships
+	Hosts  []string `json:"hosts,omitempty" yaml:"hosts,omitempty"`   // XName patterns (e.g., "x0c0s*")
+	MACs   []string `json:"macs,omitempty" yaml:"macs,omitempty"`     // MAC addresses (case-insensitive)
+	NIDs   []int32  `json:"nids,omitempty" yaml:"nids,omitempty"`     // Numeric node IDs
+	Groups []string `json:"groups,omitempty" yaml:"groups,omitempty"` // Inventory group memberships
 
 	// Boot profile for organizing configurations
 	// Empty or "default" indicates the default fallback profile.
 	// See docs/PROFILES.md for profile usage and selection logic.
-	Profile string `json:"profile,omitempty"`
+	Profile string `json:"profile,omitempty" yaml:"profile,omitempty"`
 
 	// Boot parameters
-	Kernel string `json:"kernel"`           // Required: kernel URL or path
-	Initrd string `json:"initrd,omitempty"` // Optional: initrd/initramfs URL or path
-	Params string `json:"params,omitempty"` // Kernel parameters (console, root, etc.)
+	Kernel string `json:"kernel" yaml:"kernel"`                     // Required: kernel URL or path
+	Initrd string `json:"initrd,omitempty" yaml:"initrd,omitempty"` // Optional: initrd/initramfs URL or path
+	Params string `json:"params,omitempty" yaml:"params,omitempty"` // Kernel parameters (console, root, etc.)
 
 	// Priority for tiebreaking within the same profile when multiple configs match
 	// Higher values take precedence. Default configurations typically use priority 1.
-	Priority int `json:"priority,omitempty"`
+	Priority int `json:"priority,omitempty" yaml:"priority,omitempty"`
 }
 
 // BootConfigurationStatus defines the observed state of BootConfiguration.
 type BootConfigurationStatus struct { // nolint:revive
-	Phase       string   `json:"phase,omitempty"` // Active, Pending, Failed
-	LastUpdated string   `json:"lastUpdated,omitempty"`
-	AppliedTo   []string `json:"appliedTo,omitempty"`
-	Error       string   `json:"error,omitempty"`
+	Phase       string   `json:"phase,omitempty" yaml:"phase,omitempty"` // Active, Pending, Failed
+	LastUpdated string   `json:"lastUpdated,omitempty" yaml:"lastUpdated,omitempty"`
+	AppliedTo   []string `json:"appliedTo,omitempty" yaml:"appliedTo,omitempty"`
+	Error       string   `json:"error,omitempty" yaml:"error,omitempty"`
 }
 
 // Validate implements custom validation logic for BootConfiguration.
