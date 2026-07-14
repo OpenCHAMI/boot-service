@@ -20,7 +20,7 @@ import (
 
 	"github.com/openchami/boot-service/internal/storage"
 	bootclient "github.com/openchami/boot-service/pkg/client"
-	"github.com/openchami/boot-service/pkg/handlers/legacy"
+	"github.com/openchami/boot-service/pkg/handlers/boot"
 )
 
 func newGeneratedRouterForTest(t *testing.T) http.Handler {
@@ -92,22 +92,34 @@ func TestGeneratedClientWorksAgainstSlashlessCollectionPaths(t *testing.T) {
 
 func TestBootScriptEndpointAvailabilityByLegacyFlag(t *testing.T) {
 	tests := []struct {
-		name                 string
-		enableLegacyAPI      bool
-		expectedBootParams   int
-		expectedServiceState int
+		name                     string
+		enableLegacyAPI          bool
+		expectedModernBootScript int
+		expectedLegacyBootScript int
+		expectedModernBootParams int
+		expectedLegacyBootParams int
+		expectedModernService    int
+		expectedLegacyService    int
 	}{
 		{
-			name:                 "LegacyDisabled_BootScriptOnly",
-			enableLegacyAPI:      false,
-			expectedBootParams:   http.StatusNotFound,
-			expectedServiceState: http.StatusNotFound,
+			name:                     "LegacyDisabled_OnlyModernRoutes",
+			enableLegacyAPI:          false,
+			expectedModernBootScript: http.StatusOK,
+			expectedLegacyBootScript: http.StatusNotFound,
+			expectedModernBootParams: http.StatusOK,
+			expectedLegacyBootParams: http.StatusNotFound,
+			expectedModernService:    http.StatusOK,
+			expectedLegacyService:    http.StatusNotFound,
 		},
 		{
-			name:                 "LegacyEnabled_AllLegacyRoutes",
-			enableLegacyAPI:      true,
-			expectedBootParams:   http.StatusOK,
-			expectedServiceState: http.StatusOK,
+			name:                     "LegacyEnabled_BothModernAndLegacyRoutes",
+			enableLegacyAPI:          true,
+			expectedModernBootScript: http.StatusOK,
+			expectedLegacyBootScript: http.StatusOK,
+			expectedModernBootParams: http.StatusOK,
+			expectedLegacyBootParams: http.StatusOK,
+			expectedModernService:    http.StatusOK,
+			expectedLegacyService:    http.StatusOK,
 		},
 	}
 
@@ -117,34 +129,70 @@ func TestBootScriptEndpointAvailabilityByLegacyFlag(t *testing.T) {
 			server := httptest.NewServer(router)
 			defer server.Close()
 
-			bootScriptResp, err := http.Get(server.URL + "/boot/v1/bootscript?mac=aa:bb:cc:dd:ee:ff")
+			// Test modern bootscript endpoint
+			modernBootScriptResp, err := http.Get(server.URL + "/bootscript?mac=aa:bb:cc:dd:ee:ff")
 			if err != nil {
-				t.Fatalf("GET bootscript failed: %v", err)
+				t.Fatalf("GET modern bootscript failed: %v", err)
 			}
-			defer bootScriptResp.Body.Close() //nolint:errcheck
+			defer modernBootScriptResp.Body.Close() //nolint:errcheck
 
-			if bootScriptResp.StatusCode != http.StatusOK {
-				t.Fatalf("GET /boot/v1/bootscript returned %d, want %d", bootScriptResp.StatusCode, http.StatusOK)
+			if modernBootScriptResp.StatusCode != tc.expectedModernBootScript {
+				t.Errorf("GET /bootscript returned %d, want %d", modernBootScriptResp.StatusCode, tc.expectedModernBootScript)
 			}
 
-			bootParamsResp, err := http.Get(server.URL + "/boot/v1/bootparameters")
+			// Test legacy bootscript endpoint
+			legacyBootScriptResp, err := http.Get(server.URL + "/boot/v1/bootscript?mac=aa:bb:cc:dd:ee:ff")
 			if err != nil {
-				t.Fatalf("GET bootparameters failed: %v", err)
+				t.Fatalf("GET legacy bootscript failed: %v", err)
 			}
-			defer bootParamsResp.Body.Close() //nolint:errcheck
+			defer legacyBootScriptResp.Body.Close() //nolint:errcheck
 
-			if bootParamsResp.StatusCode != tc.expectedBootParams {
-				t.Fatalf("GET /boot/v1/bootparameters returned %d, want %d", bootParamsResp.StatusCode, tc.expectedBootParams)
+			if legacyBootScriptResp.StatusCode != tc.expectedLegacyBootScript {
+				t.Errorf("GET /boot/v1/bootscript returned %d, want %d", legacyBootScriptResp.StatusCode, tc.expectedLegacyBootScript)
 			}
 
-			serviceResp, err := http.Get(server.URL + "/boot/v1/service/status")
+			// Test modern bootparameters endpoint
+			modernBootParamsResp, err := http.Get(server.URL + "/bootparameters")
 			if err != nil {
-				t.Fatalf("GET service status failed: %v", err)
+				t.Fatalf("GET modern bootparameters failed: %v", err)
 			}
-			defer serviceResp.Body.Close() //nolint:errcheck
+			defer modernBootParamsResp.Body.Close() //nolint:errcheck
 
-			if serviceResp.StatusCode != tc.expectedServiceState {
-				t.Fatalf("GET /boot/v1/service/status returned %d, want %d", serviceResp.StatusCode, tc.expectedServiceState)
+			if modernBootParamsResp.StatusCode != tc.expectedModernBootParams {
+				t.Errorf("GET /bootparameters returned %d, want %d", modernBootParamsResp.StatusCode, tc.expectedModernBootParams)
+			}
+
+			// Test legacy bootparameters endpoint
+			legacyBootParamsResp, err := http.Get(server.URL + "/boot/v1/bootparameters")
+			if err != nil {
+				t.Fatalf("GET legacy bootparameters failed: %v", err)
+			}
+			defer legacyBootParamsResp.Body.Close() //nolint:errcheck
+
+			if legacyBootParamsResp.StatusCode != tc.expectedLegacyBootParams {
+				t.Errorf("GET /boot/v1/bootparameters returned %d, want %d", legacyBootParamsResp.StatusCode, tc.expectedLegacyBootParams)
+			}
+
+			// Test modern service status endpoint
+			modernServiceResp, err := http.Get(server.URL + "/service/status")
+			if err != nil {
+				t.Fatalf("GET modern service status failed: %v", err)
+			}
+			defer modernServiceResp.Body.Close() //nolint:errcheck
+
+			if modernServiceResp.StatusCode != tc.expectedModernService {
+				t.Errorf("GET /service/status returned %d, want %d", modernServiceResp.StatusCode, tc.expectedModernService)
+			}
+
+			// Test legacy service status endpoint
+			legacyServiceResp, err := http.Get(server.URL + "/boot/v1/service/status")
+			if err != nil {
+				t.Fatalf("GET legacy service status failed: %v", err)
+			}
+			defer legacyServiceResp.Body.Close() //nolint:errcheck
+
+			if legacyServiceResp.StatusCode != tc.expectedLegacyService {
+				t.Errorf("GET /boot/v1/service/status returned %d, want %d", legacyServiceResp.StatusCode, tc.expectedLegacyService)
 			}
 		})
 	}
@@ -183,11 +231,14 @@ func newRouterWithLegacyModeForTest(t *testing.T, enableLegacyAPI bool) http.Han
 	r.Use(middleware.RedirectSlashes)
 	RegisterGeneratedRoutes(r)
 
-	legacyHandler := legacy.NewLegacyHandler(*bootClient, log.New(io.Discard, "", 0))
+	bootHandler := boot.NewHandler(*bootClient, log.New(io.Discard, "", 0))
+
+	// Always register modern routes
+	bootHandler.RegisterModernRoutes(r)
+
+	// Conditionally register legacy routes
 	if enableLegacyAPI {
-		legacyHandler.RegisterRoutes(r)
-	} else {
-		legacyHandler.RegisterBootScriptRoute(r)
+		bootHandler.RegisterLegacyRoutes(r)
 	}
 
 	return r

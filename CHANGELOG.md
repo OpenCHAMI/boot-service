@@ -15,6 +15,24 @@ Changes remain under `Unreleased` until they ship in the next tagged release.
 
 ## [Unreleased]
 
+### Added
+
+- Added modern boot API endpoints at root paths
+  - `GET /bootscript`
+  - `GET/POST/PUT/DELETE /bootparameters`
+  - `GET /service/status`
+  - `GET /service/version`
+
+### Changed
+
+- **BREAKING:** Moved boot endpoints from `/boot/v1/*` to root paths.
+  - `/boot/v1/*` prefix now exclusively for legacy BSS compatibility when `enable_legacy_api` is `true`.
+- **BREAKING:** Renamed `pkg/handlers/legacy` package to `pkg/handlers/boot` with unified handler supporting both modern and legacy routing.
+- Changed `enable_legacy_api` behavior
+  - When `false`, only modern endpoints are available; when `true`, both modern and legacy endpoints are available.
+- Updated all documentation to reflect modern endpoint paths and legacy API behavior.
+- Refactored server route registration to clearly separate modern and legacy endpoint registration.
+
 ## [0.1.7] - 2026-06-17
 
 ### Added

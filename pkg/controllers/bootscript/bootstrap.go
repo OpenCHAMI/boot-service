@@ -183,7 +183,7 @@ This package integrates with several other boot service components:
   - apis/boot.openchami.io/v1: Node and boot configuration resource definitions
   - pkg/clients/hsm: Hardware State Manager integration
   - pkg/clients/local: Local file-based node provider
-  - pkg/handlers/legacy: Legacy BSS API compatibility
+  - pkg/handlers/boot: Boot API handlers, both modern and legacy, BSS-compatible
 
 # Thread Safety
 

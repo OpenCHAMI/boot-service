@@ -45,15 +45,45 @@ For each resource type, the generated routes currently support:
 The generated router registers trailing-slash routes and the server applies Chi
 slash normalization so both slashless and slashful collection paths work.
 
-## Legacy Compatibility API
+## Boot API
 
-The server always exposes:
+The boot service exposes boot management endpoints at root paths that are
+always available.
+
+### Boot Script Generation
+
+- `GET /bootscript` - Generate iPXE boot script for a node
+
+Query parameters:
+
+- `host` - Node XName (e.g., x0c0s0b0n0)
+- `mac` - MAC address (e.g., aa:bb:cc:dd:ee:ff)
+- `nid` - Node ID (e.g., 42)
+- `profile` - Profile name (currently ignored; auto-selects best match)
+
+Example:
+
+```bash
+curl "http://localhost:8080/bootscript?mac=aa:bb:cc:dd:ee:ff"
+```
+
+### Boot Parameters Management
+
+- `GET /bootparameters` - List boot configurations
+- `POST /bootparameters` - Create boot configuration
+- `PUT /bootparameters` - Update boot configuration
+- `DELETE /bootparameters` - Delete boot configuration
+
+### Service Information
+
+- `GET /service/status` - Service status information
+- `GET /service/version` - Service version information
+
+## Legacy BSS Compatibility API
+
+When `enable_legacy_api: true`, legacy BSS-compatible endpoints are available at `/boot/v1/*`:
 
 - `GET /boot/v1/bootscript`
-
-When `enable_legacy_api: true`, it also exposes the rest of the BSS-compatible
-surface:
-
 - `GET /boot/v1/bootparameters`
 - `POST /boot/v1/bootparameters`
 - `PUT /boot/v1/bootparameters`
@@ -61,9 +91,17 @@ surface:
 - `GET /boot/v1/service/status`
 - `GET /boot/v1/service/version`
 
-Current behavior note: the legacy `bootscript` route accepts `host`, `mac`, and
-`nid` identifiers, but ignores the `profile` query parameter and auto-selects
-the best matching configuration across profiles.
+When legacy API is disabled (`enable_legacy_api` is `false`), these `/boot/v1/*` endpoints
+return 404 Not Found. Only the modern endpoints at root paths are available.
+
+Example with legacy API enabled:
+```bash
+curl "http://localhost:8080/boot/v1/bootscript?mac=aa:bb:cc:dd:ee:ff"
+```
+
+**Note:** Both modern and legacy endpoints use the same handler logic. The `profile`
+query parameter is currently ignored; the controller auto-selects the best matching
+configuration across profiles based on score and priority.
 
 ## Generated Client
 

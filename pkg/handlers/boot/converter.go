@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-package legacy
+package boot
 
 import (
 	"strconv"

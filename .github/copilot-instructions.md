@@ -8,13 +8,13 @@ SPDX-License-Identifier: MIT
 
 ## Architecture Overview
 
-This is a **Fabrica-generated** REST API service for managing node boot configurations in OpenCHAMI HPC clusters. It provides both modern resource-based APIs and legacy BSS (Boot Script Service) compatibility.
+This is a **Fabrica-generated** REST API service for managing node boot configurations in OpenCHAMI HPC clusters. It provides both modern resource-based APIs and boot endpoints at root paths, plus optional legacy BSS (Boot Script Service) compatibility.
 
 ### Key Components
 
 1. **Fabrica Code Generation** - Resources define the API contract, handlers/storage/client are auto-generated
 2. **BootScriptController** (`pkg/controllers/bootscript/`) - Core boot logic with iPXE template generation and intelligent config matching
-3. **Legacy BSS API** (`pkg/handlers/legacy/`) - Compatibility layer for legacy systems
+3. **Boot API Handlers** (`pkg/handlers/boot/`) - Modern and legacy (BSS-compatible) boot endpoints
 4. **Authentication** (`pkg/auth/`) - TokenSmith JWT integration with scope-based authorization
 5. **Storage Backend** (`internal/storage/`) - File-based storage (database support planned)
 
@@ -233,7 +233,7 @@ plus `TOKENSMITH_*` for bootstrap-token exchange settings.
 **Current Integration Path**:
 1. Build an HSM client in `cmd/server/main.go`
 2. Create `FlexibleBootScriptController` in `cmd/server/server_extensions.go`
-3. Register legacy routes with `NewLegacyHandlerWithController(...)`
+3. Register boot routes with `boot.NewHandlerWithController(...)`
 4. Start optional HSM background sync when enabled
 
 **Node resolution with HSM** (when integrated):
@@ -243,8 +243,8 @@ plus `TOKENSMITH_*` for bootstrap-token exchange settings.
 
 **Caching**: HSM responses are cached (default: 5 minutes) to reduce load on HSM service.
 
-**Current Limitation**: The legacy `/boot/v1/bootscript` HTTP route ignores the
-`profile` query parameter and always asks the controller to auto-resolve the
+**Current Limitation**: The boot HTTP endpoints (`/bootscript` and `/boot/v1/bootscript`)
+ignore the `profile` query parameter and always ask the controller to auto-resolve the
 best configuration across profiles.
 
 ### TokenSmith
@@ -253,7 +253,9 @@ Authentication service providing JWT tokens. Configure via `auth.jwks_url` or `a
 
 ### BSS Compatibility
 
-Legacy API at `/boot/v1/*` enabled via `enable_legacy_api: true`. Wraps modern API with BSS-compatible endpoints.
+Modern boot endpoints are always available at root paths (`/bootscript`, `/bootparameters`, etc.).
+Legacy BSS-compatible endpoints at `/boot/v1/*` are available when `enable_legacy_api: true`.
+Both modern and legacy endpoints use the same handler logic from `pkg/handlers/boot/`.
 
 ## Container Builds
 
@@ -285,7 +287,7 @@ GoReleaser config: `.goreleaser.yaml` (v2.4.4 compatible, no sboms).
 - `cmd/server/main.go` - Server entrypoint with Cobra CLI and config loading
 - `apis/boot.openchami.io/v1/` - Resource definitions (edit these, not generated files)
 - `pkg/controllers/bootscript/` - Boot logic, config matching, iPXE generation
-- `pkg/handlers/legacy/` - BSS compatibility layer
+- `pkg/handlers/boot/` - Boot API handlers, both modern and legacy BSS- compatible
 - `pkg/auth/` - TokenSmith integration and testing utilities
 - `config.example.yaml` - Comprehensive config documentation
 - `docs/AUTHENTICATION.md` - JWT integration guide

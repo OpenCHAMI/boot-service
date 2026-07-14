@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: MIT
 
-// Legacy BSS API integration tests
-package legacy
+// Boot API integration tests
+package boot
 
 import (
 	"bytes"
