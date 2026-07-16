@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-package legacy
+package boot
 
 import (
 	"encoding/json"
@@ -69,16 +69,16 @@ func TestGetBootScript_ProfileQueryParameterIgnored(t *testing.T) {
 		t.Fatalf("failed to create boot client: %v", err)
 	}
 
-	// Create legacy handler with bootscript controller
-	handler := NewLegacyHandler(*bootClient, log.New(io.Discard, "", 0))
+	// Create boot handler with bootscript controller
+	handler := NewHandler(*bootClient, log.New(io.Discard, "", 0))
 
-	// Create router and register legacy routes
+	// Create router and register modern routes
 	router := chi.NewRouter()
-	handler.RegisterRoutes(router)
+	handler.RegisterModernRoutes(router)
 
 	// Test Case 1: Request with explicit compute profile query should still
 	// auto-select based on score/priority and ignore the query parameter.
-	req := httptest.NewRequest("GET", "/boot/v1/bootscript?mac=aa:bb:cc:dd:ee:ff&profile=compute", nil)
+	req := httptest.NewRequest("GET", "/bootscript?mac=aa:bb:cc:dd:ee:ff&profile=compute", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -95,7 +95,7 @@ func TestGetBootScript_ProfileQueryParameterIgnored(t *testing.T) {
 	}
 
 	// Test Case 2: Request with empty profile parameter (auto-select best across profiles)
-	req = httptest.NewRequest("GET", "/boot/v1/bootscript?mac=aa:bb:cc:dd:ee:ff&profile=", nil)
+	req = httptest.NewRequest("GET", "/bootscript?mac=aa:bb:cc:dd:ee:ff&profile=", nil)
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -109,7 +109,7 @@ func TestGetBootScript_ProfileQueryParameterIgnored(t *testing.T) {
 	}
 
 	// Test Case 3: Request without profile parameter (auto-select best across profiles)
-	req = httptest.NewRequest("GET", "/boot/v1/bootscript?mac=aa:bb:cc:dd:ee:ff", nil)
+	req = httptest.NewRequest("GET", "/bootscript?mac=aa:bb:cc:dd:ee:ff", nil)
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -123,7 +123,7 @@ func TestGetBootScript_ProfileQueryParameterIgnored(t *testing.T) {
 	}
 
 	// Test Case 4: Request with XName identifier
-	req = httptest.NewRequest("GET", "/boot/v1/bootscript?host=x0c0s0b0n0&profile=compute", nil)
+	req = httptest.NewRequest("GET", "/bootscript?host=x0c0s0b0n0&profile=compute", nil)
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -138,7 +138,7 @@ func TestGetBootScript_ProfileQueryParameterIgnored(t *testing.T) {
 
 	// Test Case 5: Request with profile=default should still ignore profile and
 	// auto-select compute due to higher match score.
-	req = httptest.NewRequest("GET", "/boot/v1/bootscript?mac=aa:bb:cc:dd:ee:ff&profile=default", nil)
+	req = httptest.NewRequest("GET", "/bootscript?mac=aa:bb:cc:dd:ee:ff&profile=default", nil)
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -170,12 +170,12 @@ func TestGetBootScript_MissingNodeIdentifier(t *testing.T) {
 		t.Fatalf("failed to create boot client: %v", err)
 	}
 
-	handler := NewLegacyHandler(*bootClient, log.New(io.Discard, "", 0))
+	handler := NewHandler(*bootClient, log.New(io.Discard, "", 0))
 	router := chi.NewRouter()
-	handler.RegisterRoutes(router)
+	handler.RegisterModernRoutes(router)
 
 	// Request without any node identifier
-	req := httptest.NewRequest("GET", "/boot/v1/bootscript", nil)
+	req := httptest.NewRequest("GET", "/bootscript", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -184,7 +184,7 @@ func TestGetBootScript_MissingNodeIdentifier(t *testing.T) {
 	}
 }
 
-func TestRegisterBootScriptRoute_OnlyRegistersBootScriptEndpoint(t *testing.T) {
+func TestRegisterModernAndLegacyRoutes_Separately(t *testing.T) {
 	backendServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/nodes":
@@ -202,24 +202,63 @@ func TestRegisterBootScriptRoute_OnlyRegistersBootScriptEndpoint(t *testing.T) {
 		t.Fatalf("failed to create boot client: %v", err)
 	}
 
-	handler := NewLegacyHandler(*bootClient, log.New(io.Discard, "", 0))
-	router := chi.NewRouter()
-	handler.RegisterBootScriptRoute(router)
+	handler := NewHandler(*bootClient, log.New(io.Discard, "", 0))
 
-	// bootscript endpoint should be present
-	req := httptest.NewRequest("GET", "/boot/v1/bootscript?mac=aa:bb:cc:dd:ee:ff", nil)
+	// Test 1: Only modern routes registered
+	router1 := chi.NewRouter()
+	handler.RegisterModernRoutes(router1)
+
+	// Modern bootscript endpoint should be present
+	req := httptest.NewRequest("GET", "/bootscript?mac=aa:bb:cc:dd:ee:ff", nil)
 	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
+	router1.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
-		t.Fatalf("expected status 200 for bootscript route, got %d", w.Code)
+		t.Errorf("expected status 200 for modern bootscript route, got %d", w.Code)
 	}
 
-	// other legacy endpoints should not be present
+	// Legacy endpoint should not be present
+	req = httptest.NewRequest("GET", "/boot/v1/bootscript?mac=aa:bb:cc:dd:ee:ff", nil)
+	w = httptest.NewRecorder()
+	router1.ServeHTTP(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected status 404 for legacy route when not registered, got %d", w.Code)
+	}
+
+	// Test 2: Both modern and legacy routes registered
+	router2 := chi.NewRouter()
+	handler.RegisterModernRoutes(router2)
+	handler.RegisterLegacyRoutes(router2)
+
+	// Modern bootscript endpoint should work
+	req = httptest.NewRequest("GET", "/bootscript?mac=aa:bb:cc:dd:ee:ff", nil)
+	w = httptest.NewRecorder()
+	router2.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200 for modern bootscript route, got %d", w.Code)
+	}
+
+	// Legacy bootscript endpoint should also work
+	req = httptest.NewRequest("GET", "/boot/v1/bootscript?mac=aa:bb:cc:dd:ee:ff", nil)
+	w = httptest.NewRecorder()
+	router2.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200 for legacy bootscript route, got %d", w.Code)
+	}
+
+	// Modern bootparameters endpoint should work
+	req = httptest.NewRequest("GET", "/bootparameters", nil)
+	w = httptest.NewRecorder()
+	router2.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200 for modern bootparameters route, got %d", w.Code)
+	}
+
+	// Legacy bootparameters endpoint should also work
 	req = httptest.NewRequest("GET", "/boot/v1/bootparameters", nil)
 	w = httptest.NewRecorder()
-	router.ServeHTTP(w, req)
-	if w.Code != http.StatusNotFound {
-		t.Fatalf("expected status 404 for bootparameters route, got %d", w.Code)
+	router2.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200 for legacy bootparameters route, got %d", w.Code)
 	}
 }
 

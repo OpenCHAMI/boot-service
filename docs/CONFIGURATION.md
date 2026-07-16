@@ -61,11 +61,21 @@ environment variables.
 | --- | --- | --- |
 | `enable_auth` | `false` | Enables TokenSmith-related startup validation and HSM service-token exchange. It does not currently attach request middleware in `cmd/server/main.go`. |
 | `enable_metrics` | `false` | Enables Prometheus metrics exposure. |
-| `enable_legacy_api` | `true` | Keeps the legacy BSS-compatible endpoints enabled. `GET /boot/v1/bootscript` remains available even when this is `false`. |
+| `enable_legacy_api` | `true` | Controls availability of legacy BSS-compatible endpoints at `/boot/v1/*`. When `false`, only modern endpoints at root paths are available. |
 | `metrics_port` | `9090` | Port used for the dedicated metrics listener once `enable_metrics` is set to `true`. |
 
-`enable_legacy_api: false` still leaves `GET /boot/v1/bootscript` available for
-node boot flow. It only disables the rest of the legacy BSS compatibility API.
+**Modern vs Legacy API Endpoints:**
+
+When `enable_legacy_api` is `false` (default):
+
+- Modern endpoints at root paths are available: `/bootscript`, `/bootparameters`, `/service/*`
+- Legacy endpoints at `/boot/v1/*` return 404 Not Found
+
+When `enable_legacy_api` is `true`:
+
+- Both modern and legacy, BSS-compatible endpoints are available
+- Not meant for production use! Use modern endpoints for production.
+- Legacy endpoints provided for BSS compatibility only
 
 ### TokenSmith and HSM
 
