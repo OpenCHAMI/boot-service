@@ -135,7 +135,7 @@ func init() {
 	serveCmd.Flags().Int("metrics-port", 9090, "Port for metrics endpoint")
 
 	// Authentication configuration flags
-	serveCmd.Flags().String("tokensmith_url", "", "TokenSmith service URL for authentication")
+	serveCmd.Flags().String("tokensmith-url", "", "TokenSmith service URL for authentication")
 	serveCmd.Flags().String("tokensmith-bootstrap-token", "", "Bootstrap token used to exchange HSM service tokens")
 	serveCmd.Flags().String("tokensmith-target-service", "hsm", "Target service audience for HSM service token exchange")
 	serveCmd.Flags().String("tokensmith-bootstrap-policy-scopes-hint", "", "Comma-separated scope hint from bootstrap token policy used for diagnostics only")
