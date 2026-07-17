@@ -73,7 +73,7 @@ func DefaultConfig() Config {
 		StorageType:                         "file",
 		EnableAuth:                          false,
 		EnableMetrics:                       false,
-		EnableLegacyAPI:                     true,
+		EnableLegacyAPI:                     false,
 		MetricsPort:                         9090,
 		TokenSmithURL:                       "",
 		TokenSmithBootstrapToken:            "",
