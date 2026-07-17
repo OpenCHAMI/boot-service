@@ -17,11 +17,95 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 
 	"github.com/openchami/boot-service/internal/storage"
 	bootclient "github.com/openchami/boot-service/pkg/client"
 	"github.com/openchami/boot-service/pkg/handlers/boot"
 )
+
+func TestBindFlagsWithUnderscoreKeys_ConfigValuesBeatUnchangedFlagDefaults(t *testing.T) {
+	flags := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	flags.Bool("enable-auth", false, "Enable authentication with TokenSmith")
+	flags.Bool("enable-metrics", false, "Enable Prometheus metrics")
+	flags.Bool("enable-legacy-api", true, "Enable legacy BSS API compatibility")
+	flags.String("tokensmith-url", "", "TokenSmith service URL for authentication")
+	flags.String("tokensmith-target-service", "hsm", "Target service audience for HSM service token exchange")
+	flags.String("hsm-url", "", "Hardware State Manager service URL")
+	flags.Bool("hsm-sync-enabled", true, "Enable background sync with HSM")
+
+	v := viper.New()
+	if err := bindFlagsWithUnderscoreKeys(v, flags); err != nil {
+		t.Fatalf("bindFlagsWithUnderscoreKeys failed: %v", err)
+	}
+
+	v.SetConfigType("yaml")
+	configYAML := `
+enable_auth: true
+tokensmith_url: http://tokensmith:8080
+tokensmith_target_service: smd
+hsm_url: http://smd:27779
+hsm_sync_enabled: true
+enable_legacy_api: true
+enable_metrics: false
+`
+	if err := v.ReadConfig(strings.NewReader(configYAML)); err != nil {
+		t.Fatalf("ReadConfig failed: %v", err)
+	}
+
+	config := DefaultConfig()
+	if err := v.Unmarshal(&config); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if !config.EnableAuth {
+		t.Fatal("expected enable_auth config value to override unchanged --enable-auth default")
+	}
+	if config.TokenSmithURL != "http://tokensmith:8080" {
+		t.Fatalf("expected tokensmith_url from config, got %q", config.TokenSmithURL)
+	}
+	if config.TokenSmithTargetService != "smd" {
+		t.Fatalf("expected tokensmith_target_service from config, got %q", config.TokenSmithTargetService)
+	}
+	if config.HSMURL != "http://smd:27779" {
+		t.Fatalf("expected hsm_url config value to override unchanged --hsm-url default, got %q", config.HSMURL)
+	}
+	if !config.HSMSyncEnabled {
+		t.Fatal("expected hsm_sync_enabled from config")
+	}
+	if !config.EnableLegacyAPI {
+		t.Fatal("expected enable_legacy_api from config")
+	}
+	if config.EnableMetrics {
+		t.Fatal("expected enable_metrics to remain false")
+	}
+}
+
+func TestBindFlagsWithUnderscoreKeys_ChangedHyphenatedFlagsUseUnderscoreKeys(t *testing.T) {
+	flags := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	flags.Bool("enable-auth", false, "Enable authentication with TokenSmith")
+	flags.String("hsm-url", "", "Hardware State Manager service URL")
+
+	if err := flags.Set("enable-auth", "true"); err != nil {
+		t.Fatalf("Set enable-auth failed: %v", err)
+	}
+	if err := flags.Set("hsm-url", "http://smd:27779"); err != nil {
+		t.Fatalf("Set hsm-url failed: %v", err)
+	}
+
+	v := viper.New()
+	if err := bindFlagsWithUnderscoreKeys(v, flags); err != nil {
+		t.Fatalf("bindFlagsWithUnderscoreKeys failed: %v", err)
+	}
+
+	if !v.GetBool("enable_auth") {
+		t.Fatal("expected --enable-auth to bind to enable_auth")
+	}
+	if got := v.GetString("hsm_url"); got != "http://smd:27779" {
+		t.Fatalf("expected --hsm-url to bind to hsm_url, got %q", got)
+	}
+}
 
 func newGeneratedRouterForTest(t *testing.T) http.Handler {
 	t.Helper()
