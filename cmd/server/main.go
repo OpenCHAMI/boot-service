@@ -20,6 +20,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
 	"github.com/openchami/boot-service/internal/storage"
@@ -72,7 +73,7 @@ func DefaultConfig() Config {
 		StorageType:                         "file",
 		EnableAuth:                          false,
 		EnableMetrics:                       false,
-		EnableLegacyAPI:                     true,
+		EnableLegacyAPI:                     false,
 		MetricsPort:                         9090,
 		TokenSmithURL:                       "",
 		TokenSmithBootstrapToken:            "",
@@ -100,6 +101,21 @@ var serveCmd = &cobra.Command{
 	RunE:  runServe,
 }
 
+func bindFlagsWithUnderscoreKeys(v *viper.Viper, flags *pflag.FlagSet) error {
+	var bindErr error
+
+	flags.VisitAll(func(flag *pflag.Flag) {
+		if bindErr != nil {
+			return
+		}
+
+		key := strings.ReplaceAll(flag.Name, "-", "_")
+		bindErr = v.BindPFlag(key, flag)
+	})
+
+	return bindErr
+}
+
 func init() {
 	// Server configuration flags
 	serveCmd.Flags().Int("port", 8080, "Port to listen on")
@@ -119,7 +135,7 @@ func init() {
 	serveCmd.Flags().Int("metrics-port", 9090, "Port for metrics endpoint")
 
 	// Authentication configuration flags
-	serveCmd.Flags().String("tokensmith_url", "", "TokenSmith service URL for authentication")
+	serveCmd.Flags().String("tokensmith-url", "", "TokenSmith service URL for authentication")
 	serveCmd.Flags().String("tokensmith-bootstrap-token", "", "Bootstrap token used to exchange HSM service tokens")
 	serveCmd.Flags().String("tokensmith-target-service", "hsm", "Target service audience for HSM service token exchange")
 	serveCmd.Flags().String("tokensmith-bootstrap-policy-scopes-hint", "", "Comma-separated scope hint from bootstrap token policy used for diagnostics only")
@@ -133,7 +149,9 @@ func init() {
 	serveCmd.Flags().Int("hsm-sync-interval", 5, "HSM sync interval in minutes")
 
 	// Bind flags to viper
-	viper.BindPFlags(serveCmd.Flags()) //nolint:errcheck
+	if err := bindFlagsWithUnderscoreKeys(viper.GetViper(), serveCmd.Flags()); err != nil {
+		panic(fmt.Errorf("failed to bind serve flags: %w", err))
+	}
 
 	// Add commands
 	rootCmd.AddCommand(serveCmd)
@@ -151,19 +169,6 @@ func main() {
 	viper.SetEnvPrefix("BOOT_SERVICE")
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
-
-	// Register aliases for flags with dashes to work with mapstructure tags that use underscores
-	viper.RegisterAlias("hsm_url", "hsm-url")
-	viper.RegisterAlias("hsm_sync_enabled", "hsm-sync-enabled")
-	viper.RegisterAlias("hsm_sync_interval", "hsm-sync-interval")
-	viper.RegisterAlias("tokensmith_bootstrap_token", "tokensmith-bootstrap-token")
-	viper.RegisterAlias("tokensmith_target_service", "tokensmith-target-service")
-	viper.RegisterAlias("tokensmith_bootstrap_policy_scopes_hint", "tokensmith-bootstrap-policy-scopes-hint")
-	viper.RegisterAlias("tokensmith_scopes", "tokensmith-scopes")
-	viper.RegisterAlias("tokensmith_refresh_skew_sec", "tokensmith-refresh-skew-sec")
-	viper.RegisterAlias("enable_auth", "enable-auth")
-	viper.RegisterAlias("enable_legacy_api", "enable-legacy-api")
-	viper.RegisterAlias("enable_metrics", "enable-metrics")
 
 	// Standardized TokenSmith env vars for cross-service UX consistency.
 	viper.BindEnv("tokensmith_url", "TOKENSMITH_URL")                                                   //nolint:errcheck
