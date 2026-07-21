@@ -20,15 +20,16 @@ endpoints are available at `/boot/v1/*` when `enable_legacy_api: true`.
 - Boot script generation with node matching by XName, NID, or MAC address
 - A reusable TokenSmith auth package plus generated AuthZ classifier scaffolding
 - Optional HSM-backed node resolution, including TokenSmith service-token exchange
+- Optional Fabrica-generated Prometheus metrics at `/metrics`
 - OpenAPI publishing at `/openapi.json` and `/docs`
-- A generated CLI client with commands such as `./bin/client health`
+- A generated CLI client with commands such as `./bin/client health` and `./bin/client version`
 
 ## Quick Start
 
 ### Prerequisites
 
 - GNU Make
-- A Go toolchain compatible with `go.mod` (this branch currently declares `go 1.26.3`)
+- A Go toolchain compatible with `go.mod` (this branch currently declares `go 1.26.5`)
 - `pre-commit` if you want local CI-style checks
 
 ### Configure
@@ -68,8 +69,17 @@ go run ./cmd/server serve
 # Run the built server
 ./bin/server serve
 
+# Enable runtime exposure of Prometheus metrics at /metrics
+./bin/server serve --enable-metrics
+
 # Optional client smoke test
 ./bin/client --server http://localhost:8080 health
+
+# Show client build and Fabrica generator version information
+./bin/client version
+
+# Show server build and Fabrica generator version information
+./bin/server version
 ```
 
 Example overrides:
@@ -89,7 +99,7 @@ Example overrides:
 - `GET /health` returns a small JSON health response
 - `GET /openapi.json` serves the generated OpenAPI document
 - `GET /docs` serves Swagger UI
-- When metrics are enabled, Prometheus metrics are exposed at `/metrics` and on the separate metrics listener configured by `metrics_port`
+- When `enable_metrics` or `--enable-metrics` is enabled, Fabrica-generated Prometheus metrics are exposed at `/metrics` on the main server listener and on the separate metrics listener configured by `metrics_port`
 
 ### Modern Resource APIs
 

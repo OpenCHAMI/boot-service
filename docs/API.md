@@ -17,7 +17,8 @@ These routes are registered directly in the server entrypoint:
 - `GET /openapi.json`
 - `GET /docs`
 
-When metrics are enabled, Prometheus metrics are also exposed at:
+When `enable_metrics` or `--enable-metrics` is enabled, Fabrica-generated
+Prometheus metrics are also exposed at:
 
 - `GET /metrics`
 
@@ -110,6 +111,7 @@ configuration across profiles based on score and priority.
 Current top-level commands include:
 
 - `client health`
+- `client version`
 - `client bmc ...`
 - `client bootconfiguration ...`
 - `client node ...`
