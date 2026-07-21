@@ -17,6 +17,22 @@ Changes remain under `Unreleased` until they ship in the next tagged release.
 
 ### Added
 
+- Added Fabrica v0.4.9 Prometheus metrics instrumentation generated from
+  `.fabrica.yaml`.
+- Added generated server and client `version` commands that report the Fabrica
+  generator version.
+- Added generated client simple create/update helpers and multi-resource delete
+  support from Fabrica v0.4.9.
+
+### Changed
+
+- Regenerated with Fabrica v0.4.9 while keeping boot-service runtime metrics
+  configuration on `enable_metrics` / `--enable-metrics`.
+
+## [v0.2.0] - 2026-07-17
+
+### Added
+
 - Added modern boot API endpoints at root paths
   - `GET /bootscript`
   - `GET/POST/PUT/DELETE /bootparameters`
