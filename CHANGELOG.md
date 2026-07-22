@@ -15,6 +15,8 @@ Changes remain under `Unreleased` until they ship in the next tagged release.
 
 ## [Unreleased]
 
+## [v0.3.0] - 2026-07-22
+
 ### Added
 
 - Added Fabrica v0.4.9 Prometheus metrics instrumentation generated from
