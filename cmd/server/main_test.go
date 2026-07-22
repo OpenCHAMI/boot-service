@@ -85,6 +85,7 @@ enable_metrics: false
 func TestBindFlagsWithUnderscoreKeys_ChangedHyphenatedFlagsUseUnderscoreKeys(t *testing.T) {
 	flags := pflag.NewFlagSet("test", pflag.ContinueOnError)
 	flags.Bool("enable-auth", false, "Enable authentication with TokenSmith")
+	flags.Bool("enable-metrics", false, "Enable Prometheus metrics")
 	flags.String("hsm-url", "", "Hardware State Manager service URL")
 
 	if err := flags.Set("enable-auth", "true"); err != nil {
@@ -92,6 +93,9 @@ func TestBindFlagsWithUnderscoreKeys_ChangedHyphenatedFlagsUseUnderscoreKeys(t *
 	}
 	if err := flags.Set("hsm-url", "http://smd:27779"); err != nil {
 		t.Fatalf("Set hsm-url failed: %v", err)
+	}
+	if err := flags.Set("enable-metrics", "true"); err != nil {
+		t.Fatalf("Set enable-metrics failed: %v", err)
 	}
 
 	v := viper.New()
@@ -104,6 +108,9 @@ func TestBindFlagsWithUnderscoreKeys_ChangedHyphenatedFlagsUseUnderscoreKeys(t *
 	}
 	if got := v.GetString("hsm_url"); got != "http://smd:27779" {
 		t.Fatalf("expected --hsm-url to bind to hsm_url, got %q", got)
+	}
+	if !v.GetBool("enable_metrics") {
+		t.Fatal("expected --enable-metrics to bind to enable_metrics")
 	}
 }
 

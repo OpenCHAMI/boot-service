@@ -41,7 +41,9 @@ import (
 	"github.com/openchami/boot-service/apis/boot.openchami.io/v1"
 )
 
-// CreateBMCRequest represents a request to create a BMC
+// CreateBMCRequest represents a request to create a BMC (Advanced API)
+// Use this when you need full control over metadata fields (labels, annotations).
+// For simpler usage, see CreateBMCSimple in the client.
 type CreateBMCRequest struct {
 	Metadata    fabrica.Metadata  `json:"metadata" yaml:"metadata" validate:"required"`
 	Spec        v1.BMCSpec        `json:"spec" yaml:"spec" validate:"required"`
@@ -49,7 +51,9 @@ type CreateBMCRequest struct {
 	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
-// UpdateBMCRequest represents a request to update a BMC
+// UpdateBMCRequest represents a request to update a BMC (Advanced API)
+// Use this when you need to update metadata fields along with the spec.
+// For simpler usage, see UpdateBMCSimple in the client.
 type UpdateBMCRequest struct {
 	Metadata    fabrica.Metadata  `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 	Spec        v1.BMCSpec        `json:"spec,omitempty" yaml:"spec,omitempty" validate:"omitempty"`
@@ -57,7 +61,9 @@ type UpdateBMCRequest struct {
 	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
-// CreateBootConfigurationRequest represents a request to create a BootConfiguration
+// CreateBootConfigurationRequest represents a request to create a BootConfiguration (Advanced API)
+// Use this when you need full control over metadata fields (labels, annotations).
+// For simpler usage, see CreateBootConfigurationSimple in the client.
 type CreateBootConfigurationRequest struct {
 	Metadata    fabrica.Metadata         `json:"metadata" yaml:"metadata" validate:"required"`
 	Spec        v1.BootConfigurationSpec `json:"spec" yaml:"spec" validate:"required"`
@@ -65,7 +71,9 @@ type CreateBootConfigurationRequest struct {
 	Annotations map[string]string        `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
-// UpdateBootConfigurationRequest represents a request to update a BootConfiguration
+// UpdateBootConfigurationRequest represents a request to update a BootConfiguration (Advanced API)
+// Use this when you need to update metadata fields along with the spec.
+// For simpler usage, see UpdateBootConfigurationSimple in the client.
 type UpdateBootConfigurationRequest struct {
 	Metadata    fabrica.Metadata         `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 	Spec        v1.BootConfigurationSpec `json:"spec,omitempty" yaml:"spec,omitempty" validate:"omitempty"`
@@ -73,7 +81,9 @@ type UpdateBootConfigurationRequest struct {
 	Annotations map[string]string        `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
-// CreateNodeRequest represents a request to create a Node
+// CreateNodeRequest represents a request to create a Node (Advanced API)
+// Use this when you need full control over metadata fields (labels, annotations).
+// For simpler usage, see CreateNodeSimple in the client.
 type CreateNodeRequest struct {
 	Metadata    fabrica.Metadata  `json:"metadata" yaml:"metadata" validate:"required"`
 	Spec        v1.NodeSpec       `json:"spec" yaml:"spec" validate:"required"`
@@ -81,7 +91,9 @@ type CreateNodeRequest struct {
 	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
-// UpdateNodeRequest represents a request to update a Node
+// UpdateNodeRequest represents a request to update a Node (Advanced API)
+// Use this when you need to update metadata fields along with the spec.
+// For simpler usage, see UpdateNodeSimple in the client.
 type UpdateNodeRequest struct {
 	Metadata    fabrica.Metadata  `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 	Spec        v1.NodeSpec       `json:"spec,omitempty" yaml:"spec,omitempty" validate:"omitempty"`
