@@ -60,9 +60,9 @@ environment variables.
 | Key | Example | Description |
 | --- | --- | --- |
 | `enable_auth` | `false` | Enables TokenSmith-related startup validation and HSM service-token exchange. It does not currently attach request middleware in `cmd/server/main.go`. |
-| `enable_metrics` | `false` | Enables Prometheus metrics exposure. |
 | `enable_legacy_api` | `true` | Controls availability of legacy BSS-compatible endpoints at `/boot/v1/*`. When `false`, only modern endpoints at root paths are available. |
-| `metrics_port` | `9090` | Port used for the dedicated metrics listener once `enable_metrics` is set to `true`. |
+| `enable_metrics` | `false` | Enables runtime exposure of Prometheus metrics. |
+| `metrics_port` | `9090` | Port used for the dedicated metrics listener when `enable_metrics` is `true`. |
 
 **Modern vs Legacy API Endpoints:**
 
@@ -124,10 +124,43 @@ For package-level JWT and JWKS middleware usage, see `docs/AUTHENTICATION.md`.
 
 ## Metrics Behavior
 
-Metrics are disabled by default. When enabled, the server:
+Metrics are disabled at runtime by default. Enable runtime exposure with either
+`enable_metrics` in `config.yaml` or the `--enable-metrics` flag:
 
-- serves `/metrics` on the main router
-- starts a separate metrics listener on `host:metrics_port`
+```yaml
+enable_metrics: true
+metrics_port: 9090
+```
+
+```bash
+./bin/server serve --enable-metrics
+```
+
+When enabled, the server:
+
+- installs Fabrica-generated HTTP metrics middleware
+- serves Prometheus/OpenMetrics output at `GET /metrics` on the main server listener
+- starts a dedicated metrics listener at `host:metrics_port` serving `GET /metrics`
+- emits request counters, latency histograms, in-flight request gauges, and Go/process/build metrics
+
+The generated metric names use the `main` namespace, for example:
+
+- `main_http_request_total`
+- `main_http_request_duration_seconds`
+- `main_http_requests_in_flight`
+
+Fabrica controls whether metrics instrumentation is generated separately in
+`.fabrica.yaml`:
+
+```yaml
+features:
+  metrics:
+    enabled: true
+    provider: prometheus
+```
+
+**Do not put that nested Fabrica feature block in `config.yaml`.** The
+boot-service runtime config only reads `enable_metrics` and `metrics_port`.
 
 ## Boot Profiles and HTTP Behavior
 
@@ -183,7 +216,7 @@ The current startup validation fails when:
 Common checks:
 
 1. If the service will not start, run `./bin/server serve` directly and inspect the startup error.
-2. If metrics do not appear, confirm `enable_metrics: true` and check port `9090` unless you changed `metrics_port`.
+2. If metrics do not appear, confirm `enable_metrics: true` or start with `--enable-metrics`, then scrape `http://<host>:<port>/metrics` or `http://<host>:<metrics_port>/metrics`.
 3. If HSM integration fails while auth is enabled, confirm `TOKENSMITH_BOOTSTRAP_TOKEN` is set.
 
 ## See Also

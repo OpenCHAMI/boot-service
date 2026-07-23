@@ -45,7 +45,8 @@ storage_type: "file"
 
 # Enables TokenSmith-dependent startup validation and HSM token exchange.
 enable_auth: false
-# Enables Prometheus metrics endpoints.
+# Enables runtime exposure of Prometheus metrics endpoints. Fabrica generation
+# of metrics instrumentation is controlled separately by .fabrica.yaml.
 enable_metrics: false
 # Controls legacy BSS-compatible endpoints at /boot/v1/*.
 # When false, only modern endpoints at root paths are available.
@@ -106,6 +107,7 @@ hsm_sync_interval: 5
 
 # Minimal metrics-enabled setup:
 # enable_metrics: true
+# metrics_port: 9090
 
 # HSM integration without auth-backed token exchange:
 # hsm_url: "http://localhost:27779"

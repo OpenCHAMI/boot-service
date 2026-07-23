@@ -18,7 +18,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	_ "github.com/openchami/boot-service/pkg/apiversion"
+	"github.com/openchami/fabrica/pkg/versioning"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -155,6 +156,7 @@ func init() {
 
 	// Add commands
 	rootCmd.AddCommand(serveCmd)
+	rootCmd.AddCommand(NewVersionCommand())
 }
 
 func main() {
@@ -271,6 +273,16 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 	r.Use(middleware.RedirectSlashes)
 	r.Use(middleware.Timeout(time.Duration(config.ReadTimeout) * time.Second))
 
+	var metrics *Metrics
+	if config.EnableMetrics {
+		metrics = initializeMetrics(&config)
+		if metrics != nil {
+			r.Use(metrics.Middleware)
+		}
+	}
+
+	r.Use(versioning.VersionNegotiationMiddleware(versioning.GlobalVersionRegistry, nil))
+
 	// Register health check
 	r.Get("/health", func(w http.ResponseWriter, req *http.Request) { //nolint:revive
 		w.Header().Set("Content-Type", "application/json")
@@ -282,15 +294,10 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 	r.Get("/openapi.json", ServeOpenAPISpec)
 	r.Get("/docs", ServeSwaggerUI)
 
-	// Setup metrics endpoint if enabled (before other routes)
-	if config.EnableMetrics {
-		// Add metrics to main router
-		r.Route("/metrics", func(r chi.Router) {
-			r.Get("/", metricsHandler)
-		})
-
-		// Start separate metrics server
-		go startMetricsServer(config)
+	// Metrics endpoint is available when enabled at runtime.
+	if config.EnableMetrics && metrics != nil {
+		r.Handle("/metrics", metrics.Handler())
+		go startMetricsServer(config, metrics.Handler())
 	}
 
 	if err := registerCustomServerIntegrations(r, config, hsmClient, ctx); err != nil {
@@ -426,9 +433,9 @@ func initializeHSMServiceTokenManager(ctx context.Context, config Config, hsmLog
 	return serviceTokenManager, nil
 }
 
-func startMetricsServer(config Config) {
+func startMetricsServer(config Config, handler http.Handler) {
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.Handler())
+	mux.Handle("/metrics", handler)
 
 	metricsAddr := fmt.Sprintf("%s:%d", config.Host, config.MetricsPort)
 	log.Printf("Metrics server starting on %s", metricsAddr)
@@ -436,8 +443,4 @@ func startMetricsServer(config Config) {
 	if err := http.ListenAndServe(metricsAddr, mux); err != nil {
 		log.Printf("Metrics server error: %v", err)
 	}
-}
-
-func metricsHandler(w http.ResponseWriter, r *http.Request) { //nolint:revive
-	promhttp.Handler().ServeHTTP(w, r)
 }
