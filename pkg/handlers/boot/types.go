@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: MIT
 
-// Package legacy implements the legacy BSS API types for backward compatibility
-// This file defines the exact request/response formats expected by legacy BSS clients
-package legacy
+// Package boot implements the boot API types for both modern and legacy (BSS-compatible) endpoints
+// This file defines the request/response formats for boot API handlers
+package boot
 
 import (
 	"time"

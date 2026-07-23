@@ -15,7 +15,7 @@ There are two profile-related behaviors in this repository and they are not the
 same:
 
 1. The boot script controller supports requested profiles and fallback to the default profile.
-2. The legacy HTTP bootscript endpoint ignores the `profile` query parameter and auto-selects the best match across profiles.
+2. The boot HTTP endpoints (both modern and legacy) ignore the `profile` query parameter and auto-select the best match across profiles.
 
 **That distinction matters more than anything else in this document.**
 
@@ -101,25 +101,38 @@ Current controller rules are:
 
 This behavior is covered by tests in `pkg/controllers/bootscript/controller_profile_test.go`.
 
-## Legacy HTTP Endpoint Behavior
+## HTTP Endpoint Behavior
 
-The legacy endpoint is:
+The boot service provides bootscript endpoints at two locations:
 
-- `GET /boot/v1/bootscript`
+**Modern API:**
 
-It accepts node identifiers through:
+- `GET /bootscript` (always available)
 
-- `?mac=`
-- `?host=`
-- `?nid=`
+**Legacy BSS API:**
 
-Current limitation: the handler ignores any `profile` query parameter and always
-calls the controller with an empty profile.
+- `GET /boot/v1/bootscript` (only when `enable_legacy_api` is `true`)
+
+Both endpoints accept node identifiers through:
+
+- `?mac=` - MAC address
+- `?host=` - XName or hostname
+- `?nid=` - Node ID
+
+**Current limitation:** Both endpoints ignore the `profile` query parameter and always
+call the controller with an empty profile, which auto-selects the best match across
+all profiles.
 
 That means all of these requests behave the same as far as profile selection is
 concerned:
 
 ```bash
+# Modern endpoint examples
+curl "http://boot-service:8080/bootscript?mac=aa:bb:cc:dd:ee:ff"
+curl "http://boot-service:8080/bootscript?mac=aa:bb:cc:dd:ee:ff&profile=compute"
+curl "http://boot-service:8080/bootscript?mac=aa:bb:cc:dd:ee:ff&profile=default"
+
+# Legacy endpoint examples (when enable_legacy_api: true)
 curl "http://boot-service:8080/boot/v1/bootscript?mac=aa:bb:cc:dd:ee:ff"
 curl "http://boot-service:8080/boot/v1/bootscript?mac=aa:bb:cc:dd:ee:ff&profile=compute"
 curl "http://boot-service:8080/boot/v1/bootscript?mac=aa:bb:cc:dd:ee:ff&profile=default"
@@ -150,13 +163,13 @@ Use profiles today for:
 - controller-level integrations that call `GenerateBootScript(..., profile)` directly
 - preparing for a future HTTP surface that may expose explicit profile selection
 
-Do not assume profile-specific HTTP behavior from `/boot/v1/bootscript` yet.
+Do not assume profile-specific HTTP behavior from the bootscript endpoints yet.
 
 ## Troubleshooting
 
 ### A profile query parameter does nothing
 
-That is the current expected behavior of the legacy HTTP route. The handler
+That is the current expected behavior of the boot HTTP endpoints. The handler
 accepts the parameter but ignores it, and matching is still based on best score
 and priority across profiles.
 

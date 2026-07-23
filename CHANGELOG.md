@@ -15,6 +15,42 @@ Changes remain under `Unreleased` until they ship in the next tagged release.
 
 ## [Unreleased]
 
+## [v0.3.0] - 2026-07-22
+
+### Added
+
+- Added Fabrica v0.4.9 Prometheus metrics instrumentation generated from
+  `.fabrica.yaml`.
+- Added generated server and client `version` commands that report the Fabrica
+  generator version.
+- Added generated client simple create/update helpers and multi-resource delete
+  support from Fabrica v0.4.9.
+
+### Changed
+
+- Regenerated with Fabrica v0.4.9 while keeping boot-service runtime metrics
+  configuration on `enable_metrics` / `--enable-metrics`.
+
+## [v0.2.0] - 2026-07-17
+
+### Added
+
+- Added modern boot API endpoints at root paths
+  - `GET /bootscript`
+  - `GET/POST/PUT/DELETE /bootparameters`
+  - `GET /service/status`
+  - `GET /service/version`
+
+### Changed
+
+- **BREAKING:** Moved boot endpoints from `/boot/v1/*` to root paths.
+  - `/boot/v1/*` prefix now exclusively for legacy BSS compatibility when `enable_legacy_api` is `true`.
+- **BREAKING:** Renamed `pkg/handlers/legacy` package to `pkg/handlers/boot` with unified handler supporting both modern and legacy routing.
+- Changed `enable_legacy_api` behavior
+  - When `false`, only modern endpoints are available; when `true`, both modern and legacy endpoints are available.
+- Updated all documentation to reflect modern endpoint paths and legacy API behavior.
+- Refactored server route registration to clearly separate modern and legacy endpoint registration.
+
 ## [0.1.7] - 2026-06-17
 
 ### Added

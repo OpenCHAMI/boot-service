@@ -2,8 +2,9 @@
 //
 // SPDX-License-Identifier: MIT
 
-// Package legacy provides legacy BSS API handlers for backward compatibility
-package legacy
+// Package boot provides boot API handlers for both modern and legacy,
+// BSS-compatible endpoints
+package boot
 
 import (
 	"context"
@@ -25,34 +26,56 @@ type BootController interface {
 	GenerateBootScript(ctx context.Context, identifier string, profile string) (string, error)
 }
 
-// LegacyHandler handles legacy BSS API requests
-type LegacyHandler struct { //nolint:revive
+// Handler handles boot API requests for both modern and legacy endpoints
+type Handler struct {
 	client     client.Client
 	controller BootController
 	logger     *log.Logger
 }
 
-// NewLegacyHandler creates a new legacy API handler with standard controller
-func NewLegacyHandler(c client.Client, logger *log.Logger) *LegacyHandler {
+// NewHandler creates a new boot API handler with standard controller
+func NewHandler(c client.Client, logger *log.Logger) *Handler {
 	controller := bootscript.NewBootScriptController(c, logger)
-	return &LegacyHandler{
+	return &Handler{
 		client:     c,
 		controller: controller,
 		logger:     logger,
 	}
 }
 
-// NewLegacyHandlerWithController creates a new legacy API handler with a custom controller
-func NewLegacyHandlerWithController(c client.Client, controller BootController, logger *log.Logger) *LegacyHandler {
-	return &LegacyHandler{
+// NewHandlerWithController creates a new boot API handler with a custom controller
+func NewHandlerWithController(c client.Client, controller BootController, logger *log.Logger) *Handler {
+	return &Handler{
 		client:     c,
 		controller: controller,
 		logger:     logger,
 	}
 }
 
-// RegisterRoutes registers legacy BSS API routes
-func (h *LegacyHandler) RegisterRoutes(r chi.Router) {
+// RegisterModernRoutes registers modern boot API routes at root paths
+// These are always available regardless of enable_legacy_api setting
+func (h *Handler) RegisterModernRoutes(r chi.Router) {
+	// Boot parameters endpoints
+	r.Route("/bootparameters", func(r chi.Router) {
+		r.Get("/", h.GetBootParameters)
+		r.Post("/", h.CreateBootParameters)
+		r.Put("/", h.UpdateBootParameters)
+		r.Delete("/", h.DeleteBootParameters)
+	})
+
+	// Boot script endpoint
+	r.Get("/bootscript", h.GetBootScript)
+
+	// Service endpoints
+	r.Route("/service", func(r chi.Router) {
+		r.Get("/status", h.GetServiceStatus)
+		r.Get("/version", h.GetServiceVersion)
+	})
+}
+
+// RegisterLegacyRoutes registers legacy BSS API routes at /boot/v1
+// These are ONLY available when enable_legacy_api: true
+func (h *Handler) RegisterLegacyRoutes(r chi.Router) {
 	r.Route("/boot/v1", func(r chi.Router) {
 		// Boot parameters endpoints
 		r.Route("/bootparameters", func(r chi.Router) {
@@ -73,17 +96,8 @@ func (h *LegacyHandler) RegisterRoutes(r chi.Router) {
 	})
 }
 
-// RegisterBootScriptRoute registers only the node bootscript endpoint.
-// This endpoint is required for node boot flow even when full legacy API
-// compatibility endpoints are disabled.
-func (h *LegacyHandler) RegisterBootScriptRoute(r chi.Router) {
-	r.Route("/boot/v1", func(r chi.Router) {
-		r.Get("/bootscript", h.GetBootScript)
-	})
-}
-
-// GetBootParameters handles GET /boot/v1/bootparameters
-func (h *LegacyHandler) GetBootParameters(w http.ResponseWriter, r *http.Request) {
+// GetBootParameters handles GET /bootparameters and GET /boot/v1/bootparameters
+func (h *Handler) GetBootParameters(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	// Parse query parameters for filtering
@@ -122,8 +136,8 @@ func (h *LegacyHandler) GetBootParameters(w http.ResponseWriter, r *http.Request
 	h.writeJSON(w, http.StatusOK, response)
 }
 
-// CreateBootParameters handles POST /boot/v1/bootparameters
-func (h *LegacyHandler) CreateBootParameters(w http.ResponseWriter, r *http.Request) {
+// CreateBootParameters handles POST /bootparameters and POST /boot/v1/bootparameters
+func (h *Handler) CreateBootParameters(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var req BootParametersRequest
@@ -160,8 +174,8 @@ func (h *LegacyHandler) CreateBootParameters(w http.ResponseWriter, r *http.Requ
 	h.writeJSON(w, http.StatusCreated, response)
 }
 
-// UpdateBootParameters handles PUT /boot/v1/bootparameters
-func (h *LegacyHandler) UpdateBootParameters(w http.ResponseWriter, r *http.Request) {
+// UpdateBootParameters handles PUT /bootparameters and PUT /boot/v1/bootparameters
+func (h *Handler) UpdateBootParameters(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var req BootParametersRequest
@@ -225,8 +239,8 @@ func (h *LegacyHandler) UpdateBootParameters(w http.ResponseWriter, r *http.Requ
 	h.writeJSON(w, http.StatusOK, response)
 }
 
-// DeleteBootParameters handles DELETE /boot/v1/bootparameters
-func (h *LegacyHandler) DeleteBootParameters(w http.ResponseWriter, r *http.Request) {
+// DeleteBootParameters handles DELETE /bootparameters and DELETE /boot/v1/bootparameters
+func (h *Handler) DeleteBootParameters(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	// Parse query parameters to identify which configurations to delete
@@ -274,8 +288,8 @@ func (h *LegacyHandler) DeleteBootParameters(w http.ResponseWriter, r *http.Requ
 	h.writeJSON(w, http.StatusOK, response)
 }
 
-// GetBootScript handles GET /boot/v1/bootscript
-func (h *LegacyHandler) GetBootScript(w http.ResponseWriter, r *http.Request) {
+// GetBootScript handles GET /bootscript and GET /boot/v1/bootscript
+func (h *Handler) GetBootScript(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	// Parse query parameters for node identification
@@ -313,21 +327,21 @@ func (h *LegacyHandler) GetBootScript(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(script)) //nolint:errcheck
 }
 
-// GetServiceStatus handles GET /boot/v1/service/status
-func (h *LegacyHandler) GetServiceStatus(w http.ResponseWriter, r *http.Request) { //nolint:revive
+// GetServiceStatus handles GET /service/status and GET /boot/v1/service/status
+func (h *Handler) GetServiceStatus(w http.ResponseWriter, r *http.Request) { //nolint:revive
 	status := CreateServiceStatus("2.0.0-fabrica")
 	h.writeJSON(w, http.StatusOK, status)
 }
 
-// GetServiceVersion handles GET /boot/v1/service/version
-func (h *LegacyHandler) GetServiceVersion(w http.ResponseWriter, r *http.Request) { //nolint:revive
+// GetServiceVersion handles GET /service/version and GET /boot/v1/service/version
+func (h *Handler) GetServiceVersion(w http.ResponseWriter, r *http.Request) { //nolint:revive
 	version := CreateServiceVersion("2.0.0-fabrica", "2025-10-08", "main")
 	h.writeJSON(w, http.StatusOK, version)
 }
 
 // Helper methods
 
-func (h *LegacyHandler) writeJSON(w http.ResponseWriter, status int, data interface{}) {
+func (h *Handler) writeJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(data); err != nil {
@@ -335,12 +349,12 @@ func (h *LegacyHandler) writeJSON(w http.ResponseWriter, status int, data interf
 	}
 }
 
-func (h *LegacyHandler) writeError(w http.ResponseWriter, status int, title, detail string) {
+func (h *Handler) writeError(w http.ResponseWriter, status int, title, detail string) {
 	errorResp := CreateErrorResponse(status, title, detail)
 	h.writeJSON(w, status, errorResp)
 }
 
-func (h *LegacyHandler) generateConfigName(req BootParametersRequest) string {
+func (h *Handler) generateConfigName(req BootParametersRequest) string {
 	// Generate a name based on the first identifier
 	if len(req.Hosts) > 0 {
 		return fmt.Sprintf("legacy-%s", strings.ReplaceAll(req.Hosts[0], ".", "-"))
@@ -354,7 +368,7 @@ func (h *LegacyHandler) generateConfigName(req BootParametersRequest) string {
 	return fmt.Sprintf("legacy-config-%d", len(req.Hosts)+len(req.Macs)+len(req.Nids))
 }
 
-func (h *LegacyHandler) filterConfigurationsByIdentifiers(configs []apiv1.BootConfiguration, identifiers []string) []apiv1.BootConfiguration {
+func (h *Handler) filterConfigurationsByIdentifiers(configs []apiv1.BootConfiguration, identifiers []string) []apiv1.BootConfiguration {
 	var matching []apiv1.BootConfiguration
 
 	for _, config := range configs {
@@ -366,7 +380,7 @@ func (h *LegacyHandler) filterConfigurationsByIdentifiers(configs []apiv1.BootCo
 	return matching
 }
 
-func (h *LegacyHandler) configMatchesIdentifiers(config apiv1.BootConfiguration, identifiers []string) bool {
+func (h *Handler) configMatchesIdentifiers(config apiv1.BootConfiguration, identifiers []string) bool {
 	for _, identifier := range identifiers {
 		// Check hosts
 		for _, host := range config.Spec.Hosts {

@@ -17,11 +17,102 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 
 	"github.com/openchami/boot-service/internal/storage"
 	bootclient "github.com/openchami/boot-service/pkg/client"
-	"github.com/openchami/boot-service/pkg/handlers/legacy"
+	"github.com/openchami/boot-service/pkg/handlers/boot"
 )
+
+func TestBindFlagsWithUnderscoreKeys_ConfigValuesBeatUnchangedFlagDefaults(t *testing.T) {
+	flags := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	flags.Bool("enable-auth", false, "Enable authentication with TokenSmith")
+	flags.Bool("enable-metrics", false, "Enable Prometheus metrics")
+	flags.Bool("enable-legacy-api", true, "Enable legacy BSS API compatibility")
+	flags.String("tokensmith-url", "", "TokenSmith service URL for authentication")
+	flags.String("tokensmith-target-service", "hsm", "Target service audience for HSM service token exchange")
+	flags.String("hsm-url", "", "Hardware State Manager service URL")
+	flags.Bool("hsm-sync-enabled", true, "Enable background sync with HSM")
+
+	v := viper.New()
+	if err := bindFlagsWithUnderscoreKeys(v, flags); err != nil {
+		t.Fatalf("bindFlagsWithUnderscoreKeys failed: %v", err)
+	}
+
+	v.SetConfigType("yaml")
+	configYAML := `
+enable_auth: true
+tokensmith_url: http://tokensmith:8080
+tokensmith_target_service: smd
+hsm_url: http://smd:27779
+hsm_sync_enabled: true
+enable_legacy_api: true
+enable_metrics: false
+`
+	if err := v.ReadConfig(strings.NewReader(configYAML)); err != nil {
+		t.Fatalf("ReadConfig failed: %v", err)
+	}
+
+	config := DefaultConfig()
+	if err := v.Unmarshal(&config); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if !config.EnableAuth {
+		t.Fatal("expected enable_auth config value to override unchanged --enable-auth default")
+	}
+	if config.TokenSmithURL != "http://tokensmith:8080" {
+		t.Fatalf("expected tokensmith_url from config, got %q", config.TokenSmithURL)
+	}
+	if config.TokenSmithTargetService != "smd" {
+		t.Fatalf("expected tokensmith_target_service from config, got %q", config.TokenSmithTargetService)
+	}
+	if config.HSMURL != "http://smd:27779" {
+		t.Fatalf("expected hsm_url config value to override unchanged --hsm-url default, got %q", config.HSMURL)
+	}
+	if !config.HSMSyncEnabled {
+		t.Fatal("expected hsm_sync_enabled from config")
+	}
+	if !config.EnableLegacyAPI {
+		t.Fatal("expected enable_legacy_api from config")
+	}
+	if config.EnableMetrics {
+		t.Fatal("expected enable_metrics to remain false")
+	}
+}
+
+func TestBindFlagsWithUnderscoreKeys_ChangedHyphenatedFlagsUseUnderscoreKeys(t *testing.T) {
+	flags := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	flags.Bool("enable-auth", false, "Enable authentication with TokenSmith")
+	flags.Bool("enable-metrics", false, "Enable Prometheus metrics")
+	flags.String("hsm-url", "", "Hardware State Manager service URL")
+
+	if err := flags.Set("enable-auth", "true"); err != nil {
+		t.Fatalf("Set enable-auth failed: %v", err)
+	}
+	if err := flags.Set("hsm-url", "http://smd:27779"); err != nil {
+		t.Fatalf("Set hsm-url failed: %v", err)
+	}
+	if err := flags.Set("enable-metrics", "true"); err != nil {
+		t.Fatalf("Set enable-metrics failed: %v", err)
+	}
+
+	v := viper.New()
+	if err := bindFlagsWithUnderscoreKeys(v, flags); err != nil {
+		t.Fatalf("bindFlagsWithUnderscoreKeys failed: %v", err)
+	}
+
+	if !v.GetBool("enable_auth") {
+		t.Fatal("expected --enable-auth to bind to enable_auth")
+	}
+	if got := v.GetString("hsm_url"); got != "http://smd:27779" {
+		t.Fatalf("expected --hsm-url to bind to hsm_url, got %q", got)
+	}
+	if !v.GetBool("enable_metrics") {
+		t.Fatal("expected --enable-metrics to bind to enable_metrics")
+	}
+}
 
 func newGeneratedRouterForTest(t *testing.T) http.Handler {
 	t.Helper()
@@ -92,22 +183,34 @@ func TestGeneratedClientWorksAgainstSlashlessCollectionPaths(t *testing.T) {
 
 func TestBootScriptEndpointAvailabilityByLegacyFlag(t *testing.T) {
 	tests := []struct {
-		name                 string
-		enableLegacyAPI      bool
-		expectedBootParams   int
-		expectedServiceState int
+		name                     string
+		enableLegacyAPI          bool
+		expectedModernBootScript int
+		expectedLegacyBootScript int
+		expectedModernBootParams int
+		expectedLegacyBootParams int
+		expectedModernService    int
+		expectedLegacyService    int
 	}{
 		{
-			name:                 "LegacyDisabled_BootScriptOnly",
-			enableLegacyAPI:      false,
-			expectedBootParams:   http.StatusNotFound,
-			expectedServiceState: http.StatusNotFound,
+			name:                     "LegacyDisabled_OnlyModernRoutes",
+			enableLegacyAPI:          false,
+			expectedModernBootScript: http.StatusOK,
+			expectedLegacyBootScript: http.StatusNotFound,
+			expectedModernBootParams: http.StatusOK,
+			expectedLegacyBootParams: http.StatusNotFound,
+			expectedModernService:    http.StatusOK,
+			expectedLegacyService:    http.StatusNotFound,
 		},
 		{
-			name:                 "LegacyEnabled_AllLegacyRoutes",
-			enableLegacyAPI:      true,
-			expectedBootParams:   http.StatusOK,
-			expectedServiceState: http.StatusOK,
+			name:                     "LegacyEnabled_BothModernAndLegacyRoutes",
+			enableLegacyAPI:          true,
+			expectedModernBootScript: http.StatusOK,
+			expectedLegacyBootScript: http.StatusOK,
+			expectedModernBootParams: http.StatusOK,
+			expectedLegacyBootParams: http.StatusOK,
+			expectedModernService:    http.StatusOK,
+			expectedLegacyService:    http.StatusOK,
 		},
 	}
 
@@ -117,34 +220,70 @@ func TestBootScriptEndpointAvailabilityByLegacyFlag(t *testing.T) {
 			server := httptest.NewServer(router)
 			defer server.Close()
 
-			bootScriptResp, err := http.Get(server.URL + "/boot/v1/bootscript?mac=aa:bb:cc:dd:ee:ff")
+			// Test modern bootscript endpoint
+			modernBootScriptResp, err := http.Get(server.URL + "/bootscript?mac=aa:bb:cc:dd:ee:ff")
 			if err != nil {
-				t.Fatalf("GET bootscript failed: %v", err)
+				t.Fatalf("GET modern bootscript failed: %v", err)
 			}
-			defer bootScriptResp.Body.Close() //nolint:errcheck
+			defer modernBootScriptResp.Body.Close() //nolint:errcheck
 
-			if bootScriptResp.StatusCode != http.StatusOK {
-				t.Fatalf("GET /boot/v1/bootscript returned %d, want %d", bootScriptResp.StatusCode, http.StatusOK)
+			if modernBootScriptResp.StatusCode != tc.expectedModernBootScript {
+				t.Errorf("GET /bootscript returned %d, want %d", modernBootScriptResp.StatusCode, tc.expectedModernBootScript)
 			}
 
-			bootParamsResp, err := http.Get(server.URL + "/boot/v1/bootparameters")
+			// Test legacy bootscript endpoint
+			legacyBootScriptResp, err := http.Get(server.URL + "/boot/v1/bootscript?mac=aa:bb:cc:dd:ee:ff")
 			if err != nil {
-				t.Fatalf("GET bootparameters failed: %v", err)
+				t.Fatalf("GET legacy bootscript failed: %v", err)
 			}
-			defer bootParamsResp.Body.Close() //nolint:errcheck
+			defer legacyBootScriptResp.Body.Close() //nolint:errcheck
 
-			if bootParamsResp.StatusCode != tc.expectedBootParams {
-				t.Fatalf("GET /boot/v1/bootparameters returned %d, want %d", bootParamsResp.StatusCode, tc.expectedBootParams)
+			if legacyBootScriptResp.StatusCode != tc.expectedLegacyBootScript {
+				t.Errorf("GET /boot/v1/bootscript returned %d, want %d", legacyBootScriptResp.StatusCode, tc.expectedLegacyBootScript)
 			}
 
-			serviceResp, err := http.Get(server.URL + "/boot/v1/service/status")
+			// Test modern bootparameters endpoint
+			modernBootParamsResp, err := http.Get(server.URL + "/bootparameters")
 			if err != nil {
-				t.Fatalf("GET service status failed: %v", err)
+				t.Fatalf("GET modern bootparameters failed: %v", err)
 			}
-			defer serviceResp.Body.Close() //nolint:errcheck
+			defer modernBootParamsResp.Body.Close() //nolint:errcheck
 
-			if serviceResp.StatusCode != tc.expectedServiceState {
-				t.Fatalf("GET /boot/v1/service/status returned %d, want %d", serviceResp.StatusCode, tc.expectedServiceState)
+			if modernBootParamsResp.StatusCode != tc.expectedModernBootParams {
+				t.Errorf("GET /bootparameters returned %d, want %d", modernBootParamsResp.StatusCode, tc.expectedModernBootParams)
+			}
+
+			// Test legacy bootparameters endpoint
+			legacyBootParamsResp, err := http.Get(server.URL + "/boot/v1/bootparameters")
+			if err != nil {
+				t.Fatalf("GET legacy bootparameters failed: %v", err)
+			}
+			defer legacyBootParamsResp.Body.Close() //nolint:errcheck
+
+			if legacyBootParamsResp.StatusCode != tc.expectedLegacyBootParams {
+				t.Errorf("GET /boot/v1/bootparameters returned %d, want %d", legacyBootParamsResp.StatusCode, tc.expectedLegacyBootParams)
+			}
+
+			// Test modern service status endpoint
+			modernServiceResp, err := http.Get(server.URL + "/service/status")
+			if err != nil {
+				t.Fatalf("GET modern service status failed: %v", err)
+			}
+			defer modernServiceResp.Body.Close() //nolint:errcheck
+
+			if modernServiceResp.StatusCode != tc.expectedModernService {
+				t.Errorf("GET /service/status returned %d, want %d", modernServiceResp.StatusCode, tc.expectedModernService)
+			}
+
+			// Test legacy service status endpoint
+			legacyServiceResp, err := http.Get(server.URL + "/boot/v1/service/status")
+			if err != nil {
+				t.Fatalf("GET legacy service status failed: %v", err)
+			}
+			defer legacyServiceResp.Body.Close() //nolint:errcheck
+
+			if legacyServiceResp.StatusCode != tc.expectedLegacyService {
+				t.Errorf("GET /boot/v1/service/status returned %d, want %d", legacyServiceResp.StatusCode, tc.expectedLegacyService)
 			}
 		})
 	}
@@ -183,11 +322,14 @@ func newRouterWithLegacyModeForTest(t *testing.T, enableLegacyAPI bool) http.Han
 	r.Use(middleware.RedirectSlashes)
 	RegisterGeneratedRoutes(r)
 
-	legacyHandler := legacy.NewLegacyHandler(*bootClient, log.New(io.Discard, "", 0))
+	bootHandler := boot.NewHandler(*bootClient, log.New(io.Discard, "", 0))
+
+	// Always register modern routes
+	bootHandler.RegisterModernRoutes(r)
+
+	// Conditionally register legacy routes
 	if enableLegacyAPI {
-		legacyHandler.RegisterRoutes(r)
-	} else {
-		legacyHandler.RegisterBootScriptRoute(r)
+		bootHandler.RegisterLegacyRoutes(r)
 	}
 
 	return r

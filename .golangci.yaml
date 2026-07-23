@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: © 2024-2025 Triad National Security, LLC. All rights reserved.
+# SPDX-FileCopyrightText: © 2026 OpenCHAMI a Series of LF Projects, LLC
+#
+# SPDX-License-Identifier: MIT
+
+version: "2"
+linters:
+  enable: []
+  disable:
+    - staticcheck
+    - unused
+    - errcheck
+  settings:
+    exhaustive:
+      default-signifies-exhaustive: true
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      # A list of prefixes, which, if set, checks import paths
+      # with the given prefixes are grouped after 3rd-party packages.
+      # Default: []
+      local-prefixes:
+        - github.com/OpenCHAMI/boot-service/
+  exclusions:
+    generated: lax

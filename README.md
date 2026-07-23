@@ -8,25 +8,28 @@ SPDX-License-Identifier: MIT
 
 OpenCHAMI Boot Service is a Fabrica-generated REST API for managing node boot
 configuration in HPC environments. It exposes modern resource APIs for
-`BMC`, `BootConfiguration`, and `Node` objects, plus a legacy BSS-compatible
-surface under `/boot/v1/`.
+`BMC`, `BootConfiguration`, and `Node` objects, plus boot endpoints
+(`/bootscript`, `/bootparameters`, `/service/status`). Legacy BSS-compatible
+endpoints are available at `/boot/v1/*` when `enable_legacy_api: true`.
 
 ## What Is In This Repo
 
 - Generated CRUD and status endpoints for `/bmcs`, `/bootconfigurations`, and `/nodes`
-- Legacy boot endpoints for `/boot/v1/bootparameters`, `/boot/v1/bootscript`, and service metadata
+- Modern boot endpoints at `/bootscript`, `/bootparameters`, and `/service/*`
+- Legacy BSS-compatible endpoints at `/boot/v1/*` (when enabled)
 - Boot script generation with node matching by XName, NID, or MAC address
 - A reusable TokenSmith auth package plus generated AuthZ classifier scaffolding
 - Optional HSM-backed node resolution, including TokenSmith service-token exchange
+- Optional Fabrica-generated Prometheus metrics at `/metrics`
 - OpenAPI publishing at `/openapi.json` and `/docs`
-- A generated CLI client with commands such as `./bin/client health`
+- A generated CLI client with commands such as `./bin/client health` and `./bin/client version`
 
 ## Quick Start
 
 ### Prerequisites
 
 - GNU Make
-- A Go toolchain compatible with `go.mod` (this branch currently declares `go 1.26.3`)
+- A Go toolchain compatible with `go.mod` (this branch currently declares `go 1.26.5`)
 - `pre-commit` if you want local CI-style checks
 
 ### Configure
@@ -66,8 +69,17 @@ go run ./cmd/server serve
 # Run the built server
 ./bin/server serve
 
+# Enable runtime exposure of Prometheus metrics at /metrics
+./bin/server serve --enable-metrics
+
 # Optional client smoke test
 ./bin/client --server http://localhost:8080 health
+
+# Show client build and Fabrica generator version information
+./bin/client version
+
+# Show server build and Fabrica generator version information
+./bin/server version
 ```
 
 Example overrides:
@@ -87,7 +99,7 @@ Example overrides:
 - `GET /health` returns a small JSON health response
 - `GET /openapi.json` serves the generated OpenAPI document
 - `GET /docs` serves Swagger UI
-- When metrics are enabled, Prometheus metrics are exposed at `/metrics` and on the separate metrics listener configured by `metrics_port`
+- When `enable_metrics` or `--enable-metrics` is enabled, Fabrica-generated Prometheus metrics are exposed at `/metrics` on the main server listener and on the separate metrics listener configured by `metrics_port`
 
 ### Modern Resource APIs
 
@@ -100,14 +112,38 @@ The generated API supports the current resource set:
 The current generated surface includes `PATCH` support for these resources.
 Routes are registered with trailing slashes and normalized by Chi middleware.
 
+### Boot API Endpoints
+
+The boot service provides modern boot API endpoints at root paths:
+
+- `GET /bootscript` - Generate iPXE boot script for a node
+- `GET /bootparameters` - List boot configurations
+- `POST /bootparameters` - Create boot configuration
+- `PUT /bootparameters` - Update boot configuration
+- `DELETE /bootparameters` - Delete boot configuration
+- `GET /service/status` - Service status information
+- `GET /service/version` - Service version information
+
+These endpoints accept node identifiers (`host`, `mac`, or `nid`) and support
+intelligent boot configuration matching by score and priority.
+
 ### Legacy BSS Compatibility
 
-When `enable_legacy_api: true`, legacy routes are available under `/boot/v1/`.
+When `enable_legacy_api: true`, legacy BSS-compatible routes are available at `/boot/v1/*`:
 
-Important current behavior: the legacy `GET /boot/v1/bootscript` handler accepts
-node identifiers (`host`, `mac`, or `nid`) but ignores the `profile` query
-parameter. It always asks the controller to auto-resolve the best matching boot
-configuration by score and priority.
+- `GET /boot/v1/bootscript`
+- `GET /boot/v1/bootparameters`
+- `POST /boot/v1/bootparameters`
+- `PUT /boot/v1/bootparameters`
+- `DELETE /boot/v1/bootparameters`
+- `GET /boot/v1/service/status`
+- `GET /boot/v1/service/version`
+
+When legacy API is disabled, only the modern endpoints at root paths are available.
+
+**Important:** Both modern and legacy endpoints use the same handler logic and support
+the same features. The `profile` query parameter is ignored and the controller always
+auto-resolves the best matching boot configuration by score and priority.
 
 ### Boot Profiles
 

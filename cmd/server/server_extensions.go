@@ -17,7 +17,7 @@ import (
 	"github.com/openchami/boot-service/pkg/client"
 	"github.com/openchami/boot-service/pkg/clients/hsm"
 	"github.com/openchami/boot-service/pkg/controllers/bootscript"
-	"github.com/openchami/boot-service/pkg/handlers/legacy"
+	"github.com/openchami/boot-service/pkg/handlers/boot"
 )
 
 // registerCustomServerIntegrations keeps generated route wiring and legacy compatibility
@@ -37,9 +37,9 @@ func registerCustomServerIntegrations(r chi.Router, config Config, hsmClient *hs
 		return fmt.Errorf("failed to create boot script API client: %v", err)
 	}
 
-	logger := log.New(os.Stdout, "legacy: ", log.LstdFlags)
+	logger := log.New(os.Stdout, "boot: ", log.LstdFlags)
 
-	var legacyHandler *legacy.LegacyHandler
+	var bootHandler *boot.Handler
 
 	if hsmClient != nil {
 		// Use FlexibleBootScriptController with HSM provider.
@@ -67,24 +67,27 @@ func registerCustomServerIntegrations(r chi.Router, config Config, hsmClient *hs
 			log.Printf("HSM background sync enabled (interval: %d minutes)", config.HSMSyncInterval)
 		}
 
-		legacyHandler = legacy.NewLegacyHandlerWithController(*bootClient, flexController, logger)
+		bootHandler = boot.NewHandlerWithController(*bootClient, flexController, logger)
 	} else {
 		// Use standard controller with local storage.
-		legacyHandler = legacy.NewLegacyHandler(*bootClient, logger)
+		bootHandler = boot.NewHandler(*bootClient, logger)
 	}
 
-	// Register node bootscript endpoint always; keep additional legacy BSS
-	// compatibility endpoints behind enable_legacy_api.
+	// Always register "modern" boot API paths at /.
+	bootHandler.RegisterModernRoutes(r)
+
+	// Only register legacy BSS-compatible API if enable_legacy_api is true.
+	// These live at /boot/v1/*.
 	if config.EnableLegacyAPI {
-		legacyHandler.RegisterRoutes(r)
+		bootHandler.RegisterLegacyRoutes(r)
 		if hsmClient != nil {
-			log.Println("Legacy BSS API enabled with HSM integration at: /boot/v1/")
+			log.Println("Legacy BSS API enabled with HSM integration at: /boot/v1/*")
 		} else {
-			log.Println("Legacy BSS API enabled at: /boot/v1/")
+			log.Println("Legacy BSS API enabled at: /boot/v1/*")
 		}
+		log.Println("Note: Both modern and legacy endpoints are available for BSS compatibility")
 	} else {
-		legacyHandler.RegisterBootScriptRoute(r)
-		log.Println("Boot script endpoint enabled at: /boot/v1/bootscript")
+		log.Println("Legacy BSS API disabled (set enable_legacy_api to true to enable /boot/v1/* endpoints)")
 	}
 
 	return nil

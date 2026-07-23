@@ -30,6 +30,7 @@ func TestNewClient_Success(t *testing.T) {
 
 	if client == nil {
 		t.Fatal("NewClient() returned nil client")
+		return
 	}
 
 	if client.baseURL == nil {
@@ -116,6 +117,7 @@ func TestNewClientWithBearerToken_Success(t *testing.T) {
 
 	if client == nil {
 		t.Fatal("NewClientWithBearerToken() returned nil client")
+		return
 	}
 
 	if client.bearerToken != token {
@@ -145,6 +147,7 @@ func TestWithVersion_PreservesLogger(t *testing.T) {
 
 	if versionedClient == nil {
 		t.Fatal("WithVersion() returned nil client")
+		return
 	}
 
 	// Create a test server to trigger logger usage

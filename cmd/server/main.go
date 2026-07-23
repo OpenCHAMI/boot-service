@@ -18,8 +18,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	_ "github.com/openchami/boot-service/pkg/apiversion"
+	"github.com/openchami/fabrica/pkg/versioning"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
 	"github.com/openchami/boot-service/internal/storage"
@@ -72,7 +74,7 @@ func DefaultConfig() Config {
 		StorageType:                         "file",
 		EnableAuth:                          false,
 		EnableMetrics:                       false,
-		EnableLegacyAPI:                     true,
+		EnableLegacyAPI:                     false,
 		MetricsPort:                         9090,
 		TokenSmithURL:                       "",
 		TokenSmithBootstrapToken:            "",
@@ -100,6 +102,21 @@ var serveCmd = &cobra.Command{
 	RunE:  runServe,
 }
 
+func bindFlagsWithUnderscoreKeys(v *viper.Viper, flags *pflag.FlagSet) error {
+	var bindErr error
+
+	flags.VisitAll(func(flag *pflag.Flag) {
+		if bindErr != nil {
+			return
+		}
+
+		key := strings.ReplaceAll(flag.Name, "-", "_")
+		bindErr = v.BindPFlag(key, flag)
+	})
+
+	return bindErr
+}
+
 func init() {
 	// Server configuration flags
 	serveCmd.Flags().Int("port", 8080, "Port to listen on")
@@ -119,7 +136,7 @@ func init() {
 	serveCmd.Flags().Int("metrics-port", 9090, "Port for metrics endpoint")
 
 	// Authentication configuration flags
-	serveCmd.Flags().String("tokensmith_url", "", "TokenSmith service URL for authentication")
+	serveCmd.Flags().String("tokensmith-url", "", "TokenSmith service URL for authentication")
 	serveCmd.Flags().String("tokensmith-bootstrap-token", "", "Bootstrap token used to exchange HSM service tokens")
 	serveCmd.Flags().String("tokensmith-target-service", "hsm", "Target service audience for HSM service token exchange")
 	serveCmd.Flags().String("tokensmith-bootstrap-policy-scopes-hint", "", "Comma-separated scope hint from bootstrap token policy used for diagnostics only")
@@ -133,10 +150,13 @@ func init() {
 	serveCmd.Flags().Int("hsm-sync-interval", 5, "HSM sync interval in minutes")
 
 	// Bind flags to viper
-	viper.BindPFlags(serveCmd.Flags()) //nolint:errcheck
+	if err := bindFlagsWithUnderscoreKeys(viper.GetViper(), serveCmd.Flags()); err != nil {
+		panic(fmt.Errorf("failed to bind serve flags: %w", err))
+	}
 
 	// Add commands
 	rootCmd.AddCommand(serveCmd)
+	rootCmd.AddCommand(NewVersionCommand())
 }
 
 func main() {
@@ -151,19 +171,6 @@ func main() {
 	viper.SetEnvPrefix("BOOT_SERVICE")
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
-
-	// Register aliases for flags with dashes to work with mapstructure tags that use underscores
-	viper.RegisterAlias("hsm_url", "hsm-url")
-	viper.RegisterAlias("hsm_sync_enabled", "hsm-sync-enabled")
-	viper.RegisterAlias("hsm_sync_interval", "hsm-sync-interval")
-	viper.RegisterAlias("tokensmith_bootstrap_token", "tokensmith-bootstrap-token")
-	viper.RegisterAlias("tokensmith_target_service", "tokensmith-target-service")
-	viper.RegisterAlias("tokensmith_bootstrap_policy_scopes_hint", "tokensmith-bootstrap-policy-scopes-hint")
-	viper.RegisterAlias("tokensmith_scopes", "tokensmith-scopes")
-	viper.RegisterAlias("tokensmith_refresh_skew_sec", "tokensmith-refresh-skew-sec")
-	viper.RegisterAlias("enable_auth", "enable-auth")
-	viper.RegisterAlias("enable_legacy_api", "enable-legacy-api")
-	viper.RegisterAlias("enable_metrics", "enable-metrics")
 
 	// Standardized TokenSmith env vars for cross-service UX consistency.
 	viper.BindEnv("tokensmith_url", "TOKENSMITH_URL")                                                   //nolint:errcheck
@@ -266,6 +273,16 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 	r.Use(middleware.RedirectSlashes)
 	r.Use(middleware.Timeout(time.Duration(config.ReadTimeout) * time.Second))
 
+	var metrics *Metrics
+	if config.EnableMetrics {
+		metrics = initializeMetrics(&config)
+		if metrics != nil {
+			r.Use(metrics.Middleware)
+		}
+	}
+
+	r.Use(versioning.VersionNegotiationMiddleware(versioning.GlobalVersionRegistry, nil))
+
 	// Register health check
 	r.Get("/health", func(w http.ResponseWriter, req *http.Request) { //nolint:revive
 		w.Header().Set("Content-Type", "application/json")
@@ -277,15 +294,10 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 	r.Get("/openapi.json", ServeOpenAPISpec)
 	r.Get("/docs", ServeSwaggerUI)
 
-	// Setup metrics endpoint if enabled (before other routes)
-	if config.EnableMetrics {
-		// Add metrics to main router
-		r.Route("/metrics", func(r chi.Router) {
-			r.Get("/", metricsHandler)
-		})
-
-		// Start separate metrics server
-		go startMetricsServer(config)
+	// Metrics endpoint is available when enabled at runtime.
+	if config.EnableMetrics && metrics != nil {
+		r.Handle("/metrics", metrics.Handler())
+		go startMetricsServer(config, metrics.Handler())
 	}
 
 	if err := registerCustomServerIntegrations(r, config, hsmClient, ctx); err != nil {
@@ -421,9 +433,9 @@ func initializeHSMServiceTokenManager(ctx context.Context, config Config, hsmLog
 	return serviceTokenManager, nil
 }
 
-func startMetricsServer(config Config) {
+func startMetricsServer(config Config, handler http.Handler) {
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.Handler())
+	mux.Handle("/metrics", handler)
 
 	metricsAddr := fmt.Sprintf("%s:%d", config.Host, config.MetricsPort)
 	log.Printf("Metrics server starting on %s", metricsAddr)
@@ -431,8 +443,4 @@ func startMetricsServer(config Config) {
 	if err := http.ListenAndServe(metricsAddr, mux); err != nil {
 		log.Printf("Metrics server error: %v", err)
 	}
-}
-
-func metricsHandler(w http.ResponseWriter, r *http.Request) { //nolint:revive
-	promhttp.Handler().ServeHTTP(w, r)
 }

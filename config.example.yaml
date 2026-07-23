@@ -45,9 +45,12 @@ storage_type: "file"
 
 # Enables TokenSmith-dependent startup validation and HSM token exchange.
 enable_auth: false
-# Enables Prometheus metrics endpoints.
+# Enables runtime exposure of Prometheus metrics endpoints. Fabrica generation
+# of metrics instrumentation is controlled separately by .fabrica.yaml.
 enable_metrics: false
-# Controls legacy BSS-compatible endpoints other than /boot/v1/bootscript.
+# Controls legacy BSS-compatible endpoints at /boot/v1/*.
+# When false, only modern endpoints at root paths are available.
+# When true, both modern and legacy endpoints are available.
 enable_legacy_api: true
 # Metrics listener port used when enable_metrics is true.
 metrics_port: 9090
@@ -92,8 +95,8 @@ hsm_sync_interval: 5
 # active runtime auth path in the server entrypoint.
 # jwks_endpoint: "https://auth.example.com/.well-known/jwks.json"
 
-# - The current server always exposes /boot/v1/bootscript.
-# - enable_legacy_api controls the rest of the legacy BSS-compatible endpoints.
+# - Boot endpoints are always available at root paths (e.g. /bootscript).
+# - enable_legacy_api controls legacy BSS-compatible endpoints at /boot/v1/*
 # - enable_auth currently affects startup validation and HSM token exchange.
 # - The standalone server does not currently attach pkg/auth request middleware
 #   to its route tree in cmd/server/main.go.
@@ -104,6 +107,7 @@ hsm_sync_interval: 5
 
 # Minimal metrics-enabled setup:
 # enable_metrics: true
+# metrics_port: 9090
 
 # HSM integration without auth-backed token exchange:
 # hsm_url: "http://localhost:27779"
