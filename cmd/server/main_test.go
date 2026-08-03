@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -375,5 +376,39 @@ func TestInitializeHSMServiceTokenManager_RequiresBootstrapTokenWhenAuthEnabled(
 	}
 	if !strings.Contains(err.Error(), "tokensmith bootstrap token is required") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestInitConfigLoadsConfigFileAndEnvOverrides(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+
+	cfgDir := t.TempDir()
+	cfgPath := filepath.Join(cfgDir, "config.yaml")
+	if err := os.WriteFile(cfgPath, []byte("port: 8080\nhost: 127.0.0.1\ndata_dir: /tmp/from-file\n"), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	prevCfgFile := cfgFile
+	cfgFile = cfgPath
+	t.Cleanup(func() {
+		cfgFile = prevCfgFile
+	})
+
+	t.Setenv("BOOT_SERVICE_PORT", "8081")
+
+	initConfig()
+
+	if config == nil {
+		t.Fatal("expected config to be initialized")
+	}
+	if config.Port != 8081 {
+		t.Fatalf("expected env override port 8081, got %d", config.Port)
+	}
+	if config.Host != "127.0.0.1" {
+		t.Fatalf("expected host from config file, got %q", config.Host)
+	}
+	if config.DataDir != "/tmp/from-file" {
+		t.Fatalf("expected data_dir from config file, got %q", config.DataDir)
 	}
 }

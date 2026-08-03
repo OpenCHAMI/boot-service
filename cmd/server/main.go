@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -26,6 +27,11 @@ import (
 
 	"github.com/openchami/boot-service/internal/storage"
 	"github.com/openchami/boot-service/pkg/clients/hsm"
+)
+
+var (
+	cfgFile string
+	config  *Config
 )
 
 // Config holds all configuration for the boot service
@@ -63,8 +69,8 @@ type Config struct {
 }
 
 // DefaultConfig returns a configuration with sensible defaults
-func DefaultConfig() Config {
-	return Config{
+func DefaultConfig() *Config {
+	return &Config{
 		Port:                                8080,
 		Host:                                "0.0.0.0",
 		ReadTimeout:                         30,
@@ -118,7 +124,11 @@ func bindFlagsWithUnderscoreKeys(v *viper.Viper, flags *pflag.FlagSet) error {
 }
 
 func init() {
+
+	cobra.OnInitialize(initConfig)
+
 	// Server configuration flags
+	serveCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is /etc/boot-service/config.yaml)")
 	serveCmd.Flags().Int("port", 8080, "Port to listen on")
 	serveCmd.Flags().String("host", "0.0.0.0", "Host to bind to")
 	serveCmd.Flags().Int("read-timeout", 30, "Read timeout in seconds")
@@ -159,18 +169,48 @@ func init() {
 	rootCmd.AddCommand(NewVersionCommand())
 }
 
-func main() {
+func initConfig() {
+	config = DefaultConfig()
+
 	// Setup configuration
-	viper.SetConfigName("config")
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath(".")
-	viper.AddConfigPath("/etc/boot-service/")
-	viper.AddConfigPath("$HOME/.boot-service")
+	if cfgFile != "" {
+		viper.SetConfigFile(cfgFile)
+	} else {
+		// Search for config in home directory
+		viper.SetConfigName("config")
+		viper.SetConfigType("yaml")
+		viper.AddConfigPath(".")
+		viper.AddConfigPath("/etc/boot-service/")
+		if base, err := os.UserConfigDir(); err == nil {
+			viper.AddConfigPath(filepath.Join(base, "boot-service"))
+		}
+	}
 
 	// Enable environment variable overrides
 	viper.SetEnvPrefix("BOOT_SERVICE")
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
+
+	// Read config file if it exists
+	if err := viper.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			log.Printf("Error reading config file: %v", err)
+		}
+	} else {
+		log.Printf("Using config file: %s", viper.ConfigFileUsed())
+	}
+
+	// Unmarshal config
+	if err := viper.Unmarshal(config); err != nil {
+		log.Fatalf("Unable to decode into config struct: %v", err)
+	}
+
+	if err := validateConfig(*config); err != nil {
+		log.Fatalf("invalid configuration: %v", err)
+	}
+}
+
+func main() {
 
 	// Standardized TokenSmith env vars for cross-service UX consistency.
 	viper.BindEnv("tokensmith_url", "TOKENSMITH_URL")                                                   //nolint:errcheck
@@ -180,27 +220,12 @@ func main() {
 	viper.BindEnv("tokensmith_scopes", "TOKENSMITH_SCOPES")                                             //nolint:errcheck
 	viper.BindEnv("tokensmith_refresh_skew_sec", "TOKENSMITH_REFRESH_SKEW_SEC")                         //nolint:errcheck
 
-	// Read config file if present
-	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			log.Printf("Error reading config file: %v", err)
-		}
-	}
-
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatal(err)
 	}
 }
 
 func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
-	// Load configuration
-	config := DefaultConfig()
-	if err := viper.Unmarshal(&config); err != nil {
-		return fmt.Errorf("failed to unmarshal config: %v", err)
-	} // Validate configuration
-	if err := validateConfig(config); err != nil {
-		return fmt.Errorf("invalid configuration: %v", err)
-	}
 
 	// Print startup configuration
 	log.Printf("Starting boot service with configuration:")
@@ -230,7 +255,7 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 
 		hsmLogger := log.New(os.Stdout, "smd: ", log.LstdFlags)
 
-		serviceTokenManager, err = initializeHSMServiceTokenManager(ctx, config, hsmLogger)
+		serviceTokenManager, err = initializeHSMServiceTokenManager(ctx, *config, hsmLogger)
 		if err != nil {
 			return err
 		}
@@ -275,7 +300,7 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 
 	var metrics *Metrics
 	if config.EnableMetrics {
-		metrics = initializeMetrics(&config)
+		metrics = initializeMetrics(config)
 		if metrics != nil {
 			r.Use(metrics.Middleware)
 		}
@@ -297,10 +322,10 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 	// Metrics endpoint is available when enabled at runtime.
 	if config.EnableMetrics && metrics != nil {
 		r.Handle("/metrics", metrics.Handler())
-		go startMetricsServer(config, metrics.Handler())
+		go startMetricsServer(*config, metrics.Handler())
 	}
 
-	if err := registerCustomServerIntegrations(r, config, hsmClient, ctx); err != nil {
+	if err := registerCustomServerIntegrations(r, *config, hsmClient, ctx); err != nil {
 		return err
 	}
 
