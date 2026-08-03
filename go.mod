@@ -12,7 +12,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/openchami/fabrica v0.4.9
 	github.com/openchami/tokensmith v0.4.1
-	github.com/prometheus/client_golang v1.24.0
+	github.com/prometheus/client_golang v1.24.1
 	github.com/rs/zerolog v1.35.1
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
@@ -56,7 +56,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
-	github.com/prometheus/common v0.70.0 // indirect
+	github.com/prometheus/common v0.70.1 // indirect
 	github.com/prometheus/procfs v0.21.1 // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
@@ -69,7 +69,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/crypto v0.53.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
-	golang.org/x/text v0.38.0 // indirect
+	golang.org/x/text v0.40.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
