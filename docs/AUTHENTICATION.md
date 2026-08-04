@@ -92,10 +92,6 @@ Standardized environment variables:
 - `TOKENSMITH_BOOTSTRAP_POLICY_SCOPES_HINT`: optional scope hint used in diagnostics, for example `hsm:read`
 - `TOKENSMITH_REFRESH_SKEW_SEC`: refresh skew in seconds before a cached service token is treated as stale
 
-Deprecated compatibility environment variable:
-
-- `TOKENSMITH_SCOPES`
-
 ## JWKS and Static-Key Notes
 
 JWKS and static RSA key support are implemented in `pkg/auth`, but they are not
