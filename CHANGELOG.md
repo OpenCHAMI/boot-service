@@ -15,6 +15,13 @@ Changes remain under `Unreleased` until they ship in the next tagged release.
 
 ## [Unreleased]
 
+## [v0.3.1] - 2026-08-04
+
+### Added
+
+- Added the server `--config` flag for selecting a configuration file.
+- Added platform-specific user configuration directory discovery.
+
 ### Removed
 
 - Removed the legacy `tokensmith_scopes`/`TOKENSMITH_SCOPES`/`--tokensmith-scopes`
@@ -37,6 +44,16 @@ Changes remain under `Unreleased` until they ship in the next tagged release.
 
 - Regenerated with Fabrica v0.4.9 while keeping boot-service runtime metrics
   configuration on `enable_metrics` / `--enable-metrics`.
+- Standardized configuration file keys and environment variables on underscores
+  and command-line flags on hyphens.
+- Changed `enable_legacy_api` to default to `false`.
+- Updated `github.com/go-chi/chi/v5` to v5.2.4 to address a security
+  vulnerability.
+
+### Fixed
+
+- Fixed configuration file values using underscore-separated keys being
+  overridden by command-line flag defaults.
 
 ## [v0.2.0] - 2026-07-17
 
@@ -144,8 +161,15 @@ Changes remain under `Unreleased` until they ship in the next tagged release.
 - File-backed `BMC`, `BootConfiguration`, and `Node` resource APIs.
 - Legacy BSS-compatible boot endpoints and generated Go client support.
 
-[Unreleased]: https://github.com/OpenCHAMI/boot-service/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/OpenCHAMI/boot-service/compare/v0.3.1...HEAD
+[v0.3.1]: https://github.com/OpenCHAMI/boot-service/compare/v0.3.0...v0.3.1
+[v0.3.0]: https://github.com/OpenCHAMI/boot-service/compare/v0.2.0...v0.3.0
+[v0.2.0]: https://github.com/OpenCHAMI/boot-service/compare/v0.1.7...v0.2.0
+[0.1.7]: https://github.com/OpenCHAMI/boot-service/compare/v0.1.6...v0.1.7
+[0.1.6]: https://github.com/OpenCHAMI/boot-service/compare/v0.1.5...v0.1.6
+[0.1.5]: https://github.com/OpenCHAMI/boot-service/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/OpenCHAMI/boot-service/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/OpenCHAMI/boot-service/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/OpenCHAMI/boot-service/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/OpenCHAMI/boot-service/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/OpenCHAMI/boot-service/releases/tag/v0.1.0
