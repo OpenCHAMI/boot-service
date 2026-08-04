@@ -112,6 +112,10 @@ func (s *IntegrationService) SyncNodesFromHSM(ctx context.Context) error {
 		}
 	}
 
+	if _, err := s.hsmClient.GetMemberships(ctx); err != nil {
+		s.logger.Printf("Warning: failed to refresh HSM memberships cache: %v", err)
+	}
+
 	// Get existing nodes from boot service
 	existingNodes, err := s.bootClient.GetNodes(ctx)
 	if err != nil {
@@ -127,15 +131,11 @@ func (s *IntegrationService) SyncNodesFromHSM(ctx context.Context) error {
 	// Sync each compute node
 	var created, updated, skipped int
 	for _, comp := range computeNodes {
-		membership, err := s.hsmClient.GetMembership(ctx, comp.ID)
-		if err != nil {
-			s.logger.Printf("Warning: failed to get membership for %s: %v", comp.ID, err)
-		}
 		groups := []string{}
-		if membership != nil {
+		if membership, found := s.hsmClient.CachedMembership(comp.ID); found {
 			groups = membership.GroupLabels
 		}
-		err = s.syncNode(ctx, comp, macMap, groups, existingMap)
+		err := s.syncNode(ctx, comp, macMap, groups, existingMap)
 		if err != nil {
 			s.logger.Printf("Warning: Failed to sync node %s: %v", comp.ID, err)
 			continue

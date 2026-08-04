@@ -9,3 +9,7 @@ data/
 
 # Configuration files (use config.example.yaml as template)
 config.yaml
+
+# AI coding agent artifacts
+.omo/
+graphify-out/cache/

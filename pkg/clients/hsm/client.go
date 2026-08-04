@@ -187,6 +187,30 @@ func (c *HSMCache) SetMembership(key string, data interface{}) {
 	}
 }
 
+func (c *HSMCache) replaceMemberships(memberships []HSMMembership) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	nextMemberships := make(map[string]*CacheEntry, len(memberships))
+	expiresAt := time.Now().Add(c.expiry)
+	for i := range memberships {
+		membership := memberships[i]
+		if strings.TrimSpace(membership.ID) == "" {
+			continue
+		}
+		membershipCopy := membership
+		nextMemberships[membershipCacheKey(membership.ID)] = &CacheEntry{
+			Data:      &membershipCopy,
+			ExpiresAt: expiresAt,
+		}
+	}
+	c.membership = nextMemberships
+}
+
+func membershipCacheKey(componentID string) string {
+	return fmt.Sprintf("membership_%s", componentID)
+}
+
 // NewHSMClient creates a new HSM client.
 func NewHSMClient(config HSMConfig, logger *log.Logger) (*HSMClient, error) {
 	if strings.TrimSpace(config.BaseURL) == "" {
@@ -344,9 +368,56 @@ func (c *HSMClient) GetEthernetInterfaces(ctx context.Context) ([]HSMEthernetInt
 	return interfaces, nil
 }
 
+// GetMemberships retrieves all node memberships from HSM and replaces the membership cache.
+func (c *HSMClient) GetMemberships(ctx context.Context) ([]HSMMembership, error) {
+	url := fmt.Sprintf("%s/hsm/v2/memberships?type=node", c.config.BaseURL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HSM memberships request: %w", err)
+	}
+
+	if err := c.addAuthHeader(ctx, req); err != nil {
+		return nil, err
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call HSM memberships endpoint: %w", err)
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HSM returned status %d", resp.StatusCode)
+	}
+
+	var memberships []HSMMembership
+	if err := json.NewDecoder(resp.Body).Decode(&memberships); err != nil {
+		return nil, fmt.Errorf("failed to decode HSM memberships response: %w", err)
+	}
+
+	c.cache.replaceMemberships(memberships)
+	c.logger.Printf("Retrieved %d memberships from HSM", len(memberships))
+	return memberships, nil
+}
+
+// CachedMembership retrieves a component membership from cache without live HSM fallback.
+func (c *HSMClient) CachedMembership(componentID string) (*HSMMembership, bool) {
+	data, found := c.cache.GetMembership(membershipCacheKey(componentID))
+	if !found {
+		return nil, false
+	}
+	membership, ok := data.(*HSMMembership)
+	if !ok {
+		return nil, false
+	}
+	return membership, true
+}
+
 func (c *HSMClient) GetMembership(ctx context.Context, componentID string) (*HSMMembership, error) {
 	//check cache
-	cacheKey := fmt.Sprintf("membership_%s", componentID)
+	cacheKey := membershipCacheKey(componentID)
 	if data, found := c.cache.GetMembership(cacheKey); found {
 		c.logger.Printf("HSM membership cache hit for %s", componentID)
 		return data.(*HSMMembership), nil
