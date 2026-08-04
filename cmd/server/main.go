@@ -58,7 +58,6 @@ type Config struct {
 	TokenSmithBootstrapToken            string `mapstructure:"tokensmith_bootstrap_token"`
 	TokenSmithTargetService             string `mapstructure:"tokensmith_target_service"`
 	TokenSmithBootstrapPolicyScopesHint string `mapstructure:"tokensmith_bootstrap_policy_scopes_hint"`
-	TokenSmithScopesLegacy              string `mapstructure:"tokensmith_scopes"`
 	TokenSmithRefreshSkewSec            int    `mapstructure:"tokensmith_refresh_skew_sec"`
 	JWKSEndpoint                        string `mapstructure:"jwks_endpoint"`
 
@@ -86,7 +85,6 @@ func DefaultConfig() *Config {
 		TokenSmithBootstrapToken:            "",
 		TokenSmithTargetService:             "hsm",
 		TokenSmithBootstrapPolicyScopesHint: "",
-		TokenSmithScopesLegacy:              "",
 		TokenSmithRefreshSkewSec:            120,
 		JWKSEndpoint:                        "",
 		HSMURL:                              "",
@@ -150,7 +148,6 @@ func init() {
 	serveCmd.Flags().String("tokensmith-bootstrap-token", "", "Bootstrap token used to exchange HSM service tokens")
 	serveCmd.Flags().String("tokensmith-target-service", "hsm", "Target service audience for HSM service token exchange")
 	serveCmd.Flags().String("tokensmith-bootstrap-policy-scopes-hint", "", "Comma-separated scope hint from bootstrap token policy used for diagnostics only")
-	serveCmd.Flags().String("tokensmith-scopes", "", "Deprecated alias for --tokensmith-bootstrap-policy-scopes-hint")
 	serveCmd.Flags().Int("tokensmith-refresh-skew-sec", 120, "Refresh service tokens when this many seconds remain before expiry")
 	serveCmd.Flags().String("jwks-endpoint", "", "JWKS endpoint for JWT validation")
 
@@ -217,7 +214,6 @@ func main() {
 	viper.BindEnv("tokensmith_bootstrap_token", "TOKENSMITH_BOOTSTRAP_TOKEN")                           //nolint:errcheck
 	viper.BindEnv("tokensmith_target_service", "TOKENSMITH_TARGET_SERVICE")                             //nolint:errcheck
 	viper.BindEnv("tokensmith_bootstrap_policy_scopes_hint", "TOKENSMITH_BOOTSTRAP_POLICY_SCOPES_HINT") //nolint:errcheck
-	viper.BindEnv("tokensmith_scopes", "TOKENSMITH_SCOPES")                                             //nolint:errcheck
 	viper.BindEnv("tokensmith_refresh_skew_sec", "TOKENSMITH_REFRESH_SKEW_SEC")                         //nolint:errcheck
 
 	if err := rootCmd.Execute(); err != nil {
@@ -381,15 +377,6 @@ func validateConfig(config Config) error {
 	return nil
 }
 
-func tokenSmithScopeHintCSV(config Config) string {
-	if strings.TrimSpace(config.TokenSmithBootstrapPolicyScopesHint) != "" {
-		return config.TokenSmithBootstrapPolicyScopesHint
-	}
-
-	// Backward compatibility for legacy key/env/flag names.
-	return config.TokenSmithScopesLegacy
-}
-
 func parseScopeHintCSV(raw string) []string {
 	if strings.TrimSpace(raw) == "" {
 		return nil
@@ -435,7 +422,7 @@ func initializeHSMServiceTokenManager(ctx context.Context, config Config, hsmLog
 	tokenConfig.TokenSmithURL = config.TokenSmithURL
 	tokenConfig.BootstrapToken = bootstrapToken
 	tokenConfig.TargetService = strings.TrimSpace(config.TokenSmithTargetService)
-	tokenConfig.Scopes = parseScopeHintCSV(tokenSmithScopeHintCSV(config))
+	tokenConfig.Scopes = parseScopeHintCSV(config.TokenSmithBootstrapPolicyScopesHint)
 	tokenConfig.RefreshBefore = time.Duration(config.TokenSmithRefreshSkewSec) * time.Second
 
 	tokenEndpoint := strings.TrimRight(tokenConfig.TokenSmithURL, "/") + "/oauth/token"

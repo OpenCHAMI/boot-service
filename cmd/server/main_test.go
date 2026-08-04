@@ -33,6 +33,7 @@ func TestBindFlagsWithUnderscoreKeys_ConfigValuesBeatUnchangedFlagDefaults(t *te
 	flags.Bool("enable-legacy-api", true, "Enable legacy BSS API compatibility")
 	flags.String("tokensmith-url", "", "TokenSmith service URL for authentication")
 	flags.String("tokensmith-target-service", "hsm", "Target service audience for HSM service token exchange")
+	flags.String("tokensmith-bootstrap-policy-scopes-hint", "", "Bootstrap policy scope hint for diagnostics")
 	flags.String("hsm-url", "", "Hardware State Manager service URL")
 	flags.Bool("hsm-sync-enabled", true, "Enable background sync with HSM")
 
@@ -46,6 +47,7 @@ func TestBindFlagsWithUnderscoreKeys_ConfigValuesBeatUnchangedFlagDefaults(t *te
 enable_auth: true
 tokensmith_url: http://tokensmith:8080
 tokensmith_target_service: smd
+tokensmith_bootstrap_policy_scopes_hint: hsm:read,hsm:write
 hsm_url: http://smd:27779
 hsm_sync_enabled: true
 enable_legacy_api: true
@@ -69,6 +71,9 @@ enable_metrics: false
 	if config.TokenSmithTargetService != "smd" {
 		t.Fatalf("expected tokensmith_target_service from config, got %q", config.TokenSmithTargetService)
 	}
+	if config.TokenSmithBootstrapPolicyScopesHint != "hsm:read,hsm:write" {
+		t.Fatalf("expected tokensmith_bootstrap_policy_scopes_hint from config, got %q", config.TokenSmithBootstrapPolicyScopesHint)
+	}
 	if config.HSMURL != "http://smd:27779" {
 		t.Fatalf("expected hsm_url config value to override unchanged --hsm-url default, got %q", config.HSMURL)
 	}
@@ -80,6 +85,15 @@ enable_metrics: false
 	}
 	if config.EnableMetrics {
 		t.Fatal("expected enable_metrics to remain false")
+	}
+}
+
+func TestServeCommandRegistersOnlyCanonicalTokenSmithScopeHintFlag(t *testing.T) {
+	if serveCmd.Flags().Lookup("tokensmith-bootstrap-policy-scopes-hint") == nil {
+		t.Fatal("expected canonical TokenSmith scope hint flag to be registered")
+	}
+	if serveCmd.Flags().Lookup("tokensmith-scopes") != nil {
+		t.Fatal("legacy TokenSmith scopes flag must not be registered")
 	}
 }
 

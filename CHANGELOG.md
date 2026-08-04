@@ -15,6 +15,13 @@ Changes remain under `Unreleased` until they ship in the next tagged release.
 
 ## [Unreleased]
 
+### Removed
+
+- Removed the legacy `tokensmith_scopes`/`TOKENSMITH_SCOPES`/`--tokensmith-scopes`
+  compatibility inputs.
+  - Use `tokensmith_bootstrap_policy_scopes_hint`/`TOKENSMITH_BOOTSTRAP_POLICY_SCOPES_HINT`/`--tokensmith-bootstrap-policy-scopes-hint`
+    instead.
+
 ## [v0.3.0] - 2026-07-22
 
 ### Added

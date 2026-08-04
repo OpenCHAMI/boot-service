@@ -101,12 +101,6 @@ Environment fallback:
 export TOKENSMITH_BOOTSTRAP_TOKEN="<bootstrap-jwt>"
 ```
 
-Deprecated compatibility input still accepted:
-
-```yaml
-# tokensmith_scopes: "hsm:read"
-```
-
 ## Current Auth Behavior
 
 `enable_auth` does **not** currently attach the `pkg/auth` request middleware to

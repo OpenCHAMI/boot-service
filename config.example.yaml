@@ -74,9 +74,6 @@ tokensmith_target_service: "hsm"
 # service tokens.
 tokensmith_bootstrap_policy_scopes_hint: ""
 
-# Deprecated legacy alias still accepted by current code.
-# tokensmith_scopes: "hsm:read"
-
 # Refresh skew in seconds applied before service tokens are considered stale.
 tokensmith_refresh_skew_sec: 120
 
