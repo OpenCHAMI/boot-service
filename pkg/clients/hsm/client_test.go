@@ -197,6 +197,100 @@ func TestHSMClient_GetEthernetInterfaces(t *testing.T) {
 	t.Logf("✅ Retrieved %d ethernet interfaces from HSM", len(interfaces))
 }
 
+func TestHSMClient_GetMembershipsRefreshesCache(t *testing.T) {
+	var callCount int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&callCount, 1)
+		if r.URL.Path != "/hsm/v2/memberships" {
+			t.Errorf("Expected path /hsm/v2/memberships, got %s", r.URL.Path)
+		}
+		if got := r.URL.Query().Get("type"); got != "node" {
+			t.Errorf("Expected type=node query, got %q", got)
+		}
+
+		response := []HSMMembership{
+			{ID: "x1000c0s0b0n0", GroupLabels: []string{"compute", "batch"}},
+			{ID: "x1000c0s0b0n1", GroupLabels: []string{"compute"}},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			t.Errorf("failed to encode memberships response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	config := DefaultHSMConfig()
+	config.BaseURL = server.URL
+
+	client, err := NewHSMClient(config, log.New(os.Stdout, "test: ", log.LstdFlags))
+	if err != nil {
+		t.Fatalf("Failed to create HSM client: %v", err)
+	}
+
+	memberships, err := client.GetMemberships(context.Background())
+	if err != nil {
+		t.Fatalf("GetMemberships failed: %v", err)
+	}
+	if len(memberships) != 2 {
+		t.Fatalf("expected 2 memberships, got %d", len(memberships))
+	}
+	if atomic.LoadInt32(&callCount) != 1 {
+		t.Fatalf("expected 1 bulk memberships request, got %d", atomic.LoadInt32(&callCount))
+	}
+
+	membership, found := client.CachedMembership("x1000c0s0b0n0")
+	if !found {
+		t.Fatal("expected cached membership for x1000c0s0b0n0")
+	}
+	if !stringSlicesEqual(membership.GroupLabels, []string{"compute", "batch"}) {
+		t.Fatalf("expected cached groups [compute batch], got %v", membership.GroupLabels)
+	}
+}
+
+func TestHSMClient_GetMembershipsFailureRetainsCache(t *testing.T) {
+	var failBulk int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/hsm/v2/memberships" {
+			t.Errorf("Expected path /hsm/v2/memberships, got %s", r.URL.Path)
+		}
+		if atomic.LoadInt32(&failBulk) == 1 {
+			http.Error(w, "smd unavailable", http.StatusServiceUnavailable)
+			return
+		}
+
+		response := []HSMMembership{{ID: "x1000c0s0b0n0", GroupLabels: []string{"compute"}}}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			t.Errorf("failed to encode memberships response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	config := DefaultHSMConfig()
+	config.BaseURL = server.URL
+
+	client, err := NewHSMClient(config, log.New(os.Stdout, "test: ", log.LstdFlags))
+	if err != nil {
+		t.Fatalf("Failed to create HSM client: %v", err)
+	}
+
+	if _, err := client.GetMemberships(context.Background()); err != nil {
+		t.Fatalf("initial GetMemberships failed: %v", err)
+	}
+	atomic.StoreInt32(&failBulk, 1)
+	if _, err := client.GetMemberships(context.Background()); err == nil {
+		t.Fatal("expected failing bulk membership refresh")
+	}
+
+	membership, found := client.CachedMembership("x1000c0s0b0n0")
+	if !found {
+		t.Fatal("expected prior cached membership to remain after failed refresh")
+	}
+	if !stringSlicesEqual(membership.GroupLabels, []string{"compute"}) {
+		t.Fatalf("expected cached groups [compute], got %v", membership.GroupLabels)
+	}
+}
+
 // TestHSMClient_GetComponentByMAC tests finding a component by MAC address
 func TestHSMClient_GetComponentByMAC(t *testing.T) {
 	// Mock HSM server
