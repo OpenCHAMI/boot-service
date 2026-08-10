@@ -18,3 +18,4 @@ graphify-out/cache/
 coverage/
 *.cover
 *.out
+!packaging/**/configs/*
