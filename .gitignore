@@ -13,3 +13,5 @@ config.yaml
 # AI coding agent artifacts
 .omo/
 graphify-out/cache/
+
+!packing/configs/*
