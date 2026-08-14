@@ -96,11 +96,11 @@ jobs:
           node process.js
           echo "digest=$(cat digest.txt)" >> $GITHUB_OUTPUT
       - name: Attest Binaries
-        uses: actions/attest-build-provenance@v4.1.1
+        uses: actions/attest-build-provenance@v4.2.2
         with:
           subject-path: dist/**/boot-*
       - name: generate build provenance
-        uses: actions/attest-build-provenance@v4.1.1
+        uses: actions/attest-build-provenance@v4.2.2
         with:
           subject-name: ghcr.io/openchami/boot-service
           subject-digest: ${{ steps.process_goreleaser_output.outputs.digest }}
