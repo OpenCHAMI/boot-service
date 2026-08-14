@@ -10,7 +10,7 @@ require (
 	github.com/getkin/kin-openapi v0.144.0
 	github.com/go-chi/chi/v5 v5.3.1
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/openchami/fabrica v0.4.9
+	github.com/openchami/fabrica v0.4.10
 	github.com/openchami/tokensmith v0.4.1
 	github.com/prometheus/client_golang v1.24.1
 	github.com/rs/zerolog v1.35.1
