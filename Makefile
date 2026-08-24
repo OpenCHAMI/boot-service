@@ -16,6 +16,7 @@ DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 CONTAINER_PROG ?= $(shell command -v docker 2>/dev/null)
 CONTAINER_TAG ?= latest
 CONTAINER_GO_VERSION ?= $(shell awk '/^go / {print $$2; exit}' go.mod)
+GO_TOOLCHAIN_VERSION ?= $(shell awk '/^go / {print $$2; exit}' go.mod)
 FABRICA_VERSION ?= $(shell awk '/github.com\/openchami\/fabrica[[:space:]]+v/ {print $$2; exit}' go.mod)
 LDFLAGS=-ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)"
 FABRICA_CMD ?= go run github.com/openchami/fabrica/cmd/fabrica@$(FABRICA_VERSION)
@@ -75,10 +76,10 @@ test-coverage: test ## Run tests with coverage report
 	@echo "Coverage report generated: coverage.html"
 
 lint: ## Run golangci-lint
-	golangci-lint run
+	GOTOOLCHAIN=go$(GO_TOOLCHAIN_VERSION) golangci-lint run
 
 lint-fix: ## Run golangci-lint with auto-fix
-	golangci-lint run --fix
+	GOTOOLCHAIN=go$(GO_TOOLCHAIN_VERSION) golangci-lint run --fix
 
 clean: ## Clean build artifacts
 	rm -rf bin/ dist/ coverage.out coverage.html
