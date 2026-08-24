@@ -14,11 +14,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Set up latest stable Go
+      - uses: actions/checkout@v7.0.1
+      - name: Set up Go from go.mod
         uses: actions/setup-go@v7.0.0
         with:
-          go-version: stable
-      - uses: actions/checkout@v7.0.1
+          go-version-file: go.mod
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9.3.0
         with:

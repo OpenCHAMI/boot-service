@@ -13,3 +13,8 @@ config.yaml
 # AI coding agent artifacts
 .omo/
 graphify-out/cache/
+
+# Test/build artifacts
+coverage/
+*.cover
+*.out
