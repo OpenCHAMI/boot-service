@@ -12,22 +12,5 @@ ContainerName=%N
 HostName=%N
 Image=ghcr.io/openchami/%N:@IMAGE_TAG@
 
-# Environment Variables
-EnvironmentFile=-/etc/openchami/configs/openchami.env
-
-# Secrets
-Secret=%N-bootstrap-token,type=env,target=TOKENSMITH_BOOTSTRAP_TOKEN
-
-# Volumes
-Volume=/etc/openchami/configs/%N.yaml:/etc/%N/config.yaml:ro,Z
-Volume=boot-service-data.volume:/app/data:rw,Z
-
-# Networks for the Container to use
-Network=openchami-internal.network
-
-# Proxy settings
-PodmanArgs=--http-proxy=false
-
 [Service]
-ExecStartPre=/usr/sbin/tokensmith_bootstrap_token %N
 Restart=always

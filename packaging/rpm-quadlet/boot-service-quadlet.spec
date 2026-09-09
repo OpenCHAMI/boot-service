@@ -16,8 +16,9 @@ Source0:        %{name}-%{version}.tar.gz
 BuildArch:      noarch
 
 Requires(post,preun,postun):  systemd
-Requires:                     podman >= 4.4.0
-Requires:                     smd-quadlet >= 2.20.0 tokensmith-quadlet >= 0.4.0
+Requires:                     podman >= 5.0.0
+Suggests:                     smd-quadlet >= 2.20.0
+Suggests:                     tokensmith-quadlet >= 0.4.0
 
 %description
 Podman Quadlet unit files (container + volume) for running boot-service
@@ -34,6 +35,9 @@ grep -q '@IMAGE_TAG@' boot-service.container
 sed "s|@IMAGE_TAG@|v%{version}|" boot-service.container \
     > %{buildroot}/usr/share/containers/systemd/boot-service.container
 chmod 644 %{buildroot}/usr/share/containers/systemd/boot-service.container
+install -d %{buildroot}/usr/share/containers/systemd/boot-service.container.d
+install -m 644 boot-service.container.d/10-defaults.conf \
+    %{buildroot}/usr/share/containers/systemd/boot-service.container.d/
 
 install -m 644 boot-service-data.volume \
     %{buildroot}/usr/share/containers/systemd/boot-service-data.volume
@@ -46,6 +50,8 @@ install -m 644 boot-service.yaml \
 %dir /etc/openchami/configs
 %config(noreplace) /etc/openchami/configs/boot-service.yaml
 /usr/share/containers/systemd/boot-service.container
+/usr/share/containers/systemd/boot-service.container.d
+/usr/share/containers/systemd/boot-service.container.d/10-defaults.conf
 /usr/share/containers/systemd/boot-service-data.volume
 
 %post
