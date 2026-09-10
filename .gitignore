@@ -6,6 +6,8 @@ CLAUDE/
 dist/
 bin/
 data/
+!packaging/**/configs/*
+!config.example.yaml
 
 # Configuration files (use config.example.yaml as template)
 config.yaml
@@ -18,4 +20,3 @@ graphify-out/cache/
 coverage/
 *.cover
 *.out
-!packaging/**/configs/*
