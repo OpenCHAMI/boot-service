@@ -71,5 +71,7 @@ jobs:
             - /etc/openchami/configs/boot-service.yaml
             - /usr/share/containers/systemd/boot-service-data.volume
             - /usr/share/containers/systemd/boot-service.container
+            - /usr/share/containers/systemd/boot-service.container.d
+            - /usr/share/containers/systemd/boot-service.container.d/10-defaults.conf
             - /usr/share/licenses/boot-service-quadlet
             - /usr/share/licenses/boot-service-quadlet/MIT.txt
