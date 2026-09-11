@@ -1,117 +1,186 @@
 # SPDX-FileCopyrightText: © 2026 OpenCHAMI a Series of LF Projects, LLC
-#
 # SPDX-License-Identifier: MIT
-
-# OpenCHAMI Boot Service Configuration Example
 #
-# This file documents the configuration keys currently read by cmd/server/main.go.
-# Older nested sections such as auth:, logging:, tokensmith:, development:, and
-# bss: are intentionally omitted because the current server runtime does not
-# unmarshal them.
+# /etc/boot-service/config.yaml
 #
-# Configuration precedence (highest to lowest):
-#   1. Command-line flags
-#   2. Environment variables
-#   3. Configuration file (config.yaml)
-#   4. Default values
-
 # =============================================================================
-# SERVER
+# Boot‑Service - Example Configuration
 # =============================================================================
+#
+# This file serves as a reference that users can copy, uncomment, and edit for the
+# options they need.  All keys shown use the service's default values.  Each option
+# lists the flag (--flag-name) and the environment variable (BOOT_SERVICE_...)
+# that can be used to override it.
+#
+# -------------------------------------------------------------------------
+# Server Configuration
+# -------------------------------------------------------------------------
 
-# Main HTTP listen port for the API server.
+# Port to listen on
+#
+# Default: 8080
+# Flag:    --port
+# Env var: BOOT_SERVICE_PORT
 port: 8080
-# Interface to bind for the main HTTP listener.
+
+# Host/IP address to bind to
+#
+# Default: 0.0.0.0 (i.e. all interfaces)
+# Flag:    --host
+# Env var: BOOT_SERVICE_HOST
 host: "0.0.0.0"
-# Read deadline in seconds for inbound HTTP requests.
-read_timeout: 30
-# Write deadline in seconds for outbound HTTP responses.
-write_timeout: 30
-# Keep-alive timeout in seconds for idle connections.
-idle_timeout: 120
 
-# =============================================================================
-# STORAGE
-# =============================================================================
+# HTTP request read timeout, in seconds
+#
+# Default: 30
+# Flag:    --read-timeout
+# Env var: BOOT_SERVICE_READ_TIMEOUT
+#read_timeout: 30
 
-# Directory used by the file-backed storage implementation.
-data_dir: "./data"
-# Storage backend type. The current server supports "file".
-storage_type: "file"
+# HTTP request write timeout, in seconds
+#
+# Default: 30
+# Flag:    --write-timeout
+# Env var: BOOT_SERVICE_WRITE_TIMEOUT
+#write_timeout: 30
 
-# =============================================================================
-# FEATURE FLAGS
-# =============================================================================
+# HTTP connection idle timeout, in seconds
+#
+# Default: 120
+# Flag:    --idle-timeout
+# Env var: BOOT_SERVICE_IDLE_TIMEOUT
+#idle_timeout: 120
 
-# Enables TokenSmith-dependent startup validation and HSM token exchange.
+# Enable TokenSmith‑based authentication.  When true, the service expects a
+# TokenSmith URL and will obtain service‑to‑service tokens for downstream calls.
+#
+# Flag:    --enable-auth
+# Env var: BOOT_SERVICE_ENABLE_AUTH
 enable_auth: false
-# Enables runtime exposure of Prometheus metrics endpoints. Fabrica generation
-# of metrics instrumentation is controlled separately by .fabrica.yaml.
+
+# Enable Prometheus metrics collection and expose the /metrics endpoint.
+#
+# Flag:    --enable-metrics
+# Env var: BOOT_SERVICE_ENABLE_METRICS
 enable_metrics: false
-# Controls legacy BSS-compatible endpoints at /boot/v1/*.
-# When false, only modern endpoints at root paths are available.
-# When true, both modern and legacy endpoints are available.
-enable_legacy_api: true
-# Metrics listener port used when enable_metrics is true.
+
+# Enable the legacy BSS‑compatible boot API (/boot/v1).
+#
+# Flag:    --enable-legacy-api
+# Env var: BOOT_SERVICE_ENABLE_LEGACY_API
+enable_legacy_api: false
+
+# Port on which the Prometheus metrics endpoint listens.
+# Separate from the main service port for security isolation.
+#
+# Flag:    --metrics-port
+# Env var: BOOT_SERVICE_METRICS_PORT
 metrics_port: 9090
 
-# =============================================================================
-# TOKENSMITH / HSM
-# =============================================================================
+# -------------------------------------------------------------------------
+# Storage Configuration
+# -------------------------------------------------------------------------
 
-# Top-level TokenSmith URL used by current auth-related startup checks and HSM
-# service-token exchange.
-tokensmith_url: ""
+# Directory used by the file‑based storage backend
+#
+# Default: ./data
+# Flag:    --data-dir
+# Env var: BOOT_SERVICE_DATA_DIR
+data_dir: "./data"
 
-# Optional bootstrap token for HSM service-token exchange.
-# Prefer environment variable TOKENSMITH_BOOTSTRAP_TOKEN for real deployments.
-# tokensmith_bootstrap_token: "<bootstrap-jwt>"
+# Storage backend type
+#
+# Values:
+#   - "file"      - stores data on the local filesystem
+#   - "database"  - use a database backend
+# Default: "file"
+# Flag:    --storage-type
+# Env var: BOOT_SERVICE_STORAGE_TYPE
+storage_type: "file"
 
-# Target service name requested during TokenSmith service-token exchange.
+# -------------------------------------------------------------------------
+# TokenSmith Configuration (Optional - for dynamic authentication)
+# -------------------------------------------------------------------------
+
+# Base URL of the TokenSmith service.
+# Supports both mTLS and bootstrap‑token authentication modes.
+#
+# Example: https://tokensmith.example.com
+# Flag:    --tokensmith-url
+# Env var: BOOT_SERVICE_TOKENSMITH_URL
+tokensmith_url: "http://tokensmith:8080"
+
+# Bootstrap token used when the service cannot present a client certificate.
+#
+# Flag:    --tokensmith-bootstrap-token
+# Env var: BOOT_SERVICE_TOKENSMITH_BOOTSTRAP_TOKEN
+#tokensmith_bootstrap_token: ""
+
+# Target downstream service name for which TokenSmith should issue a token.
+#
+# Default: "hsm"
+# Flag:    --tokensmith-target-service
+# Env var: BOOT_SERVICE_TOKENSMITH_TARGET_SERVICE
 tokensmith_target_service: "hsm"
 
-# Optional comma-separated scope hint used for diagnostics when exchanging HSM
-# service tokens.
-tokensmith_bootstrap_policy_scopes_hint: ""
+# Diagnostic hint: a comma‑separated list of scopes that the bootstrap token
+# is allowed to request.
+#
+# Example: "boot:read,boot:write"
+# Flag:    --tokensmith-bootstrap-policy-scopes-hint
+# Env var: BOOT_SERVICE_TOKENSMITH_BOOTSTRAP_POLICY_SCOPES_HINT
+#tokensmith_bootstrap_policy_scopes_hint: ""
 
-# Refresh skew in seconds applied before service tokens are considered stale.
+# Number of seconds before a token's expiry when the service should attempt a
+# refresh.  This avoids edge‑case failures when the token is about to expire.
+#
+# Flag:    --tokensmith-refresh-skew-sec
+# Env var: BOOT_SERVICE_TOKENSMITH_REFRESH_SKEW_SEC
 tokensmith_refresh_skew_sec: 120
 
-# HSM-backed node resolution is enabled when this URL is provided.
-hsm_url: ""
-# Enables background synchronization against the HSM provider.
+# JWKS (JSON Web Key Set) endpoint for JWT validation.  If empty, the service
+# will not attempt JWKS fetching and will rely on TokenSmith‑issued tokens.
+#
+# Flag:    --jwks-endpoint
+# Env var: BOOT_SERVICE_JWKS_ENDPOINT
+#jwks_endpoint: ""
+
+# -------------------------------------------------------------------------
+# Hardware State Manager (HSM) Configuration
+# -------------------------------------------------------------------------
+
+# URL of the Hardware State Manager service.  When set, the boot service will
+# query HSM for node/BMC inventory and enable the FlexibleBootScriptController.
+#
+# Flag:    --hsm-url
+# Env var: BOOT_SERVICE_HSM_URL
+hsm_url: "http://smd:27779"
+
+# Enable background synchronization with HSM.  When false, the service will
+# not attempt periodic pulls from HSM.
+#
+# Flag:    --hsm-sync-enabled
+# Env var: BOOT_SERVICE_HSM_SYNC_ENABLED
 hsm_sync_enabled: true
-# Interval in minutes between HSM background sync runs.
+
+# Interval, in minutes, at which the HSM sync worker runs.
+#
+# Flag:    --hsm-sync-interval
+# Env var: BOOT_SERVICE_HSM_SYNC_INTERVAL
 hsm_sync_interval: 5
 
-# =============================================================================
-# NOTES
-# =============================================================================
-
-# Reserved flag present in the current config struct but not documented as an
-# active runtime auth path in the server entrypoint.
-# jwks_endpoint: "https://auth.example.com/.well-known/jwks.json"
-
-# - Boot endpoints are always available at root paths (e.g. /bootscript).
-# - enable_legacy_api controls legacy BSS-compatible endpoints at /boot/v1/*
-# - enable_auth currently affects startup validation and HSM token exchange.
-# - The standalone server does not currently attach pkg/auth request middleware
-#   to its route tree in cmd/server/main.go.
+# -------------------------------------------------------------------------
+# Additional (Non‑Config‑File) Flags
+# -------------------------------------------------------------------------
+# The following flags are *persistent* (global) and are **not** represented in
+# the YAML configuration, but they can still be used on the command line or via
+# environment variables:
+#
+#   --config <path>   (env: BOOT_SERVICE_CONFIG)
+#        Path to an alternative configuration file.
+#
+#   --help, --version, etc. are standard Cobra flags.
 
 # =============================================================================
-# EXAMPLE OVERRIDES
+# End of example configuration.
 # =============================================================================
-
-# Minimal metrics-enabled setup:
-# enable_metrics: true
-# metrics_port: 9090
-
-# HSM integration without auth-backed token exchange:
-# hsm_url: "http://localhost:27779"
-
-# HSM integration with TokenSmith-backed service tokens:
-# enable_auth: true
-# tokensmith_url: "http://localhost:8080"
-# hsm_url: "http://localhost:27779"
-# tokensmith_target_service: "hsm"
-# tokensmith_bootstrap_policy_scopes_hint: "hsm:read"

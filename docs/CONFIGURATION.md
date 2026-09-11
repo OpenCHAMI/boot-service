@@ -12,6 +12,9 @@ from `cmd/server/main.go`.
 If a key is not listed here, assume it is not currently consumed by the server
 startup path.
 
+`config.example.yaml` in the repository root is the annotated reference file: it
+lists every supported key with comments and default values.
+
 ## Quick Start
 
 1. Copy the example configuration:
