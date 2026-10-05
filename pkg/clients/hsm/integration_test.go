@@ -37,9 +37,11 @@ func TestIntegrationService_SyncNodesFromHSMUsesBulkMemberships(t *testing.T) {
 			}}
 			writeTestJSON(t, w, response)
 		case "/hsm/v2/Inventory/EthernetInterfaces":
-			response := []HSMEthernetInterface{
-				{MACAddress: "00:1B:63:84:45:E6", ComponentID: "x1000c0s0b0n0", Type: "Node"},
-				{MACAddress: "00:1B:63:84:45:E7", ComponentID: "x1000c0s0b0n1", Type: "Node"},
+			response := HSMEthernetResponse{
+				EthernetInterfaces: []HSMEthernetInterface{
+					{MACAddress: "00:1B:63:84:45:E6", ComponentID: "x1000c0s0b0n0", Type: "Node"},
+					{MACAddress: "00:1B:63:84:45:E7", ComponentID: "x1000c0s0b0n1", Type: "Node"},
+				},
 			}
 			writeTestJSON(t, w, response)
 		case "/hsm/v2/memberships":
@@ -169,9 +171,11 @@ func TestIntegrationService_SyncNodesFromHSMRejectsBadMembershipRefresh(t *testi
 					}}
 					writeTestJSON(t, w, response)
 				case "/hsm/v2/Inventory/EthernetInterfaces":
-					response := []HSMEthernetInterface{
-						{MACAddress: "00:1B:63:84:45:E6", ComponentID: "x1000c0s0b0n0", Type: "Node"},
-						{MACAddress: "00:1B:63:84:45:E7", ComponentID: "x1000c0s0b0n1", Type: "Node"},
+					response := HSMEthernetResponse{
+						EthernetInterfaces: []HSMEthernetInterface{
+							{MACAddress: "00:1B:63:84:45:E6", ComponentID: "x1000c0s0b0n0", Type: "Node"},
+							{MACAddress: "00:1B:63:84:45:E7", ComponentID: "x1000c0s0b0n1", Type: "Node"},
+						},
 					}
 					writeTestJSON(t, w, response)
 				case "/hsm/v2/memberships":

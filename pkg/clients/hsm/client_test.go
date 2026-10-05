@@ -146,16 +146,18 @@ func TestHSMClient_GetEthernetInterfaces(t *testing.T) {
 			t.Errorf("Expected path /hsm/v2/Inventory/EthernetInterfaces, got %s", r.URL.Path)
 		}
 
-		response := []HSMEthernetInterface{
-			{
-				MACAddress:  "00:1B:63:84:45:E6",
-				ComponentID: "x1000c0s0b0n0",
-				Type:        "Node",
-			},
-			{
-				MACAddress:  "00:1B:63:84:45:E7",
-				ComponentID: "x1000c0s0b0n1",
-				Type:        "Node",
+		response := HSMEthernetResponse{
+			EthernetInterfaces: []HSMEthernetInterface{
+				{
+					MACAddress:  "00:1B:63:84:45:E6",
+					ComponentID: "x1000c0s0b0n0",
+					Type:        "Node",
+				},
+				{
+					MACAddress:  "00:1B:63:84:45:E7",
+					ComponentID: "x1000c0s0b0n1",
+					Type:        "Node",
+				},
 			},
 		}
 
@@ -297,11 +299,13 @@ func TestHSMClient_GetComponentByMAC(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/hsm/v2/Inventory/EthernetInterfaces":
-			response := []HSMEthernetInterface{
-				{
-					MACAddress:  "00:1B:63:84:45:E6",
-					ComponentID: "x1000c0s0b0n0",
-					Type:        "Node",
+			response := HSMEthernetResponse{
+				EthernetInterfaces: []HSMEthernetInterface{
+					{
+						MACAddress:  "00:1B:63:84:45:E6",
+						ComponentID: "x1000c0s0b0n0",
+						Type:        "Node",
+					},
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
