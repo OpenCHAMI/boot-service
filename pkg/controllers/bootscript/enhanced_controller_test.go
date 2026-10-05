@@ -216,6 +216,22 @@ func createMockHSMServer(t *testing.T) *httptest.Server {
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(response) //nolint:errcheck
 
+		case "/hsm/v2/memberships":
+			memberships := []hsm.HSMMembership{
+				{
+					ID:            "x1000c0s0b0n0",
+					GroupLabels:   []string{"compute", "slurm"},
+					PartitionName: "p1",
+				},
+				{
+					ID:            "x2000c0s0b0n0",
+					GroupLabels:   []string{"compute"},
+					PartitionName: "p1",
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(memberships) //nolint:errcheck
+
 		default:
 			t.Logf("Unhandled HSM path: %s", r.URL.Path)
 			http.NotFound(w, r)

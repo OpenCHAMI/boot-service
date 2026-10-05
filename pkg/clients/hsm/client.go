@@ -356,16 +356,16 @@ func (c *HSMClient) GetEthernetInterfaces(ctx context.Context) ([]HSMEthernetInt
 		return nil, fmt.Errorf("HSM returned status %d", resp.StatusCode)
 	}
 
-	var interfaces []HSMEthernetInterface
-	if err := json.NewDecoder(resp.Body).Decode(&interfaces); err != nil {
+	var response HSMEthernetResponse
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		return nil, fmt.Errorf("failed to decode HSM response: %w", err)
 	}
 
 	// Cache the result
-	c.cache.SetEthernet("all_ethernet", interfaces)
+	c.cache.SetEthernet("all_ethernet", response.EthernetInterfaces)
 
-	c.logger.Printf("Retrieved %d ethernet interfaces from HSM", len(interfaces))
-	return interfaces, nil
+	c.logger.Printf("Retrieved %d ethernet interfaces from HSM", len(response.EthernetInterfaces))
+	return response.EthernetInterfaces, nil
 }
 
 // GetMemberships retrieves all node memberships from HSM and replaces the membership cache.
