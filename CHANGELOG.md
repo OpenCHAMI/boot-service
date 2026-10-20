@@ -15,6 +15,15 @@ Changes remain under `Unreleased` until they ship in the next tagged release.
 
 ## [Unreleased]
 
+### Changed
+
+- Upgraded Fabrica to v0.4.13 and regenerated the service API and client code.
+- Raised the minimum Go version and standalone container build default to 1.26.9
+  to match Fabrica's requirements.
+- Enabled generated ETags and conditional request checks for resource endpoints
+  through the existing conditional request configuration.
+- Preserved the existing boot service status response in the OpenAPI documentation.
+
 ## [v0.3.1] - 2026-08-04
 
 ### Added

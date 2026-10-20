@@ -19,7 +19,7 @@ CONTAINER_GO_VERSION ?= $(shell awk '/^go / {print $$2; exit}' go.mod)
 GO_TOOLCHAIN_VERSION ?= $(shell awk '/^go / {print $$2; exit}' go.mod)
 FABRICA_VERSION ?= $(shell awk '/github.com\/openchami\/fabrica[[:space:]]+v/ {print $$2; exit}' go.mod)
 LDFLAGS=-ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)"
-FABRICA_CMD ?= go run github.com/openchami/fabrica/cmd/fabrica@$(FABRICA_VERSION)
+FABRICA_CMD ?= go run -ldflags "-X main.version=$(FABRICA_VERSION)" github.com/openchami/fabrica/cmd/fabrica@$(FABRICA_VERSION)
 FABRICA_SOURCE_ARG ?=
 FABRICA_FORCE_FLAG ?=
 FABRICA_ENV ?=
