@@ -16,7 +16,7 @@ builds:
       - amd64
       - arm64
     goamd64:
-      - v3
+      - v1
     env:
       - CGO_ENABLED=0
     ldflags:
@@ -39,7 +39,7 @@ builds:
       - amd64
       - arm64
     goamd64:
-      - v3
+      - v1
     env:
       - CGO_ENABLED=0
     ldflags:
@@ -71,8 +71,8 @@ dockers_v2:
       "org.opencontainers.image.revision": "{{.FullCommit}}"
       "org.opencontainers.image.version": "{{.Version}}"
     platforms:
-      # Match the Go build's CPU variant so GoReleaser includes its binary.
-      - "linux/amd64/v3"
+      # Baseline amd64 matches the v1 binaries and default container pulls.
+      - "linux/amd64"
       - "linux/arm64"
     flags:
       - "--pull"
