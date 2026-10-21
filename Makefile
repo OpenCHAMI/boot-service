@@ -18,8 +18,10 @@ CONTAINER_TAG ?= latest
 CONTAINER_GO_VERSION ?= $(shell awk '/^go / {print $$2; exit}' go.mod)
 GO_TOOLCHAIN_VERSION ?= $(shell awk '/^go / {print $$2; exit}' go.mod)
 FABRICA_VERSION ?= $(shell awk '/github.com\/openchami\/fabrica[[:space:]]+v/ {print $$2; exit}' go.mod)
-LDFLAGS=-ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)"
-FABRICA_CMD ?= go run github.com/openchami/fabrica/cmd/fabrica@$(FABRICA_VERSION)
+LDFLAGS=-ldflags "-X main.serviceVersion=$(VERSION) -X main.serviceCommit=$(COMMIT) -X main.serviceDate=$(DATE)"
+CLIENT_LDFLAGS=-ldflags "-X main.clientVersion=$(VERSION) -X main.clientCommit=$(COMMIT) -X main.clientDate=$(DATE)"
+# The generator must report Fabrica's version, not this service's VERSION/COMMIT.
+FABRICA_CMD ?= go run -ldflags "-X main.version=$(FABRICA_VERSION)" github.com/openchami/fabrica/cmd/fabrica@$(FABRICA_VERSION)
 FABRICA_SOURCE_ARG ?=
 FABRICA_FORCE_FLAG ?=
 FABRICA_ENV ?=
@@ -44,8 +46,8 @@ help: ## Display this help screen
 
 
 build: generate
-	go build -o bin/server ./cmd/server/
-	go build -o bin/client ./cmd/client/
+	go build $(LDFLAGS) -o bin/server ./cmd/server/
+	go build $(CLIENT_LDFLAGS) -o bin/client ./cmd/client/
 
 generate: ## Regenerate Fabrica outputs from apis/.fabrica.yaml/apis.yaml
 ifneq ($(strip $(LOCAL_FABRICA)),)

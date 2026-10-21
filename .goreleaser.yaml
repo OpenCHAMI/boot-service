@@ -16,19 +16,14 @@ builds:
       - amd64
       - arm64
     goamd64:
+      - v1
       - v3
     env:
       - CGO_ENABLED=0
     ldflags:
-      - "-s -w -X main.GitCommit={{.Commit}} \
-         -X main.BuildTime={{.Timestamp}} \
-         -X main.Version={{.Version}} \
-         -X main.GitBranch={{.Branch}} \
-         -X main.GitTag={{.Tag}} \
-         -X main.GitState={{ .Env.GIT_STATE }} \
-         -X main.BuildHost={{ .Env.BUILD_HOST }} \
-         -X main.GoVersion={{ .Env.GO_VERSION }} \
-         -X main.BuildUser={{ .Env.BUILD_USER }} "
+      - "-s -w -X main.serviceCommit={{.Commit}} \
+         -X main.serviceDate={{.Date}} \
+         -X main.serviceVersion={{.Version}}"
 
   - id: "boot-client"
     binary: "boot-client"
@@ -39,19 +34,14 @@ builds:
       - amd64
       - arm64
     goamd64:
+      - v1
       - v3
     env:
       - CGO_ENABLED=0
     ldflags:
-      - "-s -w -X main.GitCommit={{.Commit}} \
-         -X main.BuildTime={{.Timestamp}} \
-         -X main.Version={{.Version}} \
-         -X main.GitBranch={{.Branch}} \
-         -X main.GitTag={{.Tag}} \
-         -X main.GitState={{ .Env.GIT_STATE }} \
-         -X main.BuildHost={{ .Env.BUILD_HOST }} \
-         -X main.GoVersion={{ .Env.GO_VERSION }} \
-         -X main.BuildUser={{ .Env.BUILD_USER }} "
+      - "-s -w -X main.clientCommit={{.Commit}} \
+         -X main.clientDate={{.Date}} \
+         -X main.clientVersion={{.Version}}"
 
 
 dockers_v2:
@@ -71,6 +61,7 @@ dockers_v2:
       "org.opencontainers.image.revision": "{{.FullCommit}}"
       "org.opencontainers.image.version": "{{.Version}}"
     platforms:
+      # Baseline amd64 matches the v1 binaries and default container pulls.
       - "linux/amd64"
       - "linux/arm64"
     flags:
@@ -89,6 +80,7 @@ archives:
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
+      {{- if and (eq .Arch "amd64") (ne .Amd64 "v1") }}_{{ .Amd64 }}{{ end }}
     files:
       - LICENSES/MIT.txt
       - README.md

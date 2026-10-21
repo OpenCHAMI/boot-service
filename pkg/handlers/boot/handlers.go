@@ -31,25 +31,27 @@ type Handler struct {
 	client     client.Client
 	controller BootController
 	logger     *log.Logger
+	buildInfo  BuildInfo
 }
 
 // NewHandler creates a new boot API handler with standard controller
-func NewHandler(c client.Client, logger *log.Logger) *Handler {
+func NewHandler(c client.Client, logger *log.Logger, options ...HandlerOption) *Handler {
 	controller := bootscript.NewBootScriptController(c, logger)
-	return &Handler{
-		client:     c,
-		controller: controller,
-		logger:     logger,
-	}
+	return NewHandlerWithController(c, controller, logger, options...)
 }
 
 // NewHandlerWithController creates a new boot API handler with a custom controller
-func NewHandlerWithController(c client.Client, controller BootController, logger *log.Logger) *Handler {
-	return &Handler{
+func NewHandlerWithController(c client.Client, controller BootController, logger *log.Logger, options ...HandlerOption) *Handler {
+	handler := &Handler{
 		client:     c,
 		controller: controller,
 		logger:     logger,
+		buildInfo:  BuildInfo{Version: "dev"},
 	}
+	for _, option := range options {
+		option(handler)
+	}
+	return handler
 }
 
 // RegisterModernRoutes registers modern boot API routes at root paths
@@ -66,11 +68,8 @@ func (h *Handler) RegisterModernRoutes(r chi.Router) {
 	// Boot script endpoint
 	r.Get("/bootscript", h.GetBootScript)
 
-	// Service endpoints
-	r.Route("/service", func(r chi.Router) {
-		r.Get("/status", h.GetServiceStatus)
-		r.Get("/version", h.GetServiceVersion)
-	})
+	// Public service status is registered by the generated server routes.
+	r.Get("/service/version", h.GetServiceVersion)
 }
 
 // RegisterLegacyRoutes registers legacy BSS API routes at /boot/v1
@@ -327,15 +326,15 @@ func (h *Handler) GetBootScript(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(script)) //nolint:errcheck
 }
 
-// GetServiceStatus handles GET /service/status and GET /boot/v1/service/status
+// GetServiceStatus handles the legacy GET /boot/v1/service/status endpoint.
 func (h *Handler) GetServiceStatus(w http.ResponseWriter, r *http.Request) { //nolint:revive
-	status := CreateServiceStatus("2.0.0-fabrica")
+	status := CreateServiceStatus(h.buildInfo.Version)
 	h.writeJSON(w, http.StatusOK, status)
 }
 
 // GetServiceVersion handles GET /service/version and GET /boot/v1/service/version
 func (h *Handler) GetServiceVersion(w http.ResponseWriter, r *http.Request) { //nolint:revive
-	version := CreateServiceVersion("2.0.0-fabrica", "2025-10-08", "main")
+	version := CreateServiceVersion(h.buildInfo.Version, h.buildInfo.Date, h.buildInfo.Commit)
 	h.writeJSON(w, http.StatusOK, version)
 }
 

@@ -15,6 +15,26 @@ Changes remain under `Unreleased` until they ship in the next tagged release.
 
 ## [Unreleased]
 
+### Fixed
+
+- Replaced hardcoded version, commit, and build date in service version endpoints
+  and the legacy status version with the running boot-service build metadata.
+- Corrected standalone container and GoReleaser linker flags to populate server
+  and client build metadata.
+
+### Changed
+
+- Upgraded Fabrica to v0.4.13 and regenerated the service API and client code.
+- Raised the minimum Go version and standalone container build default to 1.26.9
+  to match Fabrica's requirements.
+- Enabled generated ETags and conditional request checks for resource endpoints
+  through the existing conditional request configuration.
+- Switched `/service/status` to Fabrica's public `service`/`status` response and
+  HTTP status mapping. The legacy response remains at `/boot/v1/service/status`
+  when legacy API compatibility is enabled.
+- Build both amd64 v1 and v3 release binaries with distinct archive names; the
+  default container uses v1 for compatibility with ordinary amd64 pulls.
+
 ## [v0.3.1] - 2026-08-04
 
 ### Added

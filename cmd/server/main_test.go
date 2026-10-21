@@ -340,6 +340,7 @@ func newRouterWithLegacyModeForTest(t *testing.T, enableLegacyAPI bool) http.Han
 	bootHandler := boot.NewHandler(*bootClient, log.New(io.Discard, "", 0))
 
 	// Always register modern routes
+	RegisterGeneratedPublicRoutes(r)
 	bootHandler.RegisterModernRoutes(r)
 
 	// Conditionally register legacy routes

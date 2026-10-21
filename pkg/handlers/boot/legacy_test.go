@@ -90,8 +90,8 @@ func TestLegacyServiceEndpoints(t *testing.T) {
 			t.Errorf("Expected service name 'boot-script-service', got '%s'", version.ServiceName)
 		}
 
-		if !strings.Contains(version.ServiceVersion, "fabrica") {
-			t.Errorf("Expected version to contain 'fabrica', got '%s'", version.ServiceVersion)
+		if version.ServiceVersion == "" {
+			t.Error("Expected a nonempty boot-service build version")
 		}
 
 		t.Logf("✅ Service version: %s %s", version.ServiceName, version.ServiceVersion)
