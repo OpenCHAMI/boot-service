@@ -31,17 +31,17 @@ import "github.com/getkin/kin-openapi/openapi3"
 // Fabrica-generated resource paths have been registered.
 // Add your custom / non-generated route definitions here.
 func registerCustomOpenAPIPaths(spec *openapi3.T) {
-        // Add custom route definitions here.
-        // Example (uncomment and extend as needed):
-        //
-        // op := openapi3.NewOperation()
-        // op.OperationID = "myCustomEndpoint"
-        // op.Summary   = "My custom endpoint"
-        // op.Tags      = []string{"Custom"}
-        // op.Responses = openapi3.NewResponses()
-        // op.Responses.Set("200", &openapi3.ResponseRef{
-        //     Value: openapi3.NewResponse().WithDescription("OK"),
-        // })
-        // spec.Paths.Set("/my-endpoint", &openapi3.PathItem{Get: op})
+	// Add custom route definitions here.
+	// Example (uncomment and extend as needed):
+	//
+	// op := openapi3.NewOperation()
+	// op.OperationID = "myCustomEndpoint"
+	// op.Summary   = "My custom endpoint"
+	// op.Tags      = []string{"Custom"}
+	// op.Responses = openapi3.NewResponses()
+	// op.Responses.Set("200", &openapi3.ResponseRef{
+	//     Value: openapi3.NewResponse().WithDescription("OK"),
+	// })
+	// spec.Paths.Set("/my-endpoint", &openapi3.PathItem{Get: op})
 	_ = spec
 }
