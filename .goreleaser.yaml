@@ -17,6 +17,7 @@ builds:
       - arm64
     goamd64:
       - v1
+      - v3
     env:
       - CGO_ENABLED=0
     ldflags:
@@ -40,6 +41,7 @@ builds:
       - arm64
     goamd64:
       - v1
+      - v3
     env:
       - CGO_ENABLED=0
     ldflags:
@@ -90,6 +92,7 @@ archives:
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
+      {{- if and (eq .Arch "amd64") (ne .Amd64 "v1") }}_{{ .Amd64 }}{{ end }}
     files:
       - LICENSES/MIT.txt
       - README.md
