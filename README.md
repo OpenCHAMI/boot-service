@@ -124,6 +124,12 @@ The boot service provides modern boot API endpoints at root paths:
 - `GET /service/status` - Public Fabrica service status
 - `GET /service/version` - Service version information
 
+The version endpoint reports the running boot-service build, matching
+`./bin/server version`. Development builds without release metadata report `dev`.
+Fabrica's generator version is separate and appears in the server/client version
+commands. Legacy version and status endpoints also use the boot-service build
+version.
+
 The public status response is `{"service":"boot-service","status":"ok"}`.
 Statuses `ok` and `degraded` return HTTP 200; `down` and `initializing` return
 HTTP 503. The generated provider currently reports `ok`; it does not check

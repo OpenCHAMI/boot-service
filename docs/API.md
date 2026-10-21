@@ -80,6 +80,17 @@ curl "http://localhost:8080/bootscript?mac=aa:bb:cc:dd:ee:ff"
 - `GET /service/status` - Service status information
 - `GET /service/version` - Service version information
 
+`GET /service/version` reports the running boot-service build using the existing
+`service_name`, `service_version`, `git_commit`, and `build_date` fields. Version,
+commit, and build date come from the same build variables as `server version`.
+Builds without release metadata report `dev`; unavailable commit and build date
+fields are omitted. The service name remains `boot-script-service` for
+compatibility. This identifies boot-service, independently of Fabrica's generator
+version.
+
+With legacy API enabled, `/boot/v1/service/version` returns the same build
+information, and `/boot/v1/service/status` reports the same `service_version`.
+
 `GET /service/status` is public and uses Fabrica's generated response:
 
 ```json

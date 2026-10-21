@@ -40,6 +40,11 @@ func registerCustomServerIntegrations(r chi.Router, config Config, hsmClient *hs
 	logger := log.New(os.Stdout, "boot: ", log.LstdFlags)
 
 	var bootHandler *boot.Handler
+	buildInfo := boot.WithBuildInfo(boot.BuildInfo{
+		Version: serviceVersion,
+		Commit:  serviceCommit,
+		Date:    serviceDate,
+	})
 
 	if hsmClient != nil {
 		// Use FlexibleBootScriptController with HSM provider.
@@ -67,10 +72,10 @@ func registerCustomServerIntegrations(r chi.Router, config Config, hsmClient *hs
 			log.Printf("HSM background sync enabled (interval: %d minutes)", config.HSMSyncInterval)
 		}
 
-		bootHandler = boot.NewHandlerWithController(*bootClient, flexController, logger)
+		bootHandler = boot.NewHandlerWithController(*bootClient, flexController, logger, buildInfo)
 	} else {
 		// Use standard controller with local storage.
-		bootHandler = boot.NewHandler(*bootClient, logger)
+		bootHandler = boot.NewHandler(*bootClient, logger, buildInfo)
 	}
 
 	// Always register "modern" boot API paths at /.

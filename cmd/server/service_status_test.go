@@ -21,6 +21,17 @@ func TestServiceStatusRoutes(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			router := newRouterWithLegacyModeForTest(t, legacy)
+			for _, path := range []string{"/service/version", "/boot/v1/service/version"} {
+				response := httptest.NewRecorder()
+				router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
+				want := http.StatusOK
+				if !legacy && path == "/boot/v1/service/version" {
+					want = http.StatusNotFound
+				}
+				if response.Code != want {
+					t.Fatalf("%s returned HTTP %d, want %d", path, response.Code, want)
+				}
+			}
 
 			original := serviceStatusProvider
 			t.Cleanup(func() { serviceStatusProvider = original })

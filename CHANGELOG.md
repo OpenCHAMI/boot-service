@@ -15,6 +15,13 @@ Changes remain under `Unreleased` until they ship in the next tagged release.
 
 ## [Unreleased]
 
+### Fixed
+
+- Replaced hardcoded version, commit, and build date in service version endpoints
+  and the legacy status version with the running boot-service build metadata.
+- Corrected standalone container and GoReleaser linker flags to populate server
+  and client build metadata.
+
 ### Changed
 
 - Upgraded Fabrica to v0.4.13 and regenerated the service API and client code.

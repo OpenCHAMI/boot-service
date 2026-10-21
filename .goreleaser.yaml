@@ -21,15 +21,9 @@ builds:
     env:
       - CGO_ENABLED=0
     ldflags:
-      - "-s -w -X main.GitCommit={{.Commit}} \
-         -X main.BuildTime={{.Timestamp}} \
-         -X main.Version={{.Version}} \
-         -X main.GitBranch={{.Branch}} \
-         -X main.GitTag={{.Tag}} \
-         -X main.GitState={{ .Env.GIT_STATE }} \
-         -X main.BuildHost={{ .Env.BUILD_HOST }} \
-         -X main.GoVersion={{ .Env.GO_VERSION }} \
-         -X main.BuildUser={{ .Env.BUILD_USER }} "
+      - "-s -w -X main.serviceCommit={{.Commit}} \
+         -X main.serviceDate={{.Date}} \
+         -X main.serviceVersion={{.Version}}"
 
   - id: "boot-client"
     binary: "boot-client"
@@ -45,15 +39,9 @@ builds:
     env:
       - CGO_ENABLED=0
     ldflags:
-      - "-s -w -X main.GitCommit={{.Commit}} \
-         -X main.BuildTime={{.Timestamp}} \
-         -X main.Version={{.Version}} \
-         -X main.GitBranch={{.Branch}} \
-         -X main.GitTag={{.Tag}} \
-         -X main.GitState={{ .Env.GIT_STATE }} \
-         -X main.BuildHost={{ .Env.BUILD_HOST }} \
-         -X main.GoVersion={{ .Env.GO_VERSION }} \
-         -X main.BuildUser={{ .Env.BUILD_USER }} "
+      - "-s -w -X main.clientCommit={{.Commit}} \
+         -X main.clientDate={{.Date}} \
+         -X main.clientVersion={{.Version}}"
 
 
 dockers_v2:
