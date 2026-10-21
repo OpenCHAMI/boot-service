@@ -4,7 +4,7 @@
 
 module github.com/openchami/boot-service
 
-go 1.27.2
+go 1.26.10
 
 require (
 	github.com/getkin/kin-openapi v0.151.0
