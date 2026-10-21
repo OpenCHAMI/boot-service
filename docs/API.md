@@ -80,6 +80,18 @@ curl "http://localhost:8080/bootscript?mac=aa:bb:cc:dd:ee:ff"
 - `GET /service/status` - Service status information
 - `GET /service/version` - Service version information
 
+`GET /service/status` is public and uses Fabrica's generated response:
+
+```json
+{"service":"boot-service","status":"ok"}
+```
+
+`ok` and `degraded` map to HTTP 200; `down` and `initializing` map to HTTP 503.
+The current provider always reports `ok` and does not probe dependencies.
+The public response excludes build metadata. This replaces the previous
+`service_name`, `service_version`, and `service_status` fields at this path.
+The legacy response remains available at `/boot/v1/service/status` when enabled.
+
 ## Legacy BSS Compatibility API
 
 When `enable_legacy_api: true`, legacy BSS-compatible endpoints are available at `/boot/v1/*`:

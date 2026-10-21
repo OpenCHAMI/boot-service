@@ -66,11 +66,8 @@ func (h *Handler) RegisterModernRoutes(r chi.Router) {
 	// Boot script endpoint
 	r.Get("/bootscript", h.GetBootScript)
 
-	// Service endpoints
-	r.Route("/service", func(r chi.Router) {
-		r.Get("/status", h.GetServiceStatus)
-		r.Get("/version", h.GetServiceVersion)
-	})
+	// Public service status is registered by the generated server routes.
+	r.Get("/service/version", h.GetServiceVersion)
 }
 
 // RegisterLegacyRoutes registers legacy BSS API routes at /boot/v1
@@ -327,7 +324,7 @@ func (h *Handler) GetBootScript(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(script)) //nolint:errcheck
 }
 
-// GetServiceStatus handles GET /service/status and GET /boot/v1/service/status
+// GetServiceStatus handles the legacy GET /boot/v1/service/status endpoint.
 func (h *Handler) GetServiceStatus(w http.ResponseWriter, r *http.Request) { //nolint:revive
 	status := CreateServiceStatus("2.0.0-fabrica")
 	h.writeJSON(w, http.StatusOK, status)

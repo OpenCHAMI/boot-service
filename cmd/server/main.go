@@ -304,6 +304,9 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 
 	r.Use(versioning.VersionNegotiationMiddleware(versioning.GlobalVersionRegistry, nil))
 
+	// Public service status remains outside resource authentication middleware.
+	RegisterGeneratedPublicRoutes(r)
+
 	// Register health check
 	r.Get("/health", func(w http.ResponseWriter, req *http.Request) { //nolint:revive
 		w.Header().Set("Content-Type", "application/json")

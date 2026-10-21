@@ -121,10 +121,17 @@ The boot service provides modern boot API endpoints at root paths:
 - `POST /bootparameters` - Create boot configuration
 - `PUT /bootparameters` - Update boot configuration
 - `DELETE /bootparameters` - Delete boot configuration
-- `GET /service/status` - Service status information
+- `GET /service/status` - Public Fabrica service status
 - `GET /service/version` - Service version information
 
-These endpoints accept node identifiers (`host`, `mac`, or `nid`) and support
+The public status response is `{"service":"boot-service","status":"ok"}`.
+Statuses `ok` and `degraded` return HTTP 200; `down` and `initializing` return
+HTTP 503. The generated provider currently reports `ok`; it does not check
+dependencies. Build metadata is omitted. Clients using the previous
+`service_name`, `service_version`, and `service_status` fields must migrate to
+this response or use `/boot/v1/service/status` with legacy API enabled.
+
+The boot endpoints accept node identifiers (`host`, `mac`, or `nid`) and support
 intelligent boot configuration matching by score and priority.
 
 ### Legacy BSS Compatibility
@@ -141,7 +148,7 @@ When `enable_legacy_api: true`, legacy BSS-compatible routes are available at `/
 
 When legacy API is disabled, only the modern endpoints at root paths are available.
 
-**Important:** Both modern and legacy endpoints use the same handler logic and support
+**Important:** Modern and legacy boot endpoints use the same handler logic and support
 the same features. The `profile` query parameter is ignored and the controller always
 auto-resolves the best matching boot configuration by score and priority.
 

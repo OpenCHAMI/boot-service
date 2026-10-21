@@ -31,24 +31,6 @@ import "github.com/getkin/kin-openapi/openapi3"
 // Fabrica-generated resource paths have been registered.
 // Add your custom / non-generated route definitions here.
 func registerCustomOpenAPIPaths(spec *openapi3.T) {
-	// Boot service owns /service/status through the boot API handler. Preserve
-	// its existing response contract instead of documenting Fabrica's new
-	// standardized status handler, which this server does not register.
-	schema := openapi3.NewObjectSchema().
-		WithProperty("service_name", openapi3.NewStringSchema()).
-		WithProperty("service_version", openapi3.NewStringSchema()).
-		WithProperty("service_status", openapi3.NewStringSchema()).
-		WithProperty("details", openapi3.NewObjectSchema().WithAdditionalProperties(openapi3.NewStringSchema())).
-		WithRequired([]string{"service_name", "service_version", "service_status"})
-	spec.Components.Schemas["BootServiceStatusResponse"] = &openapi3.SchemaRef{Value: schema}
-	op := openapi3.NewOperation()
-	op.OperationID = "getServiceStatus"
-	op.Summary = "Get boot service status"
-	op.Tags = []string{"Service"}
-	op.Responses = openapi3.NewResponses()
-	op.Responses.Set("200", &openapi3.ResponseRef{
-		Value: openapi3.NewResponse().WithDescription("Boot service status").
-			WithJSONSchemaRef(componentSchemaRef(spec, "BootServiceStatusResponse")),
-	})
-	spec.Paths.Set("/service/status", &openapi3.PathItem{Get: op})
+	// Service status uses Fabrica's generated schema and public route.
+	_ = spec
 }

@@ -22,7 +22,11 @@ Changes remain under `Unreleased` until they ship in the next tagged release.
   to match Fabrica's requirements.
 - Enabled generated ETags and conditional request checks for resource endpoints
   through the existing conditional request configuration.
-- Preserved the existing boot service status response in the OpenAPI documentation.
+- Switched `/service/status` to Fabrica's public `service`/`status` response and
+  HTTP status mapping. The legacy response remains at `/boot/v1/service/status`
+  when legacy API compatibility is enabled.
+- Build both amd64 v1 and v3 release binaries with distinct archive names; the
+  default container uses v1 for compatibility with ordinary amd64 pulls.
 
 ## [v0.3.1] - 2026-08-04
 
