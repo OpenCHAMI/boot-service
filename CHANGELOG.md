@@ -11,9 +11,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-Changes remain under `Unreleased` until they ship in the next tagged release.
+Changes remain marked `Unreleased` until they ship in a tagged release.
 
-## [Unreleased]
+## [v0.3.3] - 2026-10-21
+
+### Added
+
+- Added Podman Quadlet configuration and RPM packaging, with `make rpm-build`
+  and `make rpm-clean` targets.
 
 ### Fixed
 
@@ -25,8 +30,7 @@ Changes remain under `Unreleased` until they ship in the next tagged release.
 ### Changed
 
 - Upgraded Fabrica to v0.4.13 and regenerated the service API and client code.
-- Raised the minimum Go version and standalone container build default to 1.26.9
-  to match Fabrica's requirements.
+- Raised the minimum Go version and standalone container build default to 1.26.10.
 - Enabled generated ETags and conditional request checks for resource endpoints
   through the existing conditional request configuration.
 - Switched `/service/status` to Fabrica's public `service`/`status` response and
@@ -34,6 +38,23 @@ Changes remain under `Unreleased` until they ship in the next tagged release.
   when legacy API compatibility is enabled.
 - Build both amd64 v1 and v3 release binaries with distinct archive names; the
   default container uses v1 for compatibility with ordinary amd64 pulls.
+- Expanded the example configuration with documented settings.
+- Updated Go dependencies, GitHub Actions, and the Dockerfile frontend.
+
+## [v0.3.2] - 2026-08-14
+
+### Added
+
+- Added client token redaction in debug output, with an option to show tokens.
+
+### Changed
+
+- Refreshed HSM node memberships in bulk during node synchronization and replaced
+  the membership cache on each successful refresh.
+- Made node synchronization fail before updating nodes when HSM membership
+  retrieval fails or a compute node has no membership data.
+- Upgraded Fabrica to v0.4.10 and regenerated the service API and client code.
+- Updated build provenance attestation and the Dockerfile frontend.
 
 ## [v0.3.1] - 2026-08-04
 
@@ -181,7 +202,8 @@ Changes remain under `Unreleased` until they ship in the next tagged release.
 - File-backed `BMC`, `BootConfiguration`, and `Node` resource APIs.
 - Legacy BSS-compatible boot endpoints and generated Go client support.
 
-[Unreleased]: https://github.com/OpenCHAMI/boot-service/compare/v0.3.1...HEAD
+[v0.3.3]: https://github.com/OpenCHAMI/boot-service/compare/v0.3.2...HEAD
+[v0.3.2]: https://github.com/OpenCHAMI/boot-service/compare/v0.3.1...v0.3.2
 [v0.3.1]: https://github.com/OpenCHAMI/boot-service/compare/v0.3.0...v0.3.1
 [v0.3.0]: https://github.com/OpenCHAMI/boot-service/compare/v0.2.0...v0.3.0
 [v0.2.0]: https://github.com/OpenCHAMI/boot-service/compare/v0.1.7...v0.2.0
