@@ -4,13 +4,13 @@
 
 module github.com/openchami/boot-service
 
-go 1.26.10
+go 1.27.3
 
 require (
-	github.com/getkin/kin-openapi v0.151.0
+	github.com/getkin/kin-openapi v0.152.0
 	github.com/go-chi/chi/v5 v5.5.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/openchami/fabrica v0.4.13
+	github.com/openchami/fabrica v0.4.14
 	github.com/openchami/tokensmith v0.4.2
 	github.com/prometheus/client_golang v1.25.0
 	github.com/rs/zerolog v1.35.1
