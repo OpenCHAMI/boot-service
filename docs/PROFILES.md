@@ -154,6 +154,33 @@ Candidates are ordered by:
 
 1. score descending
 2. `priority` descending
+3. last applied time descending
+4. `metadata.name` ascending
+5. `metadata.uid` ascending
+
+“Last applied” means the API-managed `metadata.updatedAt`. If it is absent,
+`metadata.createdAt` is used; a resource with neither timestamp sorts oldest.
+Equal timestamps fall back to name and then UID, independent of API list order.
+Omitted `priority` and an explicit zero both mean `0`. Recency breaks ties for
+any equal priority, including equal nonzero priorities; it never overrides a
+higher match score or priority.
+
+Creating a new equally matching configuration or updating an existing one can
+therefore change the selected image without priority bookkeeping. For example,
+an older `a-debug` and newer `z-base` with the same MAC and priority select
+`z-base`; a subsequent update to `a-debug` selects it again.
+
+The current API also advances `updatedAt` on status writes and metadata updates,
+so these writes count as applications for this ordering. Imported timestamps
+are used as stored; they are not a globally ordered revision counter.
+
+Each bootscript request resolves current node/configuration records before
+reusing a rendered script. The cache key includes the rendered inputs, so a new
+winner or changed boot parameters take effect on the next request. This adds
+backend reads on cache hits; the five-minute cache still avoids repeated
+rendering of unchanged inputs. Concurrent writes can be observed by a later
+request; selection does not provide a transaction spanning the node and
+configuration reads.
 
 ## Operational Guidance
 
@@ -171,15 +198,15 @@ Do not assume profile-specific HTTP behavior from the bootscript endpoints yet.
 
 That is the current expected behavior of the boot HTTP endpoints. The handler
 accepts the parameter but ignores it, and matching is still based on best score
-and priority across profiles.
+and priority across profiles, then recency when those tie.
 
 ### The wrong profile appears to win
 
 Inspect the stored boot configurations and compare their targeting fields and
-priority values:
+priority values and timestamps:
 
 ```bash
-curl "http://boot-service:8080/bootconfigurations" | jq '.[] | {name: .metadata.name, profile: .spec.profile, priority: .spec.priority, hosts: .spec.hosts, macs: .spec.macs, nids: .spec.nids, groups: .spec.groups}'
+curl "http://boot-service:8080/bootconfigurations" | jq '.[] | {name: .metadata.name, profile: .spec.profile, priority: .spec.priority, createdAt: .metadata.createdAt, updatedAt: .metadata.updatedAt, hosts: .spec.hosts, macs: .spec.macs, nids: .spec.nids, groups: .spec.groups}'
 ```
 
 ### Default fallback is missing

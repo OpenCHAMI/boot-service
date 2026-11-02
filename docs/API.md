@@ -125,7 +125,9 @@ curl "http://localhost:8080/boot/v1/bootscript?mac=aa:bb:cc:dd:ee:ff"
 
 **Note:** Both modern and legacy endpoints use the same handler logic. The `profile`
 query parameter is currently ignored; the controller auto-selects the best matching
-configuration across profiles based on score and priority.
+configuration across profiles based on score, priority, and last applied time.
+See [selection ordering](PROFILES.md#selection-algorithm) for timestamp and
+deterministic tie-breaking rules.
 
 ## Generated Client
 

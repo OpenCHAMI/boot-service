@@ -13,7 +13,7 @@ import (
 )
 
 func TestBootConfigurationConditionalRequests(t *testing.T) {
-	if err := registerResourcePrefixes(); err != nil {
+	if err := registerTestResourcePrefixes(); err != nil {
 		t.Fatal(err)
 	}
 	router := newGeneratedRouterForTest(t)

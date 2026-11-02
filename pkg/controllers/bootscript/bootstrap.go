@@ -73,13 +73,16 @@ Boot configurations are matched to nodes using a priority-based scoring system:
   - Default config: 1 point
 
 The configuration with the highest score is selected. If multiple configurations have
-the same score, the explicit Priority field is used as a tiebreaker.
+the same score, the explicit Priority field is used as a tiebreaker. Equal
+priorities are resolved by last applied time (metadata.updatedAt, or createdAt
+when absent), newest first, then name and UID ascending. Omitted priority and
+explicit zero are equivalent. Status writes also advance updatedAt.
 
 Example configuration scoring:
 
-	Config A: MAC match (100) + Priority(10) = 110 points
-	Config B: XName match (50) + 2 groups (50) + Priority(5) = 105 points
-	Config C: Default (1) + Priority(0) = 1 point
+	Config A: MAC match = score 100, Priority 10
+	Config B: XName + 2 groups = score 100, Priority 5
+	Config C: Default = score 1, Priority 0
 
 	Result: Config A is selected
 
@@ -148,8 +151,10 @@ computational overhead and improve response times. Cache behavior:
   - Thread-safe concurrent access
   - Invalidation on configuration changes
 
-Cache keys are generated from node identifier and configuration data to ensure
-correct invalidation when either changes.
+Each request resolves current node/configuration records before checking the
+render cache. Cache keys include the node identifier and all rendered inputs,
+so a new winner or changed inputs cannot reuse a stale script. Cached scripts
+avoid repeated rendering, but do not eliminate backend selection reads.
 
 # Performance Considerations
 
@@ -160,8 +165,7 @@ Boot script generation performance is critical for large-scale clusters. Optimiz
   - Minimized backend queries through provider caching
   - Template pre-parsing and reuse
 
-For clusters with thousands of nodes, the cache hit rate typically exceeds 95%
-during steady-state operations.
+The render cache can reuse scripts while their inputs remain unchanged.
 
 # Error Handling
 

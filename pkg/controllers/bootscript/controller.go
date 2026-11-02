@@ -7,6 +7,8 @@ package bootscript
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"log"
 	"sort"
@@ -61,13 +63,6 @@ type configCandidate struct {
 func (c *BootScriptController) GenerateBootScript(ctx context.Context, identifier, profile string) (string, error) {
 	c.logger.Printf("Generating boot script for identifier: %s", identifier)
 
-	// Check cache first
-	cacheKey := c.generateCacheKey(identifier, profile)
-	if cached, found := c.cache.Get(cacheKey); found {
-		c.logger.Printf("Cache hit for identifier: %s", identifier)
-		return cached, nil
-	}
-
 	// Parse and resolve node identifier
 	nodeID := c.parseNodeIdentifier(identifier)
 	node, err := c.resolveNode(ctx, nodeID)
@@ -83,6 +78,18 @@ func (c *BootScriptController) GenerateBootScript(ctx context.Context, identifie
 		return c.generateMinimalScript(identifier), nil
 	}
 
+	// Re-evaluate selection before reusing a script: a newly applied candidate
+	// can supersede the previous winner without changing its name or content.
+	inputs, err := json.Marshal(c.prepareTemplateVars(config, node))
+	if err != nil {
+		return c.generateErrorScript(fmt.Sprintf("Script cache key failed: %v", err)), nil
+	}
+	cacheKey := fmt.Sprintf("%s:%x", c.generateCacheKey(identifier, config.Metadata.Name), sha256.Sum256(inputs))
+	if cached, found := c.cache.Get(cacheKey); found {
+		c.logger.Printf("Cache hit for identifier: %s", identifier)
+		return cached, nil
+	}
+
 	// Generate iPXE script
 	script, err := c.buildIPXEScript(config, node)
 	if err != nil {
@@ -90,11 +97,7 @@ func (c *BootScriptController) GenerateBootScript(ctx context.Context, identifie
 	}
 
 	// Cache the result
-	configName := ""
-	if config != nil {
-		configName = config.Metadata.Name
-	}
-	cacheKey = c.generateCacheKey(identifier, configName)
+	configName := config.Metadata.Name
 	c.cache.Set(cacheKey, script, node.Spec.XName, configName)
 
 	c.logger.Printf("Generated boot script for node %s using config %s", node.Spec.XName, configName)
@@ -192,8 +195,8 @@ func (c *BootScriptController) findBootConfiguration(ctx context.Context, node *
 			return nil
 		}
 
-		// Sort by score (descending), priority (descending), and name (ascending)
-		// to keep deterministic selection when score and priority are identical.
+		// Score and priority precede recency. Name and UID make ties independent
+		// of backend list order, including resources with missing timestamps.
 		sort.Slice(candidates, func(i, j int) bool {
 			if candidates[i].score != candidates[j].score {
 				return candidates[i].score > candidates[j].score
@@ -201,7 +204,15 @@ func (c *BootScriptController) findBootConfiguration(ctx context.Context, node *
 			if candidates[i].config.Spec.Priority != candidates[j].config.Spec.Priority {
 				return candidates[i].config.Spec.Priority > candidates[j].config.Spec.Priority
 			}
-			return candidates[i].config.Metadata.Name < candidates[j].config.Metadata.Name
+			left, right := candidates[i].config, candidates[j].config
+			leftApplied, rightApplied := configurationAppliedAt(left), configurationAppliedAt(right)
+			if !leftApplied.Equal(rightApplied) {
+				return leftApplied.After(rightApplied)
+			}
+			if left.Metadata.Name != right.Metadata.Name {
+				return left.Metadata.Name < right.Metadata.Name
+			}
+			return left.Metadata.UID < right.Metadata.UID
 		})
 
 		return candidates[0].config
@@ -228,6 +239,15 @@ func (c *BootScriptController) findBootConfiguration(ctx context.Context, node *
 	}
 
 	return nil, fmt.Errorf("no matching configurations found for node %s", node.Spec.XName)
+}
+
+// configurationAppliedAt uses the API-managed last write time. Older imported
+// resources may only have a creation timestamp; absent times sort oldest.
+func configurationAppliedAt(config *apiv1.BootConfiguration) time.Time {
+	if !config.Metadata.UpdatedAt.IsZero() {
+		return config.Metadata.UpdatedAt
+	}
+	return config.Metadata.CreatedAt
 }
 
 // calculateConfigScore determines how well a configuration matches a node
