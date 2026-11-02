@@ -40,8 +40,9 @@ func NewScriptCache(ttl time.Duration) *ScriptCache {
 
 // Get retrieves a cached script if it exists and is not expired
 func (c *ScriptCache) Get(cacheKey string) (string, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	// Expired entries are removed below, so this operation needs a write lock.
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	entry, exists := c.entries[cacheKey]
 	if !exists {
