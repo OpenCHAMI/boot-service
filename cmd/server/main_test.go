@@ -45,7 +45,7 @@ func TestBindFlagsWithUnderscoreKeys_ConfigValuesBeatUnchangedFlagDefaults(t *te
 
 	v.SetConfigType("yaml")
 	configYAML := `
-enable_auth: true
+auth_enabled: true
 tokensmith_url: http://tokensmith:8080
 tokensmith_target_service: smd
 tokensmith_bootstrap_policy_scopes_hint: hsm:read,hsm:write
@@ -63,8 +63,8 @@ enable_metrics: false
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 
-	if !config.EnableAuth {
-		t.Fatal("expected enable_auth config value to override unchanged --enable-auth default")
+	if !config.AuthEnabled {
+		t.Fatal("expected auth_enabled config value to override unchanged --auth-enabled default")
 	}
 	if config.TokenSmithURL != "http://tokensmith:8080" {
 		t.Fatalf("expected tokensmith_url from config, got %q", config.TokenSmithURL)
@@ -372,9 +372,8 @@ func TestInitializeHSMServiceTokenManager_IgnoresTokenSmithWhenAuthDisabled(t *t
 	defer log.SetOutput(originalWriter)
 
 	manager, err := initializeHSMServiceTokenManager(context.Background(), Config{
-		EnableAuth:    false,
-		TokenSmithURL: "http://tokensmith.example",
-		HSMURL:        "http://hsm.example",
+		GeneratedFeatureConfig: GeneratedFeatureConfig{TokenSmithURL: "http://tokensmith.example"},
+		HSMURL:                 "http://hsm.example",
 	}, log.New(io.Discard, "", 0))
 	if err != nil {
 		t.Fatalf("expected no error when auth is disabled, got %v", err)
@@ -391,9 +390,8 @@ func TestInitializeHSMServiceTokenManager_RequiresBootstrapTokenWhenAuthEnabled(
 	t.Setenv("TOKENSMITH_BOOTSTRAP_TOKEN", "")
 
 	manager, err := initializeHSMServiceTokenManager(context.Background(), Config{
-		EnableAuth:    true,
-		TokenSmithURL: "http://tokensmith.example",
-		HSMURL:        "http://hsm.example",
+		GeneratedFeatureConfig: GeneratedFeatureConfig{AuthEnabled: true, TokenSmithURL: "http://tokensmith.example"},
+		HSMURL:                 "http://hsm.example",
 	}, log.New(io.Discard, "", 0))
 	if err == nil {
 		t.Fatal("expected error when auth is enabled and bootstrap token is missing")
