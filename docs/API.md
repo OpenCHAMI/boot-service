@@ -11,7 +11,7 @@ service server.
 
 ## Public Endpoints
 
-These routes are registered directly in the server entrypoint:
+These routes never require a token, even with `auth_enabled: true`:
 
 - `GET /health`
 - `GET /openapi.json`
@@ -24,12 +24,16 @@ generation time by `generation.openapi_server_url` in `.fabrica.yaml`, not taken
 from the running deployment. They currently use Fabrica's default,
 `http://localhost:8080`.
 
-When `enable_metrics` or `--enable-metrics` is enabled, Fabrica-generated
-Prometheus metrics are also exposed at:
+Fabrica-generated Prometheus metrics are exposed at:
 
 - `GET /metrics`
 
-and on the separate metrics listener configured by `metrics_port`.
+and, when `enable_metrics` or `--enable-metrics` is enabled, on the separate
+metrics listener configured by `metrics_port`.
+
+Boot script and service information routes are public too. With
+`auth_enabled: true`, every other route requires a JWT; see
+[AUTHENTICATION.md](AUTHENTICATION.md).
 
 ## Modern Resource APIs
 
