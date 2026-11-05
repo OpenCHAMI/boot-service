@@ -16,6 +16,13 @@ These routes are registered directly in the server entrypoint:
 - `GET /health`
 - `GET /openapi.json`
 - `GET /docs`
+- `GET /service/status`
+- `GET`, `HEAD /.well-known/api-catalog` - RFC 9727 API catalog
+
+Base URLs in the API catalog and in the OpenAPI `servers` list are fixed at
+generation time by `generation.openapi_server_url` in `.fabrica.yaml`, not taken
+from the running deployment. They currently use Fabrica's default,
+`http://localhost:8080`.
 
 When `enable_metrics` or `--enable-metrics` is enabled, Fabrica-generated
 Prometheus metrics are also exposed at:
@@ -45,6 +52,29 @@ For each resource type, the generated routes currently support:
 
 The generated router registers trailing-slash routes and the server applies Chi
 slash normalization so both slashless and slashful collection paths work.
+
+### Resource UIDs
+
+New resources get TypeID UIDs: the lowercase kind, an underscore, and 26 base32
+characters, such as `node_01h455vb4pex5vsknk084sn02q`. Resources created by
+earlier releases keep their `prefix-hex` UIDs, such as `node-1a2b3c4d`, and both
+formats work everywhere a UID is accepted. Treat UIDs as opaque strings: do not
+split them or assume a length.
+
+### Create Requests
+
+`POST /resource` requires a `spec`. Omitting it or sending `null` returns HTTP
+400 for every resource type, including `BMC`, which previously accepted a
+missing `spec`. Send `"spec": {}` to create a `BMC` with an empty spec. `metadata`
+remains optional.
+
+### Conditional Writes
+
+`PUT`, `PATCH`, and `DELETE` evaluate `If-Match` and write as one atomic step, so
+concurrent writers cannot both pass the same ETag check. A write that keeps
+losing to concurrent changes returns HTTP 409 and can be retried. Request bodies
+are now parsed before the resource is loaded, so a malformed body returns HTTP
+400 even when the UID does not exist.
 
 ## Boot API
 

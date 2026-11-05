@@ -99,6 +99,7 @@ Example overrides:
 - `GET /health` returns a small JSON health response
 - `GET /openapi.json` serves the generated OpenAPI document
 - `GET /docs` serves Swagger UI
+- `GET /.well-known/api-catalog` serves the generated RFC 9727 API catalog; its base URL is set at generation time (see `docs/API.md`)
 - When `enable_metrics` or `--enable-metrics` is enabled, Fabrica-generated Prometheus metrics are exposed at `/metrics` on the main server listener and on the separate metrics listener configured by `metrics_port`
 
 ### Modern Resource APIs
