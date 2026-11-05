@@ -174,3 +174,22 @@ Current top-level commands include:
 - `client node ...`
 
 Use `./bin/client --help` for the full generated command tree.
+
+### Passing Specs to `create` and `update`
+
+`create` and `update` read `--spec` or stdin as a full request, so put the fields
+under `spec`. `metadata` is optional:
+
+```bash
+./bin/client bmc create --spec '{"metadata":{"name":"bmc0"},"spec":{"xname":"x1000c0s0b0"}}'
+./bin/client bmc update <uid> --spec '{"spec":{"xname":"x1000c0s0b0","description":"updated"}}'
+```
+
+**Do not pass bare fields, even though `--help` shows them that way.** The client
+drops them without an error and sends an empty spec. `update` replaces the whole
+spec, so a BMC then loses its data while the command reports success. Nodes and
+boot configurations reject the empty spec with a validation error. This is
+tracked in [fabrica#173](https://github.com/OpenCHAMI/fabrica/issues/173).
+
+`patch --spec` is different: it takes bare fields, such as
+`--spec '{"description":"updated"}'`.
