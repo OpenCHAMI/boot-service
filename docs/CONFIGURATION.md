@@ -56,15 +56,15 @@ environment variables.
 | `write_timeout` | `30` | Response write timeout in seconds. |
 | `idle_timeout` | `120` | Keep-alive timeout in seconds for idle connections. |
 | `data_dir` | `"./data"` | Filesystem path used by the file-backed storage implementation. |
-| `storage_type` | `"file"` | Storage backend selector. The current server supports `file`. |
 
 ### Feature Flags
 
 | Key | Example | Description |
 | --- | --- | --- |
-| `enable_auth` | `false` | Enables TokenSmith-related startup validation and HSM service-token exchange. It does not currently attach request middleware in `cmd/server/main.go`. |
+| `auth_enabled` | `false` | Requires a valid JWT on the resource and boot parameter APIs and enables HSM service-token exchange. |
+| `jwks_url` | `""` | JWKS URL used to validate JWTs. `TOKENSMITH_JWKS_URL` takes precedence. |
 | `enable_legacy_api` | `true` | Controls availability of legacy BSS-compatible endpoints at `/boot/v1/*`. When `false`, only modern endpoints at root paths are available. |
-| `enable_metrics` | `false` | Enables runtime exposure of Prometheus metrics. |
+| `enable_metrics` | `false` | Starts the dedicated metrics listener. `/metrics` on the main listener does not depend on it. |
 | `metrics_port` | `9090` | Port used for the dedicated metrics listener when `enable_metrics` is `true`. |
 
 **Modern vs Legacy API Endpoints:**
@@ -106,22 +106,36 @@ export TOKENSMITH_BOOTSTRAP_TOKEN="<bootstrap-jwt>"
 
 ## Current Auth Behavior
 
-`enable_auth` does **not** currently attach the `pkg/auth` request middleware to
-the server routes in `cmd/server/main.go`.
+With `auth_enabled: true`, the server:
 
-Today, `enable_auth` affects the server in these ways:
+- requires a valid JWT on the resource and boot parameter APIs
+- refuses to start without `tokensmith_url` and a JWKS URL
+- enables HSM service-token exchange, which needs a bootstrap token when `hsm_url` and `tokensmith_url` are both set
 
-- startup validation requires `tokensmith_url` when `enable_auth: true`
-- HSM service-token exchange is enabled only when `enable_auth: true`
-- if `hsm_url` and `tokensmith_url` are both set while auth is enabled, a bootstrap token is required
+If `auth_enabled: false`, `tokensmith_url` is ignored for HSM integration.
 
-If `enable_auth: false`, `tokensmith_url` is ignored for HSM integration.
+See `docs/AUTHENTICATION.md` for which routes stay public and what is not yet
+checked.
 
-For package-level JWT and JWKS middleware usage, see `docs/AUTHENTICATION.md`.
+### Deprecated Settings
+
+These settings still work so that existing deployments keep starting, and log a
+warning:
+
+| Deprecated | Replacement | Behavior |
+| --- | --- | --- |
+| `enable_auth`, `--enable-auth` | `auth_enabled`, `--auth-enabled` | Enables the same setting, so it now also enforces JWTs. `auth_enabled` wins if both are set. |
+| `jwks_endpoint`, `--jwks-endpoint` | `jwks_url`, `--jwks-url` | Used if `jwks_url` and `TOKENSMITH_JWKS_URL` are unset. It previously had no effect. |
+| `storage_type`, `--storage-type` | none | Ignored, as it always was in practice. `.fabrica.yaml` selects storage at build time. |
 
 ## Metrics Behavior
 
-Metrics are disabled at runtime by default. Enable runtime exposure with either
+Metrics are always on in this build. The server installs Fabrica-generated HTTP
+metrics middleware and serves Prometheus/OpenMetrics output at `GET /metrics` on
+the main listener, without authentication. It emits request counters, latency
+histograms, in-flight request gauges, and Go/process/build metrics.
+
+To also serve `/metrics` on a dedicated listener at `host:metrics_port`, use
 `enable_metrics` in `config.yaml` or the `--enable-metrics` flag:
 
 ```yaml
@@ -133,21 +147,17 @@ metrics_port: 9090
 ./bin/server serve --enable-metrics
 ```
 
-When enabled, the server:
+The generated metric names use the `boot_service` namespace, for example:
 
-- installs Fabrica-generated HTTP metrics middleware
-- serves Prometheus/OpenMetrics output at `GET /metrics` on the main server listener
-- starts a dedicated metrics listener at `host:metrics_port` serving `GET /metrics`
-- emits request counters, latency histograms, in-flight request gauges, and Go/process/build metrics
+- `boot_service_http_request_total`
+- `boot_service_http_request_duration_seconds`
+- `boot_service_http_requests_in_flight`
 
-The generated metric names use the `main` namespace, for example:
+Requests the service makes to its own resource API run in process and are not
+counted.
 
-- `main_http_request_total`
-- `main_http_request_duration_seconds`
-- `main_http_requests_in_flight`
-
-Fabrica controls whether metrics instrumentation is generated separately in
-`.fabrica.yaml`:
+`.fabrica.yaml` selects metrics at build time. Removing them there and
+regenerating removes the `/metrics` route:
 
 ```yaml
 features:
@@ -157,7 +167,8 @@ features:
 ```
 
 **Do not put that nested Fabrica feature block in `config.yaml`.** The
-boot-service runtime config only reads `enable_metrics` and `metrics_port`.
+boot-service runtime config only reads `enable_metrics` and `metrics_port`, which
+control the dedicated listener.
 
 ## Boot Profiles and HTTP Behavior
 
@@ -195,8 +206,9 @@ export BOOT_SERVICE_HSM_URL=http://localhost:27779
 For HSM service-token exchange:
 
 ```bash
-export BOOT_SERVICE_ENABLE_AUTH=true
+export BOOT_SERVICE_AUTH_ENABLED=true
 export TOKENSMITH_URL=http://localhost:8080
+export TOKENSMITH_JWKS_URL=http://localhost:8080/.well-known/jwks.json
 export TOKENSMITH_BOOTSTRAP_TOKEN="<bootstrap-jwt>"
 ./bin/server serve --hsm-url http://localhost:27779
 ```
@@ -206,14 +218,16 @@ export TOKENSMITH_BOOTSTRAP_TOKEN="<bootstrap-jwt>"
 The current startup validation fails when:
 
 - `port` is outside the valid TCP range
-- `enable_auth: true` but `tokensmith_url` is empty
+- `auth_enabled: true` but `tokensmith_url` is empty
+- `auth_enabled: true` but no JWKS URL is set
+- `auth_enabled: true` with `jwt_issuer`, `jwt_audience`, `jwt_public_key`, or `auth_non_enforcing`, which the generated authentication does not read
 - `tokensmith_refresh_skew_sec` is negative
-- `enable_auth: true`, `hsm_url` is set, `tokensmith_url` is set, and no bootstrap token is available
+- `auth_enabled: true`, `hsm_url` is set, `tokensmith_url` is set, and no bootstrap token is available
 
 Common checks:
 
 1. If the service will not start, run `./bin/server serve` directly and inspect the startup error.
-2. If metrics do not appear, confirm `enable_metrics: true` or start with `--enable-metrics`, then scrape `http://<host>:<port>/metrics` or `http://<host>:<metrics_port>/metrics`.
+2. Metrics are at `http://<host>:<port>/metrics`. If `http://<host>:<metrics_port>/metrics` does not respond, confirm `enable_metrics: true` or start with `--enable-metrics`.
 3. If HSM integration fails while auth is enabled, confirm `TOKENSMITH_BOOTSTRAP_TOKEN` is set.
 
 ## See Also

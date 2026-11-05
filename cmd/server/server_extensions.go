@@ -8,33 +8,29 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/openchami/boot-service/pkg/client"
 	"github.com/openchami/boot-service/pkg/clients/hsm"
 	"github.com/openchami/boot-service/pkg/controllers/bootscript"
 	"github.com/openchami/boot-service/pkg/handlers/boot"
 )
 
-// registerCustomServerIntegrations keeps generated route wiring and legacy compatibility
-// route setup together outside runServe's core startup flow.
-func registerCustomServerIntegrations(r chi.Router, config Config, hsmClient *hsm.HSMClient, ctx context.Context) error {
-	// Register UID prefixes used by generated handlers when creating resources.
-	if err := registerResourcePrefixes(); err != nil {
-		return fmt.Errorf("failed to register resource prefixes: %w", err)
-	}
+// bootRoutes holds the boot handler so its routes can join the router's public
+// and protected groups separately.
+type bootRoutes struct {
+	handler   *boot.Handler
+	legacyAPI bool
+}
 
-	// Register generated routes (modern API) - middleware already applied above.
-	RegisterGeneratedRoutes(r)
-
-	bootClient, err := client.NewClient(fmt.Sprintf("http://%s:%d", config.Host, config.Port),
-		&http.Client{Timeout: 30 * time.Second}, client.DefaultLogger())
+// newBootRoutes builds the boot handler outside runServe's core startup flow and
+// starts HSM background sync when configured.
+func newBootRoutes(config Config, hsmClient *hsm.HSMClient, ctx context.Context) (*bootRoutes, error) {
+	bootClient, err := newInternalAPIClient()
 	if err != nil {
-		return fmt.Errorf("failed to create boot script API client: %v", err)
+		return nil, fmt.Errorf("failed to create boot script API client: %w", err)
 	}
 
 	logger := log.New(os.Stdout, "boot: ", log.LstdFlags)
@@ -63,7 +59,7 @@ func registerCustomServerIntegrations(r chi.Router, config Config, hsmClient *hs
 		controllerLogger := log.New(os.Stdout, "bootscript: ", log.LstdFlags)
 		flexController, err := bootscript.NewFlexibleBootScriptController(*bootClient, providerConfig, controllerLogger)
 		if err != nil {
-			return fmt.Errorf("failed to create flexible controller with HSM: %v", err)
+			return nil, fmt.Errorf("failed to create flexible controller with HSM: %w", err)
 		}
 
 		// Start background sync worker if enabled.
@@ -78,13 +74,8 @@ func registerCustomServerIntegrations(r chi.Router, config Config, hsmClient *hs
 		bootHandler = boot.NewHandler(*bootClient, logger, buildInfo)
 	}
 
-	// Always register "modern" boot API paths at /.
-	bootHandler.RegisterModernRoutes(r)
-
-	// Only register legacy BSS-compatible API if enable_legacy_api is true.
-	// These live at /boot/v1/*.
+	// Only the legacy BSS-compatible API at /boot/v1/* depends on enable_legacy_api.
 	if config.EnableLegacyAPI {
-		bootHandler.RegisterLegacyRoutes(r)
 		if hsmClient != nil {
 			log.Println("Legacy BSS API enabled with HSM integration at: /boot/v1/*")
 		} else {
@@ -95,5 +86,19 @@ func registerCustomServerIntegrations(r chi.Router, config Config, hsmClient *hs
 		log.Println("Legacy BSS API disabled (set enable_legacy_api to true to enable /boot/v1/* endpoints)")
 	}
 
-	return nil
+	return &bootRoutes{handler: bootHandler, legacyAPI: config.EnableLegacyAPI}, nil
+}
+
+func (b *bootRoutes) registerPublic(r chi.Router) {
+	b.handler.RegisterModernPublicRoutes(r)
+	if b.legacyAPI {
+		b.handler.RegisterLegacyPublicRoutes(r)
+	}
+}
+
+func (b *bootRoutes) registerProtected(r chi.Router) {
+	b.handler.RegisterModernProtectedRoutes(r)
+	if b.legacyAPI {
+		b.handler.RegisterLegacyProtectedRoutes(r)
+	}
 }

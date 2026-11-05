@@ -69,7 +69,7 @@ cp config.example.yaml config.yaml
 ./bin/server serve
 
 # Override with flags
-./bin/server serve --port 8082 --enable-auth --hsm-url http://localhost:27779
+./bin/server serve --port 8082 --auth-enabled --hsm-url http://localhost:27779
 ```
 
 ### Testing
@@ -161,10 +161,10 @@ config.JWKSURL = "https://auth.openchami.org/.well-known/jwks.json"
 config.RequiredScopes = []string{"boot:read"}
 ```
 
-**Important current runtime note**: the standalone server in `cmd/server/main.go`
-does not currently attach `pkg/auth.CreateMiddleware(...)` to its route tree.
-`enable_auth` currently affects startup validation and TokenSmith-backed HSM
-service-token exchange, not documented request-time route enforcement.
+**Important current runtime note**: the standalone server does not use
+`pkg/auth`. `auth_enabled` turns on Fabrica's generated TokenSmith middleware for
+the protected route group in `newRouter`. New routes belong there unless callers
+cannot hold a token. See `docs/AUTHENTICATION.md` for what it does not check.
 
 ### Middleware Application
 
@@ -202,11 +202,11 @@ Common scopes: `boot:read`, `boot:write`, `boot:admin`, `node:read`, `node:write
 ```yaml
 # config.yaml structure
 port: 8080
-enable_auth: false
+auth_enabled: false
+# enable_metrics starts the dedicated listener on metrics_port. /metrics on the
+# main port is selected by .fabrica.yaml at build time.
 enable_metrics: false
 enable_legacy_api: true
-# metrics_port is configured separately because it becomes active as soon as
-# metrics are enabled, even though metrics default to off.
 metrics_port: 9090
 hsm_url: "http://localhost:27779"
 tokensmith_url: "http://localhost:8080"

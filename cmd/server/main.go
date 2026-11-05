@@ -25,7 +25,6 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/openchami/boot-service/internal/storage"
 	"github.com/openchami/boot-service/pkg/clients/hsm"
 )
 
@@ -43,23 +42,22 @@ type Config struct {
 	WriteTimeout int    `mapstructure:"write_timeout"`
 	IdleTimeout  int    `mapstructure:"idle_timeout"`
 
-	// Storage Configuration
-	DataDir     string `mapstructure:"data_dir"`
-	StorageType string `mapstructure:"storage_type"` // file, database
+	// Storage and authentication settings selected by .fabrica.yaml.
+	GeneratedFeatureConfig `mapstructure:",squash"`
 
 	// Feature Flags
-	EnableAuth      bool `mapstructure:"enable_auth"`
-	EnableMetrics   bool `mapstructure:"enable_metrics"`
 	EnableLegacyAPI bool `mapstructure:"enable_legacy_api"`
-	MetricsPort     int  `mapstructure:"metrics_port"`
 
-	// Authentication Configuration (when enabled)
-	TokenSmithURL                       string `mapstructure:"tokensmith_url"`
+	// EnableMetrics starts the dedicated listener on MetricsPort. The metrics
+	// on the main listener are selected by .fabrica.yaml at build time.
+	EnableMetrics bool `mapstructure:"enable_metrics"`
+	MetricsPort   int  `mapstructure:"metrics_port"`
+
+	// HSM service-token exchange (when authentication is enabled)
 	TokenSmithBootstrapToken            string `mapstructure:"tokensmith_bootstrap_token"`
 	TokenSmithTargetService             string `mapstructure:"tokensmith_target_service"`
 	TokenSmithBootstrapPolicyScopesHint string `mapstructure:"tokensmith_bootstrap_policy_scopes_hint"`
 	TokenSmithRefreshSkewSec            int    `mapstructure:"tokensmith_refresh_skew_sec"`
-	JWKSEndpoint                        string `mapstructure:"jwks_endpoint"`
 
 	// Hardware State Manager Configuration (when enabled)
 	HSMURL          string `mapstructure:"hsm_url"`
@@ -69,28 +67,30 @@ type Config struct {
 
 // DefaultConfig returns a configuration with sensible defaults
 func DefaultConfig() *Config {
-	return &Config{
+	config := &Config{
 		Port:                                8080,
 		Host:                                "0.0.0.0",
 		ReadTimeout:                         30,
 		WriteTimeout:                        30,
 		IdleTimeout:                         120,
-		DataDir:                             "./data",
-		StorageType:                         "file",
-		EnableAuth:                          false,
 		EnableMetrics:                       false,
 		EnableLegacyAPI:                     false,
 		MetricsPort:                         9090,
-		TokenSmithURL:                       "",
 		TokenSmithBootstrapToken:            "",
 		TokenSmithTargetService:             "hsm",
 		TokenSmithBootstrapPolicyScopesHint: "",
 		TokenSmithRefreshSkewSec:            120,
-		JWKSEndpoint:                        "",
 		HSMURL:                              "",
 		HSMSyncEnabled:                      true,
 		HSMSyncInterval:                     5, // 5 minutes
 	}
+	applyGeneratedFeatureDefaults(config)
+
+	// The generated defaults suit a new service. Authentication here stays opt-in:
+	// it needs a JWKS URL to start, and tokensmith_url has no usable default.
+	config.AuthEnabled = false
+	config.TokenSmithURL = ""
+	return config
 }
 
 var rootCmd = &cobra.Command{
@@ -133,15 +133,15 @@ func init() {
 	serveCmd.Flags().Int("write-timeout", 30, "Write timeout in seconds")
 	serveCmd.Flags().Int("idle-timeout", 120, "Idle timeout in seconds")
 
-	// Storage configuration flags
-	serveCmd.Flags().String("data-dir", "./data", "Directory for file storage")
-	serveCmd.Flags().String("storage-type", "file", "Storage backend: file or database")
+	// Storage and authentication flags selected by .fabrica.yaml
+	registerGeneratedFeatureFlags(serveCmd.Flags())
+	setFlagDefault(serveCmd.Flags(), "auth-enabled", "false")
+	registerDeprecatedFlags(serveCmd.Flags())
 
 	// Feature flags
-	serveCmd.Flags().Bool("enable-auth", false, "Enable authentication with TokenSmith")
-	serveCmd.Flags().Bool("enable-metrics", false, "Enable Prometheus metrics")
+	serveCmd.Flags().Bool("enable-metrics", false, "Start the dedicated metrics listener on --metrics-port")
 	serveCmd.Flags().Bool("enable-legacy-api", true, "Enable legacy BSS API compatibility")
-	serveCmd.Flags().Int("metrics-port", 9090, "Port for metrics endpoint")
+	serveCmd.Flags().Int("metrics-port", 9090, "Port for the dedicated metrics listener")
 
 	// Authentication configuration flags
 	serveCmd.Flags().String("tokensmith-url", "", "TokenSmith service URL for authentication")
@@ -149,7 +149,6 @@ func init() {
 	serveCmd.Flags().String("tokensmith-target-service", "hsm", "Target service audience for HSM service token exchange")
 	serveCmd.Flags().String("tokensmith-bootstrap-policy-scopes-hint", "", "Comma-separated scope hint from bootstrap token policy used for diagnostics only")
 	serveCmd.Flags().Int("tokensmith-refresh-skew-sec", 120, "Refresh service tokens when this many seconds remain before expiry")
-	serveCmd.Flags().String("jwks-endpoint", "", "JWKS endpoint for JWT validation")
 
 	// Hardware State Manager configuration flags
 	serveCmd.Flags().String("hsm-url", "", "Hardware State Manager service URL (enables HSM when provided)")
@@ -164,6 +163,7 @@ func init() {
 	// Add commands
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(NewVersionCommand())
+	registerGeneratedFeatureCommands(rootCmd)
 }
 
 func initConfig() {
@@ -197,12 +197,19 @@ func initConfig() {
 		log.Printf("Using config file: %s", viper.ConfigFileUsed())
 	}
 
+	if err := applyDeprecatedConfig(viper.GetViper()); err != nil {
+		log.Fatalf("invalid configuration: %v", err)
+	}
+
 	// Unmarshal config
 	if err := viper.Unmarshal(config); err != nil {
 		log.Fatalf("Unable to decode into config struct: %v", err)
 	}
 
 	if err := validateConfig(*config); err != nil {
+		log.Fatalf("invalid configuration: %v", err)
+	}
+	if err := rejectUnenforcedAuthSettings(viper.GetViper(), *config); err != nil {
 		log.Fatalf("invalid configuration: %v", err)
 	}
 }
@@ -225,14 +232,19 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 
 	// Print startup configuration
 	log.Printf("Starting boot service with configuration:")
-	log.Printf("  Server: %s:%d", config.Host, config.Port)
-	log.Printf("  Storage: %s (%s)", config.StorageType, config.DataDir)
-	log.Printf("  Features: auth=%v, hsm=%v, metrics=%v, legacy-api=%v",
-		config.EnableAuth, config.HSMURL != "", config.EnableMetrics, config.EnableLegacyAPI)
+	log.Printf("  Features: auth=%v, hsm=%v, metrics-listener=%v, legacy-api=%v",
+		config.AuthEnabled, config.HSMURL != "", config.EnableMetrics, config.EnableLegacyAPI)
 
-	// Initialize storage backend
-	if err := storage.InitFileBackend(config.DataDir); err != nil {
-		return fmt.Errorf("failed to initialize storage: %v", err)
+	// Initialize storage, metrics, and authentication selected by .fabrica.yaml.
+	features, err := loadGeneratedFeatures(cmd.Context(), config)
+	if err != nil {
+		return err
+	}
+	defer features.Close()
+
+	// Register UID prefixes used by generated handlers when creating resources.
+	if err := registerResourcePrefixes(); err != nil {
+		return fmt.Errorf("failed to register resource prefixes: %w", err)
 	}
 
 	// Setup graceful shutdown context early so it can be used for background workers
@@ -279,53 +291,15 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 		go serviceTokenManager.StartAutoRefresh(ctx)
 	}
 
-	// Setup router
-	r := chi.NewRouter()
-
-	// Add all middleware first, before any routes
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-	// Generated chi routes are registered with trailing slashes, while existing
-	// clients (including our legacy compatibility handler's internal client)
-	// use slashless resource paths. RedirectSlashes preserves that compatibility
-	// without hand-editing generated route registrations.
-	r.Use(middleware.RedirectSlashes)
-	r.Use(middleware.Timeout(time.Duration(config.ReadTimeout) * time.Second))
-
-	var metrics *Metrics
-	if config.EnableMetrics {
-		metrics = initializeMetrics(config)
-		if metrics != nil {
-			r.Use(metrics.Middleware)
-		}
-	}
-
-	r.Use(versioning.VersionNegotiationMiddleware(versioning.GlobalVersionRegistry, nil))
-
-	// Public service status remains outside resource authentication middleware.
-	RegisterGeneratedPublicRoutes(r)
-
-	// Register health check
-	r.Get("/health", func(w http.ResponseWriter, req *http.Request) { //nolint:revive
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok","service":"boot-service"}`)) //nolint:errcheck
-	})
-
-	// Register OpenAPI endpoints
-	r.Get("/openapi.json", ServeOpenAPISpec)
-	r.Get("/docs", ServeSwaggerUI)
-
-	// Metrics endpoint is available when enabled at runtime.
-	if config.EnableMetrics && metrics != nil {
-		r.Handle("/metrics", metrics.Handler())
-		go startMetricsServer(*config, metrics.Handler())
-	}
-
-	if err := registerCustomServerIntegrations(r, *config, hsmClient, ctx); err != nil {
+	boot, err := newBootRoutes(*config, hsmClient, ctx)
+	if err != nil {
 		return err
+	}
+
+	r := newRouter(*config, features, boot)
+
+	if config.EnableMetrics {
+		go startMetricsServer(*config, newMetricsHandler(features))
 	}
 
 	// Configure server
@@ -355,7 +329,7 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 	}()
 
 	// Start server
-	log.Printf("Server starting on %s", server.Addr)
+	logStartupConfiguration(config, server.Addr)
 	log.Println("Modern API available at: /nodes, /bootconfigurations")
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("server failed: %v", err)
@@ -366,11 +340,61 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 	return nil
 }
 
+// newRouter builds the HTTP route tree. Everything added to the protected group
+// requires a valid token when authentication is enabled, so a new route belongs
+// in the public group only if callers cannot hold a token.
+func newRouter(config Config, features *generatedFeatureSet, boot *bootRoutes) chi.Router {
+	r := chi.NewRouter()
+
+	// Add all middleware first, before any routes
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+	// Generated chi routes are registered with trailing slashes, while existing
+	// clients use slashless resource paths. RedirectSlashes preserves that
+	// compatibility without hand-editing generated route registrations.
+	r.Use(middleware.RedirectSlashes)
+	r.Use(middleware.Timeout(time.Duration(config.ReadTimeout) * time.Second))
+	features.Use(r)
+	r.Use(versioning.VersionNegotiationMiddleware(versioning.GlobalVersionRegistry, nil))
+
+	r.Group(func(public chi.Router) {
+		public.Get("/health", func(w http.ResponseWriter, req *http.Request) { //nolint:revive
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"status":"ok","service":"boot-service"}`)) //nolint:errcheck
+		})
+		RegisterGeneratedPublicRoutes(public)
+		public.Get("/openapi.json", ServeOpenAPISpec)
+		public.Get("/docs", ServeSwaggerUI)
+		features.RegisterPublicRoutes(public)
+		boot.registerPublic(public)
+	})
+
+	r.Group(func(protected chi.Router) {
+		features.UseProtected(protected)
+		RegisterGeneratedRoutes(protected)
+		boot.registerProtected(protected)
+	})
+
+	return r
+}
+
+// newMetricsHandler serves the feature-selected public routes, which is where
+// the generated /metrics route lives, for the dedicated metrics listener. It
+// serves no metrics if .fabrica.yaml disables them.
+func newMetricsHandler(features *generatedFeatureSet) http.Handler {
+	r := chi.NewRouter()
+	features.RegisterPublicRoutes(r)
+	return r
+}
+
 func validateConfig(config Config) error {
 	if config.Port <= 0 || config.Port > 65535 {
 		return fmt.Errorf("invalid port: %d", config.Port)
 	}
-	if config.EnableAuth && config.TokenSmithURL == "" {
+	if config.AuthEnabled && config.TokenSmithURL == "" {
 		return fmt.Errorf("tokensmith-url is required when auth is enabled")
 	}
 	if config.TokenSmithRefreshSkewSec < 0 {
@@ -406,7 +430,7 @@ func initializeHSMServiceTokenManager(ctx context.Context, config Config, hsmLog
 		return nil, nil
 	}
 
-	if !config.EnableAuth {
+	if !config.AuthEnabled {
 		log.Printf("INFO: tokensmith URL ignored, auth disabled")
 		return nil, nil
 	}
@@ -449,13 +473,10 @@ func initializeHSMServiceTokenManager(ctx context.Context, config Config, hsmLog
 }
 
 func startMetricsServer(config Config, handler http.Handler) {
-	mux := http.NewServeMux()
-	mux.Handle("/metrics", handler)
-
 	metricsAddr := fmt.Sprintf("%s:%d", config.Host, config.MetricsPort)
 	log.Printf("Metrics server starting on %s", metricsAddr)
 
-	if err := http.ListenAndServe(metricsAddr, mux); err != nil {
+	if err := http.ListenAndServe(metricsAddr, handler); err != nil {
 		log.Printf("Metrics server error: %v", err)
 	}
 }

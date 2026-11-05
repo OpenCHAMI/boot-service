@@ -1,0 +1,31 @@
+{
+  "Format": 1,
+  "Config": {
+    "ProjectName": "boot-service",
+    "StorageType": "file",
+    "DBDriver": "sqlite3",
+    "EventsEnabled": false,
+    "EventBusType": "memory",
+    "ReconciliationEnabled": false,
+    "ReconcileWorkers": 5,
+    "ReconcileRequeueMinutes": 5,
+    "MetricsEnabled": true,
+    "AuthEnabled": true,
+    "AuthZEnabled": false,
+    "AuthZMode": "enforce",
+    "ValidationEnabled": true,
+    "ValidationMode": "strict",
+    "ConditionalEnabled": true,
+    "ETagAlgorithm": "sha256",
+    "VersioningEnabled": true
+  },
+  "Files": {
+    "../../internal/middleware/conditional_middleware_generated.go": "82b7f1aa3f7b10485c4d95359b9557975174f1aa3568b6c33c57e3582b028cd1",
+    "../../internal/middleware/validation_middleware_generated.go": "63a30fe64540965c2730b151870b675f2c5adad5974b6591a549db6aa63755a7",
+    "../../internal/middleware/versioning_middleware_generated.go": "ec70088b03ee308b95f291da4f901291c1d17a5c8bb7e695ac064ab62723ecd8",
+    "auth_helpers_generated.go": "37a87988be4073d858ef711abf6efcbb4c8cf475e2c9b75f8d3b9c9db25746ec",
+    "features_generated.go": "5c841212cdb4b6c930c522a989c6bedd2c9d5aa5739ffa52329b106c9251db4d",
+    "metrics_generated.go": "0005d49eed517440fac8f73547f9142c4f4a5cc1c2240bb65d9a301b2cb71d06",
+    "runtime_helpers_generated.go": "d8d6ebc433b5677bc649409ede98e7c27e6267bf59bcfd4491b581d67a7962ec"
+  }
+}
