@@ -8,13 +8,11 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/openchami/boot-service/pkg/client"
 	"github.com/openchami/boot-service/pkg/clients/hsm"
 	"github.com/openchami/boot-service/pkg/controllers/bootscript"
 	"github.com/openchami/boot-service/pkg/handlers/boot"
@@ -31,10 +29,9 @@ func registerCustomServerIntegrations(r chi.Router, config Config, hsmClient *hs
 	// Register generated routes (modern API) - middleware already applied above.
 	RegisterGeneratedRoutes(r)
 
-	bootClient, err := client.NewClient(fmt.Sprintf("http://%s:%d", config.Host, config.Port),
-		&http.Client{Timeout: 30 * time.Second}, client.DefaultLogger())
+	bootClient, err := newInternalAPIClient()
 	if err != nil {
-		return fmt.Errorf("failed to create boot script API client: %v", err)
+		return fmt.Errorf("failed to create boot script API client: %w", err)
 	}
 
 	logger := log.New(os.Stdout, "boot: ", log.LstdFlags)
