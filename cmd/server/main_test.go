@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -126,6 +127,17 @@ func TestBindFlagsWithUnderscoreKeys_ChangedHyphenatedFlagsUseUnderscoreKeys(t *
 	}
 	if !v.GetBool("enable_metrics") {
 		t.Fatal("expected --enable-metrics to bind to enable_metrics")
+	}
+}
+
+var registerPrefixesOnce = sync.OnceValue(registerResourcePrefixes)
+
+// registerResourcePrefixesForTest registers prefixes once per test binary:
+// Fabrica panics when a resource kind is registered twice.
+func registerResourcePrefixesForTest(t *testing.T) {
+	t.Helper()
+	if err := registerPrefixesOnce(); err != nil {
+		t.Fatal(err)
 	}
 }
 
