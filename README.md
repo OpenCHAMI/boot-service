@@ -87,9 +87,7 @@ Example overrides:
 ```bash
 ./bin/server serve \
   --port 8082 \
-  --enable-auth \
-  --hsm-url http://localhost:27779 \
-  --tokensmith_url http://localhost:8080
+  --hsm-url http://localhost:27779
 ```
 
 ## Current API Behavior
@@ -99,7 +97,8 @@ Example overrides:
 - `GET /health` returns a small JSON health response
 - `GET /openapi.json` serves the generated OpenAPI document
 - `GET /docs` serves Swagger UI
-- When `enable_metrics` or `--enable-metrics` is enabled, Fabrica-generated Prometheus metrics are exposed at `/metrics` on the main server listener and on the separate metrics listener configured by `metrics_port`
+- `GET /.well-known/api-catalog` serves the generated RFC 9727 API catalog; its base URL is set at generation time (see `docs/API.md`)
+- `GET /metrics` serves Fabrica-generated Prometheus metrics on the main listener; `enable_metrics` or `--enable-metrics` also serves them on the separate listener configured by `metrics_port`
 
 ### Modern Resource APIs
 
@@ -169,18 +168,20 @@ See `docs/PROFILES.md` for the full model and examples.
 
 ### Authentication and HSM Integration
 
-- The repository includes a reusable `pkg/auth` package for JWT, JWKS, scope, and service-token middleware patterns
-- The current server binary does not attach `pkg/auth` request middleware in `cmd/server/main.go`
-- `enable_auth: true` currently gates TokenSmith-dependent startup behavior and requires `tokensmith_url`
+- `auth_enabled: true` requires a valid JWT on the resource and boot parameter APIs, and needs `tokensmith_url` and a JWKS URL to start; see `docs/AUTHENTICATION.md` for what it does not yet check
+- Boot scripts stay public because nodes request them before they can hold a token
 - Supplying `hsm_url` enables HSM-backed node lookups
-- If both `enable_auth: true` and `tokensmith_url` are set, the server can exchange a bootstrap token for short-lived HSM service tokens
+- If both `auth_enabled: true` and `tokensmith_url` are set, the server can exchange a bootstrap token for short-lived HSM service tokens
+- The repository also includes a reusable `pkg/auth` package for JWT, JWKS, scope, and service-token middleware patterns, which the server binary does not use
 
 ## Development Workflow
 
 ### Fabrica Generation
 
 Resource definitions live under `apis/boot.openchami.io/v1/` and are wired by
-`.fabrica.yaml` and `apis.yaml`.
+`.fabrica.yaml` and `apis.yaml`. Storage, metrics, and authentication startup are
+generated into `cmd/server/features_generated.go`; `main.go` only composes them.
+Commit `cmd/server/features_manifest_generated.json` with the generated files.
 
 Do not edit `*_generated.go` files manually.
 

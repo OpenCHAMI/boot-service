@@ -12,6 +12,7 @@ on:
       - "apis.yaml"
       - ".fabrica.yaml"
       - "cmd/server/**"
+      - "internal/middleware/**"
       - "internal/storage/**"
       - "pkg/client/**"
       - "pkg/resources/register_generated.go"

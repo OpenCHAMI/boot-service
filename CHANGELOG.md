@@ -13,6 +13,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Changes remain marked `Unreleased` until they ship in a tagged release.
 
+## [Unreleased]
+
+### Added
+
+- Added the public RFC 9727 API catalog at `/.well-known/api-catalog`, generated
+  by Fabrica. Its base URL is fixed at generation time and currently reports
+  `http://localhost:8080`.
+- Added JWT enforcement through Fabrica's generated TokenSmith middleware. With
+  `auth_enabled: true`, the resource and boot parameter APIs require a valid
+  token, while boot scripts and service information stay public. Issuer and
+  audience are not yet checked; see `docs/AUTHENTICATION.md`.
+- Added `jwks_url` and `--jwks-url`.
+
+### Changed
+
+- Upgraded Fabrica to v0.4.15 and regenerated the service API and client code.
+- New resources get TypeID UIDs such as `node_01h455vb4pex5vsknk084sn02q`.
+  Existing `node-1a2b3c4d` style UIDs are not rewritten and keep working. Clients
+  must treat UIDs as opaque strings.
+- `POST /bmcs` now returns HTTP 400 when `spec` is omitted or `null`; it
+  previously created an empty BMC. Send `"spec": {}` to create one deliberately.
+- Malformed `PUT` bodies now return HTTP 400 even when the resource does not
+  exist, because bodies are parsed before the resource is loaded.
+- The OpenAPI document marks `spec` as required on create requests and documents
+  both UID formats.
+- Adopted Fabrica's feature loader. Storage, metrics, and authentication startup
+  are now generated and selected by `.fabrica.yaml` rather than coded in
+  `main.go`.
+- `/metrics` is now always served on the main listener without authentication.
+  `enable_metrics` now only starts the dedicated listener on `metrics_port`.
+- Metric names now use the `boot_service` namespace instead of `main`, for example
+  `boot_service_http_request_total`.
+- The service reaches its own resource API in process, so those requests no longer
+  appear in access logs or metrics.
+
+### Deprecated
+
+- `enable_auth` and `--enable-auth` in favor of `auth_enabled` and
+  `--auth-enabled`.
+- `jwks_endpoint` and `--jwks-endpoint` in favor of `jwks_url` and `--jwks-url`.
+- `storage_type` and `--storage-type`, which had no effect on storage selection.
+
+### Fixed
+
+- Fixed a race in `PUT`, `PATCH`, and `DELETE` where concurrent writers could
+  pass the same `If-Match` check.
+- `If-None-Match` now uses weak ETag comparison, as required by RFC 9110.
+- Generated clients now escape UIDs as single URL path segments.
+
+### Upgrade Notes
+
+- Back up boot-service data before deploying and plan to roll forward. Fabrica
+  does not consider binaries without dual-format UID parsing, which includes
+  v0.3.3 and earlier, safe rollback targets once TypeIDs are stored. New UIDs
+  are written as soon as the upgraded service creates a resource, with no
+  setting to disable it.
+- Sites with `enable_auth: true` must set `TOKENSMITH_JWKS_URL` or `jwks_url` to
+  start, and clients of the resource and boot parameter APIs must then send
+  tokens. Previously this setting only affected HSM token exchange.
+- Update dashboards and alerts that use `main_http_*` metrics.
+- Restrict `/metrics` at the network layer if it must not be reachable, since it
+  no longer depends on `enable_metrics`.
+- Leave `TOKENSMITH_AUTHZ_MODE` off: `enforce` currently denies every token.
+
 ## [v0.3.3] - 2026-10-21
 
 ### Added

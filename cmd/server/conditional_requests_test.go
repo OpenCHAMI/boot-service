@@ -13,9 +13,7 @@ import (
 )
 
 func TestBootConfigurationConditionalRequests(t *testing.T) {
-	if err := registerResourcePrefixes(); err != nil {
-		t.Fatal(err)
-	}
+	registerResourcePrefixesForTest(t)
 	router := newGeneratedRouterForTest(t)
 	request := func(method, path, body, header, value string) *httptest.ResponseRecorder {
 		t.Helper()

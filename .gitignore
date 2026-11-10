@@ -7,6 +7,12 @@ dist/
 bin/
 data/
 
+# Fabrica feature-generation locking and recovery. Preserve pending recovery
+# state; features_manifest_generated.json stays tracked.
+.fabrica-features.lock
+.fabrica-features-transaction.json
+*.fabrica-tmp
+
 # Configuration files (use config.example.yaml as template)
 config.yaml
 

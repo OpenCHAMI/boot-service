@@ -51,14 +51,21 @@ host: "0.0.0.0"
 # Env var: BOOT_SERVICE_IDLE_TIMEOUT
 #idle_timeout: 120
 
-# Enable TokenSmith‑based authentication.  When true, the service expects a
-# TokenSmith URL and will obtain service‑to‑service tokens for downstream calls.
+# Require a valid JWT on the resource and boot parameter APIs, and exchange a
+# bootstrap token for service tokens on HSM calls.  Boot scripts stay public
+# because nodes request them before they can hold a token.
 #
-# Flag:    --enable-auth
-# Env var: BOOT_SERVICE_ENABLE_AUTH
-enable_auth: false
+# When true, the service will not start without tokensmith_url and a JWKS URL
+# (jwks_url or TOKENSMITH_JWKS_URL).
+#
+# Replaces enable_auth, which is deprecated and now has the same effect.
+#
+# Flag:    --auth-enabled
+# Env var: BOOT_SERVICE_AUTH_ENABLED
+auth_enabled: false
 
-# Enable Prometheus metrics collection and expose the /metrics endpoint.
+# Start the dedicated metrics listener on metrics_port.  /metrics is always
+# served on the main port; .fabrica.yaml selects that at build time.
 #
 # Flag:    --enable-metrics
 # Env var: BOOT_SERVICE_ENABLE_METRICS
@@ -70,8 +77,7 @@ enable_metrics: false
 # Env var: BOOT_SERVICE_ENABLE_LEGACY_API
 enable_legacy_api: false
 
-# Port on which the Prometheus metrics endpoint listens.
-# Separate from the main service port for security isolation.
+# Port for the dedicated metrics listener started by enable_metrics.
 #
 # Flag:    --metrics-port
 # Env var: BOOT_SERVICE_METRICS_PORT
@@ -87,16 +93,6 @@ metrics_port: 9090
 # Flag:    --data-dir
 # Env var: BOOT_SERVICE_DATA_DIR
 data_dir: "./data"
-
-# Storage backend type
-#
-# Values:
-#   - "file"      - stores data on the local filesystem
-#   - "database"  - use a database backend
-# Default: "file"
-# Flag:    --storage-type
-# Env var: BOOT_SERVICE_STORAGE_TYPE
-storage_type: "file"
 
 # -------------------------------------------------------------------------
 # TokenSmith Configuration (Optional - for dynamic authentication)
@@ -138,12 +134,14 @@ tokensmith_target_service: "hsm"
 # Env var: BOOT_SERVICE_TOKENSMITH_REFRESH_SKEW_SEC
 tokensmith_refresh_skew_sec: 120
 
-# JWKS (JSON Web Key Set) endpoint for JWT validation.  If empty, the service
-# will not attempt JWKS fetching and will rely on TokenSmith‑issued tokens.
+# JWKS (JSON Web Key Set) URL used to validate JWTs when auth_enabled is true.
+# The TOKENSMITH_JWKS_URL environment variable takes precedence.
 #
-# Flag:    --jwks-endpoint
-# Env var: BOOT_SERVICE_JWKS_ENDPOINT
-#jwks_endpoint: ""
+# Replaces jwks_endpoint, which is deprecated.
+#
+# Flag:    --jwks-url
+# Env var: BOOT_SERVICE_JWKS_URL
+#jwks_url: ""
 
 # -------------------------------------------------------------------------
 # Hardware State Manager (HSM) Configuration

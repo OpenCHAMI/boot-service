@@ -54,45 +54,57 @@ func NewHandlerWithController(c client.Client, controller BootController, logger
 	return handler
 }
 
-// RegisterModernRoutes registers modern boot API routes at root paths
-// These are always available regardless of enable_legacy_api setting
+// RegisterModernRoutes registers every modern boot API route at root paths on r.
+// Use the public and protected variants to apply different middleware to each.
 func (h *Handler) RegisterModernRoutes(r chi.Router) {
-	// Boot parameters endpoints
-	r.Route("/bootparameters", func(r chi.Router) {
-		r.Get("/", h.GetBootParameters)
-		r.Post("/", h.CreateBootParameters)
-		r.Put("/", h.UpdateBootParameters)
-		r.Delete("/", h.DeleteBootParameters)
-	})
+	h.RegisterModernPublicRoutes(r)
+	h.RegisterModernProtectedRoutes(r)
+}
 
-	// Boot script endpoint
+// RegisterModernPublicRoutes registers the modern routes that must not require
+// authentication. Nodes request boot scripts from firmware, before they can
+// hold a token. Public service status is registered by the generated routes.
+func (h *Handler) RegisterModernPublicRoutes(r chi.Router) {
 	r.Get("/bootscript", h.GetBootScript)
-
-	// Public service status is registered by the generated server routes.
 	r.Get("/service/version", h.GetServiceVersion)
 }
 
-// RegisterLegacyRoutes registers legacy BSS API routes at /boot/v1
+// RegisterModernProtectedRoutes registers the modern routes that read or change
+// boot configuration. They expose the same data as /bootconfigurations and must
+// receive the same protection, or they would bypass it.
+func (h *Handler) RegisterModernProtectedRoutes(r chi.Router) {
+	registerBootParameterRoutes(r, h, "/bootparameters")
+}
+
+// RegisterLegacyRoutes registers every legacy BSS API route at /boot/v1 on r.
 // These are ONLY available when enable_legacy_api: true
 func (h *Handler) RegisterLegacyRoutes(r chi.Router) {
-	r.Route("/boot/v1", func(r chi.Router) {
-		// Boot parameters endpoints
-		r.Route("/bootparameters", func(r chi.Router) {
-			r.Get("/", h.GetBootParameters)
-			r.Post("/", h.CreateBootParameters)
-			r.Put("/", h.UpdateBootParameters)
-			r.Delete("/", h.DeleteBootParameters)
-		})
+	h.RegisterLegacyPublicRoutes(r)
+	h.RegisterLegacyProtectedRoutes(r)
+}
 
-		// Boot script endpoint
-		r.Get("/bootscript", h.GetBootScript)
+// RegisterLegacyPublicRoutes is the /boot/v1 counterpart of
+// RegisterModernPublicRoutes.
+func (h *Handler) RegisterLegacyPublicRoutes(r chi.Router) {
+	r.Get("/boot/v1/bootscript", h.GetBootScript)
+	r.Get("/boot/v1/service/status", h.GetServiceStatus)
+	r.Get("/boot/v1/service/version", h.GetServiceVersion)
+}
 
-		// Service endpoints
-		r.Route("/service", func(r chi.Router) {
-			r.Get("/status", h.GetServiceStatus)
-			r.Get("/version", h.GetServiceVersion)
-		})
-	})
+// RegisterLegacyProtectedRoutes is the /boot/v1 counterpart of
+// RegisterModernProtectedRoutes.
+func (h *Handler) RegisterLegacyProtectedRoutes(r chi.Router) {
+	registerBootParameterRoutes(r, h, "/boot/v1/bootparameters")
+}
+
+// registerBootParameterRoutes uses flat patterns rather than a chi subrouter:
+// /boot/v1 is split across router groups, which chi cannot mount twice, and
+// middleware in a group sees the complete route pattern that AuthZ policies name.
+func registerBootParameterRoutes(r chi.Router, h *Handler, path string) {
+	r.Get(path, h.GetBootParameters)
+	r.Post(path, h.CreateBootParameters)
+	r.Put(path, h.UpdateBootParameters)
+	r.Delete(path, h.DeleteBootParameters)
 }
 
 // GetBootParameters handles GET /bootparameters and GET /boot/v1/bootparameters

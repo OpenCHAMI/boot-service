@@ -69,3 +69,25 @@ p, role:admin, /nodes/{uid}/status, PUT
 p, role:admin, /nodes/{uid}/status, PATCH
 
 # Add deployment-specific tuples below.
+
+# Boot parameters expose BootConfiguration data through the boot API, so grant
+# them to the same roles. /bootscript is public and bypasses AuthZ.
+
+p, role:viewer, /bootparameters, GET
+p, role:viewer, /boot/v1/bootparameters, GET
+
+p, role:editor, /bootparameters, GET
+p, role:editor, /bootparameters, POST
+p, role:editor, /bootparameters, PUT
+p, role:editor, /boot/v1/bootparameters, GET
+p, role:editor, /boot/v1/bootparameters, POST
+p, role:editor, /boot/v1/bootparameters, PUT
+
+p, role:admin, /bootparameters, GET
+p, role:admin, /bootparameters, POST
+p, role:admin, /bootparameters, PUT
+p, role:admin, /bootparameters, DELETE
+p, role:admin, /boot/v1/bootparameters, GET
+p, role:admin, /boot/v1/bootparameters, POST
+p, role:admin, /boot/v1/bootparameters, PUT
+p, role:admin, /boot/v1/bootparameters, DELETE
