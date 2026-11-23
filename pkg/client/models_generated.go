@@ -61,6 +61,46 @@ type UpdateBMCRequest struct {
 	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
+// CreateBootAssignmentRequest represents a request to create a BootAssignment (Advanced API)
+// Use this when you need full control over metadata fields (labels, annotations).
+// For simpler usage, see CreateBootAssignmentSimple in the client.
+type CreateBootAssignmentRequest struct {
+	Metadata    fabrica.Metadata      `json:"metadata" yaml:"metadata" validate:"required"`
+	Spec        v1.BootAssignmentSpec `json:"spec" yaml:"spec" validate:"required"`
+	Labels      map[string]string     `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string     `json:"annotations,omitempty" yaml:"annotations,omitempty"`
+}
+
+// UpdateBootAssignmentRequest represents a request to update a BootAssignment (Advanced API)
+// Use this when you need to update metadata fields along with the spec.
+// For simpler usage, see UpdateBootAssignmentSimple in the client.
+type UpdateBootAssignmentRequest struct {
+	Metadata    fabrica.Metadata      `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	Spec        v1.BootAssignmentSpec `json:"spec,omitempty" yaml:"spec,omitempty" validate:"omitempty"`
+	Labels      map[string]string     `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string     `json:"annotations,omitempty" yaml:"annotations,omitempty"`
+}
+
+// CreateBootConfigRequest represents a request to create a BootConfig (Advanced API)
+// Use this when you need full control over metadata fields (labels, annotations).
+// For simpler usage, see CreateBootConfigSimple in the client.
+type CreateBootConfigRequest struct {
+	Metadata    fabrica.Metadata  `json:"metadata" yaml:"metadata" validate:"required"`
+	Spec        v1.BootConfigSpec `json:"spec" yaml:"spec" validate:"required"`
+	Labels      map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
+}
+
+// UpdateBootConfigRequest represents a request to update a BootConfig (Advanced API)
+// Use this when you need to update metadata fields along with the spec.
+// For simpler usage, see UpdateBootConfigSimple in the client.
+type UpdateBootConfigRequest struct {
+	Metadata    fabrica.Metadata  `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	Spec        v1.BootConfigSpec `json:"spec,omitempty" yaml:"spec,omitempty" validate:"omitempty"`
+	Labels      map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
+}
+
 // CreateBootConfigurationRequest represents a request to create a BootConfiguration (Advanced API)
 // Use this when you need full control over metadata fields (labels, annotations).
 // For simpler usage, see CreateBootConfigurationSimple in the client.

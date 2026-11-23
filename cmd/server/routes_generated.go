@@ -13,6 +13,8 @@
 //
 // This file registers routes for all resource types:
 //   - /bmcs (BMC operations)
+//   - /bootassignments (BootAssignment operations)
+//   - /bootconfigs (BootConfig operations)
 //   - /bootconfigurations (BootConfiguration operations)
 //   - /nodes (Node operations)
 //
@@ -84,6 +86,10 @@ func apiCatalogHandler(w http.ResponseWriter, r *http.Request) {
 
 		"/bmcs",
 
+		"/bootassignments",
+
+		"/bootconfigs",
+
 		"/bootconfigurations",
 
 		"/nodes",
@@ -151,6 +157,10 @@ func registerResourcePrefixes() error {
 
 	resource.RegisterResourcePrefix("BMC", "bmc")
 
+	resource.RegisterResourcePrefix("BootAssignment", "bootassignment")
+
+	resource.RegisterResourcePrefix("BootConfig", "bootconfig")
+
 	resource.RegisterResourcePrefix("BootConfiguration", "bootconfiguration")
 
 	resource.RegisterResourcePrefix("Node", "node")
@@ -209,6 +219,45 @@ func RegisterGeneratedRoutes(r chi.Router) {
 				status.Put("/", UpdateBMCStatus)
 				status.Patch("/", PatchBMCStatus)
 			})
+		})
+
+	})
+
+	// BootAssignment routes
+	r.Route("/bootassignments", func(resource chi.Router) {
+
+		resource.Get("/", GetBootAssignments)
+		resource.Post("/", CreateBootAssignment)
+		resource.Route("/{uid}", func(item chi.Router) {
+			item.Get("/", GetBootAssignment)
+			item.Put("/", UpdateBootAssignment)
+			item.Patch("/", PatchBootAssignment)
+			item.Delete("/", DeleteBootAssignment)
+
+			// Status subresource
+			item.Route("/status", func(status chi.Router) {
+				status.Put("/", UpdateBootAssignmentStatus)
+				status.Patch("/", PatchBootAssignmentStatus)
+			})
+		})
+
+	})
+
+	// BootConfig routes
+	r.Route("/bootconfigs", func(resource chi.Router) {
+
+		resource.Post("/", CreateBootConfigSeries)
+		resource.Route("/{name}", func(series chi.Router) {
+			series.Get("/", GetBootConfigSeries)
+			series.Post("/revisions", CreateBootConfigRevision)
+			series.Get("/revisions", ListBootConfigRevisions)
+			series.Put("/revisions/{revisionName}", EnsureBootConfigRevision)
+			series.Get("/revisions/by-uid/{revisionUID}", GetBootConfigRevision)
+			series.Delete("/revisions/by-uid/{revisionUID}", RetireBootConfigRevision)
+			series.Get("/resolve", ResolveBootConfigRevision)
+			series.Put("/default", PromoteBootConfigDefault)
+			series.Put("/status", UpdateBootConfigSeriesStatus)
+			series.Patch("/status", PatchBootConfigSeriesStatus)
 		})
 
 	})

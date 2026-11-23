@@ -64,7 +64,7 @@ import (
 	"strings"
 
 	"github.com/openchami/fabrica/pkg/fabrica"
-
+	"github.com/openchami/fabrica/pkg/revision"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 
@@ -129,6 +129,22 @@ type ErrorResponse struct {
 // HealthResponse represents a generic service health payload.
 // Services may return additional fields beyond the common ones.
 type HealthResponse map[string]interface{}
+
+// ReferenceSelector identifies a movable revision alias.
+type ReferenceSelector = revision.Selector
+
+const (
+	ReferenceSelectorDefault = revision.SelectorDefault
+	ReferenceSelectorLatest  = revision.SelectorLatest
+	RevisionUIDExample       = revision.UIDExample
+)
+
+type ResourceReference = revision.Reference
+type RevisionMetadata = revision.Metadata
+type RevisionSeriesStatus = revision.SeriesStatus
+type RevisionResolveResponse = revision.ResolveResponse
+type RevisionConflictResponse = revision.ConflictResponse
+type RevisionPreconditionResponse = revision.PreconditionResponse
 
 // NewClient creates a new API client
 func NewClient(baseURL string, httpClient *http.Client, logger zerolog.Logger) (*Client, error) {
@@ -625,6 +641,388 @@ func (c *Client) DeleteBMC(ctx context.Context, uid string) error {
 		return err
 	}
 	return nil
+}
+
+// GetBootAssignments retrieves all bootassignments
+func (c *Client) GetBootAssignments(ctx context.Context) ([]v1.BootAssignment, error) {
+	var response []v1.BootAssignment
+	if err := c.doRequest(ctx, "GET", "/bootassignments", nil, &response); err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
+// GetBootAssignment retrieves a specific BootAssignment by UID
+func (c *Client) GetBootAssignment(ctx context.Context, uid string) (*v1.BootAssignment, error) {
+	var result v1.BootAssignment
+	escapedUID, err := escapePathSegment(uid)
+	if err != nil {
+		return nil, err
+	}
+	endpoint := fmt.Sprintf("/bootassignments/%s", escapedUID)
+	if err := c.doRequest(ctx, "GET", endpoint, nil, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// CreateBootAssignmentSimple creates a new BootAssignment with minimal boilerplate (Simple API)
+//
+// This is the recommended method for most use cases. It only requires a name and spec,
+// and the client automatically handles the resource envelope (APIVersion, Kind, Metadata).
+//
+// Use this when:
+//   - You only need to set the resource name and spec
+//   - You don't need custom labels or annotations
+//   - You want the simplest possible API
+//
+// For advanced use cases (labels, annotations, custom metadata), use CreateBootAssignment instead.
+//
+// Example:
+//
+//	spec := v1.BootAssignmentSpec{
+//	    // ... your spec fields
+//	}
+//	resource, err := client.CreateBootAssignmentSimple(ctx, "my-resource", spec)
+func (c *Client) CreateBootAssignmentSimple(ctx context.Context, name string, spec v1.BootAssignmentSpec) (*v1.BootAssignment, error) {
+	req := CreateBootAssignmentRequest{
+		Metadata: fabrica.Metadata{
+			Name: name,
+		},
+		Spec: spec,
+	}
+	return c.CreateBootAssignment(ctx, req)
+}
+
+// CreateBootAssignment creates a new BootAssignment (Advanced API)
+//
+// This method provides full control over the resource envelope, including labels and annotations.
+// Most users should use CreateBootAssignmentSimple instead.
+//
+// Use this when:
+//   - You need to set labels or annotations
+//   - You need full control over metadata fields
+//   - You're migrating from code that already constructs requests
+//
+// Example:
+//
+//	req := CreateBootAssignmentRequest{
+//	    Metadata: fabrica.Metadata{Name: "my-resource"},
+//	    Spec: spec,
+//	    Labels: map[string]string{"env": "prod"},
+//	}
+//	resource, err := client.CreateBootAssignment(ctx, req)
+func (c *Client) CreateBootAssignment(ctx context.Context, req CreateBootAssignmentRequest) (*v1.BootAssignment, error) {
+	var result v1.BootAssignment
+	if err := c.doRequest(ctx, "POST", "/bootassignments", req, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// UpdateBootAssignmentSimple updates an existing BootAssignment's spec (Simple API)
+//
+// This is the recommended method for most update operations. It only requires the UID
+// and the new spec, preserving all existing metadata.
+//
+// Use this when:
+//   - You only need to update the spec
+//   - You want to preserve existing labels and annotations
+//   - You want the simplest possible API
+//
+// For advanced use cases (updating labels/annotations), use UpdateBootAssignment instead.
+//
+// Example:
+//
+//	spec := v1.BootAssignmentSpec{
+//	    // ... updated spec fields
+//	}
+//	resource, err := client.UpdateBootAssignmentSimple(ctx, uid, spec)
+func (c *Client) UpdateBootAssignmentSimple(ctx context.Context, uid string, spec v1.BootAssignmentSpec) (*v1.BootAssignment, error) {
+	req := UpdateBootAssignmentRequest{
+		Spec: spec,
+	}
+	return c.UpdateBootAssignment(ctx, uid, req)
+}
+
+// UpdateBootAssignment updates an existing BootAssignment (Advanced API)
+//
+// This method provides full control over what gets updated, including metadata fields.
+// Most users should use UpdateBootAssignmentSimple instead.
+//
+// Use this when:
+//   - You need to update labels or annotations
+//   - You need to update the resource name
+//   - You need full control over what fields get updated
+//
+// Example:
+//
+//	req := UpdateBootAssignmentRequest{
+//	    Spec: spec,
+//	    Labels: map[string]string{"env": "staging"},
+//	}
+//	resource, err := client.UpdateBootAssignment(ctx, uid, req)
+func (c *Client) UpdateBootAssignment(ctx context.Context, uid string, req UpdateBootAssignmentRequest) (*v1.BootAssignment, error) {
+	var result v1.BootAssignment
+	escapedUID, err := escapePathSegment(uid)
+	if err != nil {
+		return nil, err
+	}
+	endpoint := fmt.Sprintf("/bootassignments/%s", escapedUID)
+	if err := c.doRequest(ctx, "PUT", endpoint, req, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// PatchBootAssignment patches an existing BootAssignment spec with the specified patch data and content type
+func (c *Client) PatchBootAssignment(ctx context.Context, uid string, patchData []byte, contentType string) (*v1.BootAssignment, error) {
+	var result v1.BootAssignment
+	escapedUID, err := escapePathSegment(uid)
+	if err != nil {
+		return nil, err
+	}
+	endpoint := fmt.Sprintf("/bootassignments/%s", escapedUID)
+	if err := c.doPatchRequest(ctx, endpoint, patchData, contentType, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// UpdateBootAssignmentStatus updates only the status of an existing BootAssignment
+// This method is intended for controllers, reconcilers, and monitoring systems.
+// It preserves the spec and only updates the status portion of the resource.
+func (c *Client) UpdateBootAssignmentStatus(ctx context.Context, uid string, status v1.BootAssignmentStatus) (*v1.BootAssignment, error) {
+	var result v1.BootAssignment
+	escapedUID, err := escapePathSegment(uid)
+	if err != nil {
+		return nil, err
+	}
+	endpoint := fmt.Sprintf("/bootassignments/%s/status", escapedUID)
+	if err := c.doRequest(ctx, "PUT", endpoint, status, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// PatchBootAssignmentStatus patches only the status of an existing BootAssignment
+// Supports JSON Merge Patch by default. Use PatchBootAssignmentStatusWithType for other patch formats.
+func (c *Client) PatchBootAssignmentStatus(ctx context.Context, uid string, patchData []byte) (*v1.BootAssignment, error) {
+	return c.PatchBootAssignmentStatusWithType(ctx, uid, patchData, "application/merge-patch+json")
+}
+
+// PatchBootAssignmentStatusWithType patches status with a specific patch content type
+// Supported types: application/merge-patch+json, application/json-patch+json, application/fabrica-patch+json
+func (c *Client) PatchBootAssignmentStatusWithType(ctx context.Context, uid string, patchData []byte, contentType string) (*v1.BootAssignment, error) {
+	var result v1.BootAssignment
+	escapedUID, err := escapePathSegment(uid)
+	if err != nil {
+		return nil, err
+	}
+	endpoint := fmt.Sprintf("/bootassignments/%s/status", escapedUID)
+	if err := c.doPatchRequest(ctx, endpoint, patchData, contentType, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// DeleteBootAssignment deletes a BootAssignment by UID
+func (c *Client) DeleteBootAssignment(ctx context.Context, uid string) error {
+	escapedUID, err := escapePathSegment(uid)
+	if err != nil {
+		return err
+	}
+	endpoint := fmt.Sprintf("/bootassignments/%s", escapedUID)
+	var response DeleteResponse
+	if err := c.doRequest(ctx, "DELETE", endpoint, nil, &response); err != nil {
+		return err
+	}
+	return nil
+}
+
+type BootConfigRevision = revision.Record[*v1.BootConfig]
+
+type PromoteBootConfigDefaultRequest struct {
+	RevisionUID string `json:"revisionUid" yaml:"revisionUid"`
+}
+
+func (c *Client) GetBootConfigSeries(ctx context.Context, name string) (*RevisionSeriesStatus, string, error) {
+	var result RevisionSeriesStatus
+	escapedName, err := escapePathSegment(name)
+	if err != nil {
+		return nil, "", err
+	}
+	endpoint := fmt.Sprintf("/bootconfigs/%s", escapedName)
+	headers, err := c.doRequestWithResponse(ctx, http.MethodGet, endpoint, nil, nil, &result)
+	if err != nil {
+		return nil, "", err
+	}
+	return &result, headers.Get("ETag"), nil
+}
+
+func (c *Client) CreateBootConfigSeries(ctx context.Context, req CreateBootConfigRequest, revisionName string) (*BootConfigRevision, error) {
+	var result BootConfigRevision
+	endpoint := "/bootconfigs"
+	if revisionName != "" {
+		endpoint += "?revisionName=" + url.QueryEscape(revisionName)
+	}
+	if err := c.doRequest(ctx, http.MethodPost, endpoint, req, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// CreateBootConfigRevision creates an unnamed immutable revision in an existing series.
+// Use EnsureBootConfigRevision when retries must return the same revision.
+func (c *Client) CreateBootConfigRevision(ctx context.Context, name string, req CreateBootConfigRequest) (*BootConfigRevision, error) {
+	var result BootConfigRevision
+	escapedName, err := escapePathSegment(name)
+	if err != nil {
+		return nil, err
+	}
+	endpoint := fmt.Sprintf("/bootconfigs/%s/revisions", escapedName)
+	if err := c.doRequest(ctx, http.MethodPost, endpoint, req, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// UpdateBootConfigSeriesStatus updates mutable series status without creating a revision.
+func (c *Client) UpdateBootConfigSeriesStatus(ctx context.Context, name string, status v1.BootConfigStatus, ifMatch string) (*v1.BootConfigStatus, error) {
+	escapedName, err := escapePathSegment(name)
+	if err != nil {
+		return nil, err
+	}
+	endpoint := fmt.Sprintf("/bootconfigs/%s/status", escapedName)
+	headers := make(http.Header)
+	if ifMatch != "" {
+		headers.Set("If-Match", ifMatch)
+	}
+	var result v1.BootConfigStatus
+	if err := c.doRequestWithHeaders(ctx, http.MethodPut, endpoint, status, headers, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// PatchBootConfigSeriesStatus patches mutable series status using the requested patch format.
+func (c *Client) PatchBootConfigSeriesStatus(ctx context.Context, name string, patchData []byte, contentType, ifMatch string) (*v1.BootConfigStatus, error) {
+	escapedName, err := escapePathSegment(name)
+	if err != nil {
+		return nil, err
+	}
+	endpoint := fmt.Sprintf("/bootconfigs/%s/status", escapedName)
+	headers := make(http.Header)
+	if ifMatch != "" {
+		headers.Set("If-Match", ifMatch)
+	}
+	var result v1.BootConfigStatus
+	if err := c.doPatchRequestWithHeaders(ctx, endpoint, patchData, contentType, headers, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *Client) EnsureBootConfigRevision(ctx context.Context, name, revisionName string, req CreateBootConfigRequest) (*BootConfigRevision, error) {
+	var result BootConfigRevision
+	escapedName, err := escapePathSegment(name)
+	if err != nil {
+		return nil, err
+	}
+	escapedRevisionName, err := escapePathSegment(revisionName)
+	if err != nil {
+		return nil, err
+	}
+	endpoint := fmt.Sprintf("/bootconfigs/%s/revisions/%s", escapedName, escapedRevisionName)
+	if err := c.doRequest(ctx, http.MethodPut, endpoint, req, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *Client) ListBootConfigRevisions(ctx context.Context, name string) ([]BootConfigRevision, error) {
+	var result []BootConfigRevision
+	escapedName, err := escapePathSegment(name)
+	if err != nil {
+		return nil, err
+	}
+	endpoint := fmt.Sprintf("/bootconfigs/%s/revisions", escapedName)
+	if err := c.doRequest(ctx, http.MethodGet, endpoint, nil, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (c *Client) GetBootConfigRevision(ctx context.Context, name, revisionUID string) (*BootConfigRevision, error) {
+	var result BootConfigRevision
+	escapedName, err := escapePathSegment(name)
+	if err != nil {
+		return nil, err
+	}
+	escapedRevisionUID, err := escapePathSegment(revisionUID)
+	if err != nil {
+		return nil, err
+	}
+	endpoint := fmt.Sprintf("/bootconfigs/%s/revisions/by-uid/%s", escapedName, escapedRevisionUID)
+	if err := c.doRequest(ctx, http.MethodGet, endpoint, nil, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *Client) RetireBootConfigRevision(ctx context.Context, name, revisionUID string) (*BootConfigRevision, error) {
+	var result BootConfigRevision
+	escapedName, err := escapePathSegment(name)
+	if err != nil {
+		return nil, err
+	}
+	escapedRevisionUID, err := escapePathSegment(revisionUID)
+	if err != nil {
+		return nil, err
+	}
+	endpoint := fmt.Sprintf("/bootconfigs/%s/revisions/by-uid/%s", escapedName, escapedRevisionUID)
+	if err := c.doRequest(ctx, http.MethodDelete, endpoint, nil, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *Client) ResolveBootConfigRevision(ctx context.Context, reference ResourceReference) (*RevisionResolveResponse, error) {
+	query := url.Values{}
+	if reference.UID != "" {
+		query.Set("uid", reference.UID)
+	}
+	if reference.RevisionName != "" {
+		query.Set("revisionName", reference.RevisionName)
+	}
+	if reference.Selector != "" {
+		query.Set("selector", string(reference.Selector))
+	}
+	escapedName, err := escapePathSegment(reference.Name)
+	if err != nil {
+		return nil, err
+	}
+	endpoint := fmt.Sprintf("/bootconfigs/%s/resolve?%s", escapedName, query.Encode())
+	var result RevisionResolveResponse
+	if err := c.doRequest(ctx, http.MethodGet, endpoint, nil, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *Client) PromoteBootConfigDefault(ctx context.Context, name, revisionUID, ifMatch string) (*RevisionSeriesStatus, error) {
+	escapedName, err := escapePathSegment(name)
+	if err != nil {
+		return nil, err
+	}
+	endpoint := fmt.Sprintf("/bootconfigs/%s/default", escapedName)
+	headers := make(http.Header)
+	headers.Set("If-Match", ifMatch)
+	var result RevisionSeriesStatus
+	if err := c.doRequestWithHeaders(ctx, http.MethodPut, endpoint, PromoteBootConfigDefaultRequest{RevisionUID: revisionUID}, headers, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
 }
 
 // GetBootConfigurations retrieves all bootconfigurations

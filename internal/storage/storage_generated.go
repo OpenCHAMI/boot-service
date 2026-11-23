@@ -23,6 +23,7 @@ import (
 	"fmt"
 
 	"github.com/openchami/fabrica/pkg/reconcile"
+	"github.com/openchami/fabrica/pkg/revision"
 	fabricaStorage "github.com/openchami/fabrica/pkg/storage"
 
 	"github.com/openchami/boot-service/apis/boot.openchami.io/v1"
@@ -40,6 +41,8 @@ import (
 //	storage.Init(backend)
 var Backend fabricaStorage.StorageBackend
 
+var bootConfigRevisionStore *revision.FileStore[*v1.BootConfig]
+
 // Init initializes the storage backend.
 // This must be called before using any storage functions.
 func Init(backend fabricaStorage.StorageBackend) {
@@ -54,7 +57,13 @@ func InitFileBackend(dataDir string) error {
 		return fmt.Errorf("failed to create file backend: %w", err)
 	}
 
+	bootConfigStore, err := revision.NewFileStore[*v1.BootConfig](dataDir, "BootConfig")
+	if err != nil {
+		return fmt.Errorf("failed to create BootConfig revision store: %w", err)
+	}
+
 	Backend = backend
+	bootConfigRevisionStore = bootConfigStore
 
 	return nil
 }
@@ -65,6 +74,129 @@ func ensureBackend() {
 	if Backend == nil {
 		panic("storage backend not initialized: call storage.Init() or storage.InitFileBackend() in main.go")
 	}
+}
+
+func ensureBootConfigRevisionStore() error {
+	if bootConfigRevisionStore == nil {
+		return fmt.Errorf("BootConfig revision store not initialized: call storage.InitFileBackend")
+	}
+	return nil
+}
+
+func BootConfigRevisionDigest(res *v1.BootConfig) (string, error) {
+	return revision.ContentDigest(revision.Content[v1.BootConfigSpec, v1.BootConfigStatus]{
+		APIVersion: res.APIVersion,
+		Kind:       res.Kind,
+		Metadata:   res.Metadata,
+		Spec:       res.Spec,
+		Status:     res.Status,
+	})
+}
+
+func CreateBootConfigSeries(ctx context.Context, name, revisionName string, res *v1.BootConfig) (revision.Record[*v1.BootConfig], string, error) {
+	if err := ensureBootConfigRevisionStore(); err != nil {
+		return revision.Record[*v1.BootConfig]{}, "", err
+	}
+	digest, err := BootConfigRevisionDigest(res)
+	if err != nil {
+		return revision.Record[*v1.BootConfig]{}, "", err
+	}
+	return bootConfigRevisionStore.CreateSeriesWithStatus(ctx, name, revisionName, digest, res, res.Status)
+}
+
+func EnsureBootConfigRevisionByName(ctx context.Context, name, revisionName string, res *v1.BootConfig) (revision.Record[*v1.BootConfig], bool, string, error) {
+	if err := ensureBootConfigRevisionStore(); err != nil {
+		return revision.Record[*v1.BootConfig]{}, false, "", err
+	}
+	digest, err := BootConfigRevisionDigest(res)
+	if err != nil {
+		return revision.Record[*v1.BootConfig]{}, false, "", err
+	}
+	return bootConfigRevisionStore.EnsureRevision(ctx, name, revisionName, digest, res)
+}
+
+func CreateBootConfigRevision(ctx context.Context, name string, res *v1.BootConfig) (revision.Record[*v1.BootConfig], bool, string, error) {
+	return EnsureBootConfigRevisionByName(ctx, name, "", res)
+}
+
+func GetBootConfigSeries(ctx context.Context, name string) (revision.SeriesStatus, string, error) {
+	if err := ensureBootConfigRevisionStore(); err != nil {
+		return revision.SeriesStatus{}, "", err
+	}
+	return bootConfigRevisionStore.GetSeries(ctx, name)
+}
+
+func ListBootConfigRevisions(ctx context.Context, name string) ([]revision.Record[*v1.BootConfig], error) {
+	if err := ensureBootConfigRevisionStore(); err != nil {
+		return nil, err
+	}
+	return bootConfigRevisionStore.ListRevisions(ctx, name)
+}
+
+func GetBootConfigRevision(ctx context.Context, name, uid string) (revision.Record[*v1.BootConfig], error) {
+	if err := ensureBootConfigRevisionStore(); err != nil {
+		return revision.Record[*v1.BootConfig]{}, err
+	}
+	return bootConfigRevisionStore.GetRevision(ctx, name, uid)
+}
+
+func RetireBootConfigRevision(ctx context.Context, name, uid string) (revision.Record[*v1.BootConfig], error) {
+	if err := ensureBootConfigRevisionStore(); err != nil {
+		return revision.Record[*v1.BootConfig]{}, err
+	}
+	return bootConfigRevisionStore.RetireRevision(ctx, name, uid)
+}
+
+func ResolveBootConfigRevision(ctx context.Context, reference revision.Reference) (revision.Record[*v1.BootConfig], error) {
+	if err := ensureBootConfigRevisionStore(); err != nil {
+		return revision.Record[*v1.BootConfig]{}, err
+	}
+	return bootConfigRevisionStore.Resolve(ctx, reference)
+}
+
+func PromoteBootConfigDefault(ctx context.Context, name, revisionUID, ifMatch string) (revision.DefaultPromotionResult, error) {
+	if err := ensureBootConfigRevisionStore(); err != nil {
+		return revision.DefaultPromotionResult{}, err
+	}
+	return bootConfigRevisionStore.PromoteDefault(ctx, name, revisionUID, ifMatch)
+}
+
+func GetBootConfigSeriesStatus(ctx context.Context, name string) (v1.BootConfigStatus, error) {
+	var status v1.BootConfigStatus
+	if err := ensureBootConfigRevisionStore(); err != nil {
+		return status, err
+	}
+	if err := bootConfigRevisionStore.GetStatus(ctx, name, &status); err != nil {
+		return status, err
+	}
+	return status, nil
+}
+
+func UpdateBootConfigSeriesStatus(ctx context.Context, name string, status v1.BootConfigStatus) (string, error) {
+	if err := ensureBootConfigRevisionStore(); err != nil {
+		return "", err
+	}
+	return bootConfigRevisionStore.UpdateStatus(ctx, name, status)
+}
+
+func MutateBootConfigSeriesStatus(ctx context.Context, name string, mutate func(*v1.BootConfigStatus, string) error) (v1.BootConfigStatus, string, error) {
+	var status v1.BootConfigStatus
+	if err := ensureBootConfigRevisionStore(); err != nil {
+		return status, "", err
+	}
+	etag, err := bootConfigRevisionStore.MutateStatus(ctx, name, func(raw json.RawMessage, currentETag string) (json.RawMessage, error) {
+		status = v1.BootConfigStatus{}
+		if len(raw) != 0 {
+			if err := json.Unmarshal(raw, &status); err != nil {
+				return nil, err
+			}
+		}
+		if err := mutate(&status, currentETag); err != nil {
+			return nil, err
+		}
+		return json.Marshal(status)
+	})
+	return status, etag, err
 }
 
 // BMC storage operations
@@ -243,6 +375,368 @@ func ListBMCUIDs(ctx context.Context) ([]string, error) {
 	uids, err := Backend.List(ctx, "BMC")
 	if err != nil {
 		return nil, fmt.Errorf("failed to list BMC UIDs: %w", err)
+	}
+
+	return uids, nil
+}
+
+// BootAssignment storage operations
+
+// LoadAllBootAssignments retrieves all BootAssignment resources.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//
+// Returns:
+//   - []*v1.BootAssignment: Slice of BootAssignment resources
+//   - error: Any error that occurred during loading
+func LoadAllBootAssignments(ctx context.Context) ([]*v1.BootAssignment, error) {
+	ensureBackend()
+
+	rawData, err := Backend.LoadAll(ctx, "BootAssignment")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load all bootassignments: %w", err)
+	}
+
+	bootassignments := make([]*v1.BootAssignment, 0, len(rawData))
+	for _, raw := range rawData {
+		bootAssignment := &v1.BootAssignment{}
+		if err := json.Unmarshal(raw, bootAssignment); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal BootAssignment: %w", err)
+		}
+		bootassignments = append(bootassignments, bootAssignment)
+	}
+
+	return bootassignments, nil
+}
+
+// LoadBootAssignment retrieves a single BootAssignment resource by UID.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - uid: Unique identifier of the BootAssignment resource
+//
+// Returns:
+//   - *v1.BootAssignment: The BootAssignment resource
+//   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
+func LoadBootAssignment(ctx context.Context, uid string) (*v1.BootAssignment, error) {
+	ensureBackend()
+
+	rawData, err := Backend.Load(ctx, "BootAssignment", uid)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load BootAssignment %s: %w", uid, err)
+	}
+
+	bootAssignment := &v1.BootAssignment{}
+	if err := json.Unmarshal(rawData, bootAssignment); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal BootAssignment: %w", err)
+	}
+
+	return bootAssignment, nil
+}
+
+// MutateBootAssignment atomically checks and changes an existing resource.
+// The callback may be retried and must not perform external side effects.
+func MutateBootAssignment(ctx context.Context, uid string, apply func(*v1.BootAssignment) (bool, error)) (*v1.BootAssignment, error) {
+	ensureBackend()
+	removed := false
+
+	result, err := fabricaStorage.MutateResource[*v1.BootAssignment](ctx, Backend, "BootAssignment", uid, func(current *v1.BootAssignment) (bool, error) {
+		var err error
+		removed, err = apply(current)
+		return removed, err
+	})
+
+	return result, err
+}
+
+// SaveBootAssignment stores a BootAssignment resource.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - bootAssignment: The BootAssignment resource to save
+//
+// Returns:
+//   - error: Any error that occurred during saving
+func SaveBootAssignment(ctx context.Context, bootAssignment *v1.BootAssignment) error {
+	ensureBackend()
+
+	data, err := json.Marshal(bootAssignment)
+	if err != nil {
+		return fmt.Errorf("failed to marshal BootAssignment: %w", err)
+	}
+
+	if err := Backend.Save(ctx, "BootAssignment", bootAssignment.Metadata.UID, data); err != nil {
+		return fmt.Errorf("failed to save BootAssignment: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateBootAssignment updates an existing BootAssignment resource.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - bootAssignment: The BootAssignment resource to update
+//
+// Returns:
+//   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
+func UpdateBootAssignment(ctx context.Context, bootAssignment *v1.BootAssignment) error {
+	ensureBackend()
+
+	exists, err := Backend.Exists(ctx, "BootAssignment", bootAssignment.Metadata.UID)
+	if err != nil {
+		return fmt.Errorf("failed to check BootAssignment existence: %w", err)
+	}
+	if !exists {
+		return fabricaStorage.ErrNotFound
+	}
+
+	data, err := json.Marshal(bootAssignment)
+	if err != nil {
+		return fmt.Errorf("failed to marshal BootAssignment: %w", err)
+	}
+
+	if err := Backend.Save(ctx, "BootAssignment", bootAssignment.Metadata.UID, data); err != nil {
+		return fmt.Errorf("failed to update BootAssignment: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteBootAssignment removes a BootAssignment resource by UID.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - uid: Unique identifier of the BootAssignment resource
+//
+// Returns:
+//   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
+func DeleteBootAssignment(ctx context.Context, uid string) error {
+	ensureBackend()
+
+	if err := Backend.Delete(ctx, "BootAssignment", uid); err != nil {
+		return fmt.Errorf("failed to delete BootAssignment %s: %w", uid, err)
+	}
+
+	return nil
+}
+
+// ExistsBootAssignment checks if a BootAssignment resource exists.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - uid: Unique identifier of the BootAssignment resource
+//
+// Returns:
+//   - bool: true if the resource exists
+//   - error: Any error that occurred during the check
+func ExistsBootAssignment(ctx context.Context, uid string) (bool, error) {
+	ensureBackend()
+
+	exists, err := Backend.Exists(ctx, "BootAssignment", uid)
+	if err != nil {
+		return false, fmt.Errorf("failed to check BootAssignment existence: %w", err)
+	}
+
+	return exists, nil
+}
+
+// ListBootAssignmentUIDs returns UIDs of all BootAssignment resources.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//
+// Returns:
+//   - []string: Array of BootAssignment resource UIDs
+//   - error: Any error that occurred during listing
+func ListBootAssignmentUIDs(ctx context.Context) ([]string, error) {
+	ensureBackend()
+
+	uids, err := Backend.List(ctx, "BootAssignment")
+	if err != nil {
+		return nil, fmt.Errorf("failed to list BootAssignment UIDs: %w", err)
+	}
+
+	return uids, nil
+}
+
+// BootConfig storage operations
+
+// LoadAllBootConfigs retrieves all BootConfig resources.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//
+// Returns:
+//   - []*v1.BootConfig: Slice of BootConfig resources
+//   - error: Any error that occurred during loading
+func LoadAllBootConfigs(ctx context.Context) ([]*v1.BootConfig, error) {
+	ensureBackend()
+
+	rawData, err := Backend.LoadAll(ctx, "BootConfig")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load all bootconfigs: %w", err)
+	}
+
+	bootconfigs := make([]*v1.BootConfig, 0, len(rawData))
+	for _, raw := range rawData {
+		bootConfig := &v1.BootConfig{}
+		if err := json.Unmarshal(raw, bootConfig); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal BootConfig: %w", err)
+		}
+		bootconfigs = append(bootconfigs, bootConfig)
+	}
+
+	return bootconfigs, nil
+}
+
+// LoadBootConfig retrieves a single BootConfig resource by UID.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - uid: Unique identifier of the BootConfig resource
+//
+// Returns:
+//   - *v1.BootConfig: The BootConfig resource
+//   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
+func LoadBootConfig(ctx context.Context, uid string) (*v1.BootConfig, error) {
+	ensureBackend()
+
+	rawData, err := Backend.Load(ctx, "BootConfig", uid)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load BootConfig %s: %w", uid, err)
+	}
+
+	bootConfig := &v1.BootConfig{}
+	if err := json.Unmarshal(rawData, bootConfig); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal BootConfig: %w", err)
+	}
+
+	return bootConfig, nil
+}
+
+// MutateBootConfig atomically checks and changes an existing resource.
+// The callback may be retried and must not perform external side effects.
+func MutateBootConfig(ctx context.Context, uid string, apply func(*v1.BootConfig) (bool, error)) (*v1.BootConfig, error) {
+	ensureBackend()
+	removed := false
+
+	result, err := fabricaStorage.MutateResource[*v1.BootConfig](ctx, Backend, "BootConfig", uid, func(current *v1.BootConfig) (bool, error) {
+		var err error
+		removed, err = apply(current)
+		return removed, err
+	})
+
+	return result, err
+}
+
+// SaveBootConfig stores a BootConfig resource.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - bootConfig: The BootConfig resource to save
+//
+// Returns:
+//   - error: Any error that occurred during saving
+func SaveBootConfig(ctx context.Context, bootConfig *v1.BootConfig) error {
+	ensureBackend()
+
+	data, err := json.Marshal(bootConfig)
+	if err != nil {
+		return fmt.Errorf("failed to marshal BootConfig: %w", err)
+	}
+
+	if err := Backend.Save(ctx, "BootConfig", bootConfig.Metadata.UID, data); err != nil {
+		return fmt.Errorf("failed to save BootConfig: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateBootConfig updates an existing BootConfig resource.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - bootConfig: The BootConfig resource to update
+//
+// Returns:
+//   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
+func UpdateBootConfig(ctx context.Context, bootConfig *v1.BootConfig) error {
+	ensureBackend()
+
+	exists, err := Backend.Exists(ctx, "BootConfig", bootConfig.Metadata.UID)
+	if err != nil {
+		return fmt.Errorf("failed to check BootConfig existence: %w", err)
+	}
+	if !exists {
+		return fabricaStorage.ErrNotFound
+	}
+
+	data, err := json.Marshal(bootConfig)
+	if err != nil {
+		return fmt.Errorf("failed to marshal BootConfig: %w", err)
+	}
+
+	if err := Backend.Save(ctx, "BootConfig", bootConfig.Metadata.UID, data); err != nil {
+		return fmt.Errorf("failed to update BootConfig: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteBootConfig removes a BootConfig resource by UID.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - uid: Unique identifier of the BootConfig resource
+//
+// Returns:
+//   - error: fabricaStorage.ErrNotFound if resource doesn't exist, other errors for failures
+func DeleteBootConfig(ctx context.Context, uid string) error {
+	ensureBackend()
+
+	if err := Backend.Delete(ctx, "BootConfig", uid); err != nil {
+		return fmt.Errorf("failed to delete BootConfig %s: %w", uid, err)
+	}
+
+	return nil
+}
+
+// ExistsBootConfig checks if a BootConfig resource exists.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//   - uid: Unique identifier of the BootConfig resource
+//
+// Returns:
+//   - bool: true if the resource exists
+//   - error: Any error that occurred during the check
+func ExistsBootConfig(ctx context.Context, uid string) (bool, error) {
+	ensureBackend()
+
+	exists, err := Backend.Exists(ctx, "BootConfig", uid)
+	if err != nil {
+		return false, fmt.Errorf("failed to check BootConfig existence: %w", err)
+	}
+
+	return exists, nil
+}
+
+// ListBootConfigUIDs returns UIDs of all BootConfig resources.
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeouts
+//
+// Returns:
+//   - []string: Array of BootConfig resource UIDs
+//   - error: Any error that occurred during listing
+func ListBootConfigUIDs(ctx context.Context) ([]string, error) {
+	ensureBackend()
+
+	uids, err := Backend.List(ctx, "BootConfig")
+	if err != nil {
+		return nil, fmt.Errorf("failed to list BootConfig UIDs: %w", err)
 	}
 
 	return uids, nil
@@ -659,6 +1153,18 @@ func (c *StorageClient) Get(ctx context.Context, kind, uid string) (interface{},
 			return nil, fmt.Errorf("failed to unmarshal BMC: %w", err)
 		}
 		return &resource, nil
+	case "BootAssignment":
+		var resource v1.BootAssignment
+		if err := json.Unmarshal(rawData, &resource); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal BootAssignment: %w", err)
+		}
+		return &resource, nil
+	case "BootConfig":
+		var resource v1.BootConfig
+		if err := json.Unmarshal(rawData, &resource); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal BootConfig: %w", err)
+		}
+		return &resource, nil
 	case "BootConfiguration":
 		var resource v1.BootConfiguration
 		if err := json.Unmarshal(rawData, &resource); err != nil {
@@ -699,6 +1205,26 @@ func (c *StorageClient) List(ctx context.Context, kind string) ([]interface{}, e
 			var resource v1.BMC
 			if err := json.Unmarshal(raw, &resource); err != nil {
 				return nil, fmt.Errorf("failed to unmarshal BMC: %w", err)
+			}
+			result = append(result, &resource)
+		}
+		return result, nil
+	case "BootAssignment":
+		result := make([]interface{}, 0, len(rawData))
+		for _, raw := range rawData {
+			var resource v1.BootAssignment
+			if err := json.Unmarshal(raw, &resource); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal BootAssignment: %w", err)
+			}
+			result = append(result, &resource)
+		}
+		return result, nil
+	case "BootConfig":
+		result := make([]interface{}, 0, len(rawData))
+		for _, raw := range rawData {
+			var resource v1.BootConfig
+			if err := json.Unmarshal(raw, &resource); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal BootConfig: %w", err)
 			}
 			result = append(result, &resource)
 		}
@@ -746,6 +1272,10 @@ func (c *StorageClient) Update(ctx context.Context, resource interface{}) error 
 	switch res := resource.(type) {
 	case *v1.BMC:
 		return c.backend.Save(ctx, "BMC", res.Metadata.UID, data)
+	case *v1.BootAssignment:
+		return c.backend.Save(ctx, "BootAssignment", res.Metadata.UID, data)
+	case *v1.BootConfig:
+		return c.backend.Save(ctx, "BootConfig", res.Metadata.UID, data)
 	case *v1.BootConfiguration:
 		return c.backend.Save(ctx, "BootConfiguration", res.Metadata.UID, data)
 	case *v1.Node:
