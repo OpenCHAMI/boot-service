@@ -62,6 +62,9 @@ func newRouter(config Config, features *generatedFeatureSet, boot *bootRoutes) c
 		public.Get("/docs", ServeSwaggerUI)
 		features.RegisterPublicRoutes(public)
 
+		if boot.cacheHits != nil {
+			public.Handle("/metrics", declarativeMetricsHandler(features, boot.cacheHits))
+		}
 		boot.registerPublic(public)
 	})
 	r.Group(func(protected chi.Router) {
@@ -86,7 +89,10 @@ func newRouter(config Config, features *generatedFeatureSet, boot *bootRoutes) c
 	return r
 }
 
-func newMetricsHandler(features *generatedFeatureSet) http.Handler {
+func newMetricsHandler(features *generatedFeatureSet, hits ...func() uint64) http.Handler {
+	if len(hits) != 0 && hits[0] != nil {
+		return declarativeMetricsHandler(features, hits[0])
+	}
 	r := chi.NewRouter()
 	features.RegisterPublicRoutes(r)
 	return r

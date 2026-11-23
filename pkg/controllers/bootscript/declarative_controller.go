@@ -40,6 +40,7 @@ type DeclarativeOptions struct {
 // DeclarativeController decorates a legacy controller without modifying its behavior.
 type DeclarativeController struct {
 	options DeclarativeOptions
+	cache   declarativeCache
 }
 
 // NewDeclarativeController constructs the handler-compatible delivery decorator.
@@ -108,6 +109,10 @@ func (c *DeclarativeController) GenerateBootScript(ctx context.Context, identifi
 	if !found {
 		return c.options.Legacy.GenerateBootScript(ctx, identifier, profile)
 	}
+	key := declarativeCacheKey(node.Spec, assignment, content, rev, selectedProfile)
+	if script, found := c.cache.get(key); found {
+		return script, nil
+	}
 	config := &v1.BootConfiguration{}
 	config.Metadata.Name = assignment.Spec.ConfigRef.Name
 	config.Metadata.UID = rev.UID
@@ -119,5 +124,6 @@ func (c *DeclarativeController) GenerateBootScript(ctx context.Context, identifi
 	ref := assignment.Spec.ConfigRef
 	identity := fmt.Sprintf("# assignment=%q assignment_uid=%q reference=%q reference_uid=%q reference_revision=%q reference_selector=%q revision_uid=%q revision_name=%q digest=%q\n", assignment.Metadata.Name, assignment.Metadata.UID, ref.Name, ref.UID, ref.RevisionName, ref.Selector, rev.UID, rev.RevisionName, rev.Digest)
 	script = strings.Replace(script, "#!ipxe\n", "#!ipxe\n"+identity, 1)
+	c.cache.put(key, script)
 	return script, nil
 }
