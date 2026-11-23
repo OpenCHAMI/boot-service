@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 
 	"github.com/openchami/boot-service/pkg/clients/hsm"
 	"github.com/openchami/boot-service/pkg/controllers/bootscript"
+	"github.com/openchami/boot-service/pkg/declarativeboot"
 	"github.com/openchami/boot-service/pkg/handlers/boot"
 )
 
@@ -23,11 +25,12 @@ import (
 type bootRoutes struct {
 	handler   *boot.Handler
 	legacyAPI bool
+	manager   *declarativeboot.Manager
 }
 
 // newBootRoutes builds the boot handler outside runServe's core startup flow and
 // starts HSM background sync when configured.
-func newBootRoutes(config Config, hsmClient *hsm.HSMClient, ctx context.Context) (*bootRoutes, error) {
+func newBootRoutes(config Config, hsmClient *hsm.HSMClient, ctx context.Context, managers ...*declarativeboot.Manager) (*bootRoutes, error) {
 	bootClient, err := newInternalAPIClient()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create boot script API client: %w", err)
@@ -35,7 +38,8 @@ func newBootRoutes(config Config, hsmClient *hsm.HSMClient, ctx context.Context)
 
 	logger := log.New(os.Stdout, "boot: ", log.LstdFlags)
 
-	var bootHandler *boot.Handler
+	var controller bootscript.ScriptGenerator
+	var nodes bootscript.DeclarativeNodeResolver
 	buildInfo := boot.WithBuildInfo(boot.BuildInfo{
 		Version: serviceVersion,
 		Commit:  serviceCommit,
@@ -68,11 +72,18 @@ func newBootRoutes(config Config, hsmClient *hsm.HSMClient, ctx context.Context)
 			log.Printf("HSM background sync enabled (interval: %d minutes)", config.HSMSyncInterval)
 		}
 
-		bootHandler = boot.NewHandlerWithController(*bootClient, flexController, logger, buildInfo)
+		controller = flexController
+		nodes = hsm.NewDeclarativeNodeProvider(hsmClient)
 	} else {
 		// Use standard controller with local storage.
-		bootHandler = boot.NewHandler(*bootClient, logger, buildInfo)
+		controller = bootscript.NewBootScriptController(*bootClient, logger)
+		nodes = bootscript.NewDeclarativeLocalNodeProvider(*bootClient)
 	}
+	if len(managers) != 0 && managers[0] != nil {
+		declarative := bootscript.NewDeclarativeController(bootscript.DeclarativeOptions{Legacy: controller, Nodes: nodes, Revisions: declarativeboot.NewRevisionService(managers[0])})
+		controller = declarative
+	}
+	bootHandler := boot.NewHandlerWithController(*bootClient, controller, logger, buildInfo)
 
 	// Only the legacy BSS-compatible API at /boot/v1/* depends on enable_legacy_api.
 	if config.EnableLegacyAPI {
@@ -86,14 +97,25 @@ func newBootRoutes(config Config, hsmClient *hsm.HSMClient, ctx context.Context)
 		log.Println("Legacy BSS API disabled (set enable_legacy_api to true to enable /boot/v1/* endpoints)")
 	}
 
-	return &bootRoutes{handler: bootHandler, legacyAPI: config.EnableLegacyAPI}, nil
+	routes := &bootRoutes{handler: bootHandler, legacyAPI: config.EnableLegacyAPI}
+	if len(managers) != 0 {
+		routes.manager = managers[0]
+	}
+	return routes, nil
 }
 
 func (b *bootRoutes) registerPublic(r chi.Router) {
-	b.handler.RegisterModernPublicRoutes(r)
-	if b.legacyAPI {
-		b.handler.RegisterLegacyPublicRoutes(r)
-	}
+	r.Group(func(public chi.Router) {
+		public.Use(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				next.ServeHTTP(w, r.WithContext(bootscript.WithRequestProfile(r.Context(), r.URL.Query().Get("profile"))))
+			})
+		})
+		b.handler.RegisterModernPublicRoutes(public)
+		if b.legacyAPI {
+			b.handler.RegisterLegacyPublicRoutes(public)
+		}
+	})
 }
 
 func (b *bootRoutes) registerProtected(r chi.Router) {

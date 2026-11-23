@@ -17,15 +17,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	_ "github.com/openchami/boot-service/pkg/apiversion"
-	"github.com/openchami/fabrica/pkg/versioning"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
 	"github.com/openchami/boot-service/pkg/clients/hsm"
+	"github.com/openchami/boot-service/pkg/declarativeboot"
 )
 
 var (
@@ -246,6 +244,10 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 	if err := registerResourcePrefixes(); err != nil {
 		return fmt.Errorf("failed to register resource prefixes: %w", err)
 	}
+	manager, err := declarativeboot.NewManager(cmd.Context(), declarativeboot.GeneratedStore(), declarativeboot.NativeReferenceResolver{})
+	if err != nil {
+		return fmt.Errorf("initialize declarative manager: %w", err)
+	}
 
 	// Setup graceful shutdown context early so it can be used for background workers
 	ctx, cancel := context.WithCancel(context.Background())
@@ -291,7 +293,7 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 		go serviceTokenManager.StartAutoRefresh(ctx)
 	}
 
-	boot, err := newBootRoutes(*config, hsmClient, ctx)
+	boot, err := newBootRoutes(*config, hsmClient, ctx, manager)
 	if err != nil {
 		return err
 	}
@@ -338,57 +340,6 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 	<-ctx.Done()
 	log.Println("Server stopped")
 	return nil
-}
-
-// newRouter builds the HTTP route tree. Everything added to the protected group
-// requires a valid token when authentication is enabled, so a new route belongs
-// in the public group only if callers cannot hold a token.
-func newRouter(config Config, features *generatedFeatureSet, boot *bootRoutes) chi.Router {
-	r := chi.NewRouter()
-
-	// Add all middleware first, before any routes
-	r.Use(containDeclarativeRoutes)
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-	// Generated chi routes are registered with trailing slashes, while existing
-	// clients use slashless resource paths. RedirectSlashes preserves that
-	// compatibility without hand-editing generated route registrations.
-	r.Use(middleware.RedirectSlashes)
-	r.Use(middleware.Timeout(time.Duration(config.ReadTimeout) * time.Second))
-	features.Use(r)
-	r.Use(versioning.VersionNegotiationMiddleware(versioning.GlobalVersionRegistry, nil))
-
-	r.Group(func(public chi.Router) {
-		public.Get("/health", func(w http.ResponseWriter, req *http.Request) { //nolint:revive
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"status":"ok","service":"boot-service"}`)) //nolint:errcheck
-		})
-		RegisterGeneratedPublicRoutes(public)
-		public.Get("/openapi.json", ServeOpenAPISpec)
-		public.Get("/docs", ServeSwaggerUI)
-		features.RegisterPublicRoutes(public)
-		boot.registerPublic(public)
-	})
-
-	r.Group(func(protected chi.Router) {
-		features.UseProtected(protected)
-		RegisterGeneratedRoutes(legacyGeneratedRouter{Router: protected})
-		boot.registerProtected(protected)
-	})
-
-	return r
-}
-
-// newMetricsHandler serves the feature-selected public routes, which is where
-// the generated /metrics route lives, for the dedicated metrics listener. It
-// serves no metrics if .fabrica.yaml disables them.
-func newMetricsHandler(features *generatedFeatureSet) http.Handler {
-	r := chi.NewRouter()
-	features.RegisterPublicRoutes(r)
-	return r
 }
 
 func validateConfig(config Config) error {

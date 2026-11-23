@@ -107,6 +107,9 @@ func newServerRouterForTest(t *testing.T, authEnabled bool, jwksURL string) http
 
 	cfg := DefaultConfig()
 	cfg.AuthEnabled = authEnabled
+	if authEnabled {
+		cfg.TokenSmithURL = jwksURL
+	}
 	cfg.EnableLegacyAPI = true
 	cfg.DataDir = filepath.Join(t.TempDir(), "data")
 
