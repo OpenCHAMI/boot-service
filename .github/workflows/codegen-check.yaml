@@ -17,6 +17,8 @@ on:
       - "pkg/client/**"
       - "pkg/resources/register_generated.go"
       - "Makefile"
+      - "go.mod"
+      - "go.sum"
       - ".github/workflows/codegen-check.yaml"
   workflow_dispatch:
     inputs:
@@ -37,7 +39,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7.0.0
         with:
-          go-version: stable
+          go-version-file: go.mod
 
       - name: Determine Fabrica Ref
         id: fabrica_ref

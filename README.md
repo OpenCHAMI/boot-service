@@ -29,7 +29,7 @@ endpoints are available at `/boot/v1/*` when `enable_legacy_api: true`.
 ### Prerequisites
 
 - GNU Make
-- A Go toolchain compatible with `go.mod` (this branch currently declares `go 1.26.9`)
+- A Go toolchain compatible with the minimum version declared in `go.mod`
 - `pre-commit` if you want local CI-style checks
 
 ### Configure

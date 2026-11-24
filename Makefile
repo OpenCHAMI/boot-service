@@ -9,6 +9,7 @@
 BINARY_NAME=boot-service
 GO=go
 GOFLAGS=-v
+TEST_FLAGS ?= -shuffle=on -count=1
 TEST_TIMEOUT ?= 5m
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
@@ -75,10 +76,10 @@ generate-check: ## Fail if generated files are out of sync (requires clean git t
 dev: build ## Regenerate code then build server and client binaries
 
 test: ## Run tests
-	$(GO) test $(GOFLAGS) -timeout $(TEST_TIMEOUT) -race -coverprofile=coverage.out -covermode=atomic $$(go list ./... 2>/dev/null | grep -v /examples/)
+	$(GO) test $(GOFLAGS) $(TEST_FLAGS) -timeout $(TEST_TIMEOUT) -race -coverprofile=coverage.out -covermode=atomic $$($(GO) list ./... | grep -v /examples/)
 
 test-integration: ## Run integration tests with explicit timeout (override with TEST_TIMEOUT=)
-	BOOT_SERVICE_RUN_INTEGRATION=1 $(GO) test $(GOFLAGS) -timeout $(TEST_TIMEOUT) ./pkg/controllers/bootscript -run TestBootLogicWithExistingData -v
+	BOOT_SERVICE_RUN_INTEGRATION=1 $(GO) test $(GOFLAGS) $(TEST_FLAGS) -timeout $(TEST_TIMEOUT) ./pkg/controllers/bootscript -run TestBootLogicWithExistingData -v
 
 test-coverage: test ## Run tests with coverage report
 	$(GO) tool cover -html=coverage.out -o coverage.html
@@ -218,10 +219,10 @@ act-list: ## List all GitHub Actions workflows
 	@echo "Available workflows:"
 	@ls -1 .github/workflows/*.yaml | sed 's/.*\//  - /'
 
-act-test: ## Run GitHub Actions test workflow locally (ubuntu only, stable Go)
+act-test: ## Run GitHub Actions tests locally using the Go version in go.mod
 	@command -v act >/dev/null 2>&1 || { echo "act is not installed. Run 'make act-install' first."; exit 1; }
-	@echo "Note: Testing with ubuntu-latest and stable Go version only (full matrix runs on GitHub)"
-	act push -W .github/workflows/test.yaml --container-architecture linux/amd64 --matrix os:ubuntu-latest --matrix go-version:stable
+	@echo "Using the Go version from go.mod, matching GitHub CI"
+	act push -W .github/workflows/test.yaml --container-architecture linux/amd64
 
 act-build: ## Run GitHub Actions build workflow locally
 	@command -v act >/dev/null 2>&1 || { echo "act is not installed. Run 'make act-install' first."; exit 1; }
