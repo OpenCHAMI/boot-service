@@ -26,6 +26,7 @@ type bootRoutes struct {
 	handler   *boot.Handler
 	legacyAPI bool
 	manager   *declarativeboot.Manager
+	cacheHits func() uint64
 }
 
 // newBootRoutes builds the boot handler outside runServe's core startup flow and
@@ -79,9 +80,10 @@ func newBootRoutes(config Config, hsmClient *hsm.HSMClient, ctx context.Context,
 		controller = bootscript.NewBootScriptController(*bootClient, logger)
 		nodes = bootscript.NewDeclarativeLocalNodeProvider(*bootClient)
 	}
+	var cacheHits func() uint64
 	if len(managers) != 0 && managers[0] != nil {
 		declarative := bootscript.NewDeclarativeController(bootscript.DeclarativeOptions{Legacy: controller, Nodes: nodes, Revisions: declarativeboot.NewRevisionService(managers[0])})
-		controller = declarative
+		controller, cacheHits = declarative, declarative.CacheHits
 	}
 	bootHandler := boot.NewHandlerWithController(*bootClient, controller, logger, buildInfo)
 
@@ -97,7 +99,7 @@ func newBootRoutes(config Config, hsmClient *hsm.HSMClient, ctx context.Context,
 		log.Println("Legacy BSS API disabled (set enable_legacy_api to true to enable /boot/v1/* endpoints)")
 	}
 
-	routes := &bootRoutes{handler: bootHandler, legacyAPI: config.EnableLegacyAPI}
+	routes := &bootRoutes{handler: bootHandler, legacyAPI: config.EnableLegacyAPI, cacheHits: cacheHits}
 	if len(managers) != 0 {
 		routes.manager = managers[0]
 	}

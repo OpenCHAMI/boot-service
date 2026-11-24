@@ -301,7 +301,7 @@ func runServe(cmd *cobra.Command, args []string) error { //nolint:revive
 	r := newRouter(*config, features, boot)
 
 	if config.EnableMetrics {
-		go startMetricsServer(*config, newMetricsHandler(features))
+		go startMetricsServer(*config, newMetricsHandler(features, boot.cacheHits))
 	}
 
 	// Configure server
