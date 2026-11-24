@@ -328,6 +328,9 @@ func (h *Handler) GetBootScript(w http.ResponseWriter, r *http.Request) {
 	// Profile selection is driven by matching score and priority within boot logic.
 	script, err := h.controller.GenerateBootScript(ctx, identifier, "")
 	if err != nil {
+		if writeDeclarativeFailure(w, err) {
+			return
+		}
 		h.writeError(w, http.StatusInternalServerError, "Failed to generate boot script", err.Error())
 		return
 	}

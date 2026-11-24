@@ -4,9 +4,6 @@
 package main
 
 import (
-	"net/http"
-	"strings"
-
 	"github.com/go-chi/chi/v5"
 )
 
@@ -18,18 +15,4 @@ func (r legacyGeneratedRouter) Route(pattern string, fn func(chi.Router)) chi.Ro
 		return chi.NewRouter()
 	}
 	return r.Router.Route(pattern, fn)
-}
-
-// The API/storage layer is deliberately unavailable until its guarded service
-// handlers are installed by the next integration layer.
-func containDeclarativeRoutes(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		for _, prefix := range []string{"/bootconfigs", "/bootassignments"} {
-			if r.URL.Path == prefix || strings.HasPrefix(r.URL.Path, prefix+"/") {
-				http.Error(w, "management unavailable", 503)
-				return
-			}
-		}
-		next.ServeHTTP(w, r)
-	})
 }

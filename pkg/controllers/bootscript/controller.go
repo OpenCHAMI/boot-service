@@ -16,6 +16,7 @@ import (
 
 	apiv1 "github.com/openchami/boot-service/apis/boot.openchami.io/v1"
 	"github.com/openchami/boot-service/pkg/client"
+	"github.com/openchami/boot-service/pkg/clients/nodeidentity"
 	"github.com/openchami/boot-service/pkg/validation"
 )
 
@@ -148,7 +149,7 @@ func (c *BootScriptController) resolveNode(ctx context.Context, identifier NodeI
 		}
 	}
 
-	return nil, fmt.Errorf("node not found for identifier %s", identifier.Value)
+	return nil, fmt.Errorf("%w for identifier %s", nodeidentity.ErrNotFound, identifier.Value)
 }
 
 // findBootConfiguration finds the best matching configuration for a node
