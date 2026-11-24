@@ -347,6 +347,7 @@ func newRouter(config Config, features *generatedFeatureSet, boot *bootRoutes) c
 	r := chi.NewRouter()
 
 	// Add all middleware first, before any routes
+	r.Use(containDeclarativeRoutes)
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
@@ -374,7 +375,7 @@ func newRouter(config Config, features *generatedFeatureSet, boot *bootRoutes) c
 
 	r.Group(func(protected chi.Router) {
 		features.UseProtected(protected)
-		RegisterGeneratedRoutes(protected)
+		RegisterGeneratedRoutes(legacyGeneratedRouter{Router: protected})
 		boot.registerProtected(protected)
 	})
 

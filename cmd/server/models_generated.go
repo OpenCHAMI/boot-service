@@ -40,6 +40,7 @@ import (
 	"reflect"
 
 	"github.com/openchami/fabrica/pkg/fabrica"
+	"github.com/openchami/fabrica/pkg/revision"
 
 	"github.com/openchami/boot-service/apis/boot.openchami.io/v1"
 )
@@ -60,6 +61,22 @@ type ServiceStatusResponse struct {
 	Status  ServiceStatus `json:"status"`
 	Service string        `json:"service"`
 }
+
+// ReferenceSelector identifies a movable revision alias.
+type ReferenceSelector = revision.Selector
+
+const (
+	ReferenceSelectorDefault = revision.SelectorDefault
+	ReferenceSelectorLatest  = revision.SelectorLatest
+	RevisionUIDExample       = revision.UIDExample
+)
+
+type ResourceReference = revision.Reference
+type RevisionMetadata = revision.Metadata
+type RevisionSeriesStatus = revision.SeriesStatus
+type RevisionResolveResponse = revision.ResolveResponse
+type RevisionConflictResponse = revision.ConflictResponse
+type RevisionPreconditionResponse = revision.PreconditionResponse
 
 // BMCResponse represents the response for BMC operations
 type BMCResponse = v1.BMC
@@ -134,6 +151,164 @@ type UpdateBMCRequest struct {
 
 // AsSpec converts the request fields to a spec object
 func (r *UpdateBMCRequest) AsSpec() v1.BMCSpec {
+	return r.Spec
+}
+
+// BootAssignmentResponse represents the response for BootAssignment operations
+type BootAssignmentResponse = v1.BootAssignment
+
+// CreateBootAssignmentRequest represents a request to create a BootAssignment
+type CreateBootAssignmentRequest struct {
+	Metadata        fabrica.Metadata      `json:"metadata" yaml:"metadata" validate:"required"`
+	Spec            v1.BootAssignmentSpec `json:"spec" yaml:"spec" validate:"required"`
+	Labels          map[string]string     `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations     map[string]string     `json:"annotations,omitempty" yaml:"annotations,omitempty"`
+	metadataPresent bool
+	specPresent     bool
+	presenceDecoded bool
+}
+
+// UnmarshalJSON records required envelope-field presence separately from zero values.
+func (r *CreateBootAssignmentRequest) UnmarshalJSON(data []byte) error {
+	type requestAlias CreateBootAssignmentRequest
+	var decoded requestAlias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	// Decode presence with the same key matching as the request itself:
+	// case-insensitive names, and the last duplicate key wins.
+	var presence struct {
+		Metadata json.RawMessage `json:"metadata"`
+		Spec     json.RawMessage `json:"spec"`
+	}
+	if err := json.Unmarshal(data, &presence); err != nil {
+		return err
+	}
+	*r = CreateBootAssignmentRequest(decoded)
+	r.metadataPresent = presence.Metadata != nil && !bytes.Equal(presence.Metadata, []byte("null"))
+	r.specPresent = presence.Spec != nil && !bytes.Equal(presence.Spec, []byte("null"))
+	r.presenceDecoded = true
+	return nil
+}
+
+// RequiredFieldPresent reports whether a generated request envelope field was supplied.
+// Decoded requests report what the JSON contained; a null after an earlier value
+// still counts as absent. Requests built in Go fall back to nonzero values.
+func (r *CreateBootAssignmentRequest) RequiredFieldPresent(name string) (bool, bool) {
+	switch name {
+	case "metadata":
+		if r.presenceDecoded {
+			return r.metadataPresent, true
+		}
+		return !reflect.DeepEqual(r.Metadata, fabrica.Metadata{}), true
+	case "spec":
+		if r.presenceDecoded {
+			return r.specPresent, true
+		}
+		var zero v1.BootAssignmentSpec
+		return !reflect.DeepEqual(r.Spec, zero), true
+	default:
+		return false, false
+	}
+}
+
+// AsSpec converts the request fields to a spec object
+func (r *CreateBootAssignmentRequest) AsSpec() v1.BootAssignmentSpec {
+	return r.Spec
+}
+
+// UpdateBootAssignmentRequest represents a request to update a BootAssignment
+type UpdateBootAssignmentRequest struct {
+	Metadata    fabrica.Metadata      `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	Spec        v1.BootAssignmentSpec `json:"spec,omitempty" yaml:"spec,omitempty" validate:"omitempty"`
+	Labels      map[string]string     `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string     `json:"annotations,omitempty" yaml:"annotations,omitempty"`
+}
+
+// AsSpec converts the request fields to a spec object
+func (r *UpdateBootAssignmentRequest) AsSpec() v1.BootAssignmentSpec {
+	return r.Spec
+}
+
+type BootConfigRevision = revision.Record[*v1.BootConfig]
+
+type PromoteBootConfigDefaultRequest struct {
+	RevisionUID string `json:"revisionUid" yaml:"revisionUid" validate:"required"`
+}
+
+// BootConfigResponse represents the response for BootConfig operations
+type BootConfigResponse = v1.BootConfig
+
+// CreateBootConfigRequest represents a request to create a BootConfig
+type CreateBootConfigRequest struct {
+	Metadata        fabrica.Metadata  `json:"metadata" yaml:"metadata" validate:"required"`
+	Spec            v1.BootConfigSpec `json:"spec" yaml:"spec" validate:"required"`
+	Labels          map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations     map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
+	metadataPresent bool
+	specPresent     bool
+	presenceDecoded bool
+}
+
+// UnmarshalJSON records required envelope-field presence separately from zero values.
+func (r *CreateBootConfigRequest) UnmarshalJSON(data []byte) error {
+	type requestAlias CreateBootConfigRequest
+	var decoded requestAlias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	// Decode presence with the same key matching as the request itself:
+	// case-insensitive names, and the last duplicate key wins.
+	var presence struct {
+		Metadata json.RawMessage `json:"metadata"`
+		Spec     json.RawMessage `json:"spec"`
+	}
+	if err := json.Unmarshal(data, &presence); err != nil {
+		return err
+	}
+	*r = CreateBootConfigRequest(decoded)
+	r.metadataPresent = presence.Metadata != nil && !bytes.Equal(presence.Metadata, []byte("null"))
+	r.specPresent = presence.Spec != nil && !bytes.Equal(presence.Spec, []byte("null"))
+	r.presenceDecoded = true
+	return nil
+}
+
+// RequiredFieldPresent reports whether a generated request envelope field was supplied.
+// Decoded requests report what the JSON contained; a null after an earlier value
+// still counts as absent. Requests built in Go fall back to nonzero values.
+func (r *CreateBootConfigRequest) RequiredFieldPresent(name string) (bool, bool) {
+	switch name {
+	case "metadata":
+		if r.presenceDecoded {
+			return r.metadataPresent, true
+		}
+		return !reflect.DeepEqual(r.Metadata, fabrica.Metadata{}), true
+	case "spec":
+		if r.presenceDecoded {
+			return r.specPresent, true
+		}
+		var zero v1.BootConfigSpec
+		return !reflect.DeepEqual(r.Spec, zero), true
+	default:
+		return false, false
+	}
+}
+
+// AsSpec converts the request fields to a spec object
+func (r *CreateBootConfigRequest) AsSpec() v1.BootConfigSpec {
+	return r.Spec
+}
+
+// UpdateBootConfigRequest represents a request to update a BootConfig
+type UpdateBootConfigRequest struct {
+	Metadata    fabrica.Metadata  `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	Spec        v1.BootConfigSpec `json:"spec,omitempty" yaml:"spec,omitempty" validate:"omitempty"`
+	Labels      map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
+}
+
+// AsSpec converts the request fields to a spec object
+func (r *UpdateBootConfigRequest) AsSpec() v1.BootConfigSpec {
 	return r.Spec
 }
 

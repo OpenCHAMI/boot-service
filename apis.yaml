@@ -11,3 +11,12 @@ groups:
       - BMC
       - BootConfiguration
       - Node
+      - BootConfig
+      - BootAssignment
+    resourcePaths:
+      BootConfig: /bootconfigs
+      BootAssignment: /bootassignments
+    revisioning:
+      BootConfig:
+        enabled: true
+        bareNameSelector: default

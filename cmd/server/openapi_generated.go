@@ -110,6 +110,8 @@ func GenerateOpenAPISpec() *openapi3.T {
 
 	// Register all resource paths
 	registerBMCPaths(spec)
+	registerBootAssignmentPaths(spec)
+	registerBootConfigPaths(spec)
 	registerBootConfigurationPaths(spec)
 	registerNodePaths(spec)
 
@@ -506,6 +508,588 @@ func registerBMCPaths(spec *openapi3.T) {
 	spec.Paths.Set("/bmcs", collectionPath)
 	spec.Paths.Set("/bmcs/{uid}", itemPath)
 	spec.Paths.Set("/bmcs/{uid}/status", statusPath)
+
+}
+
+// registerBootAssignmentPaths registers OpenAPI paths for BootAssignment resources
+func registerBootAssignmentPaths(spec *openapi3.T) {
+	// Generate schemas from Go types - NO ANNOTATIONS NEEDED
+	resourceSchema, _ := openapi3gen.NewSchemaRefForValue(&v1.BootAssignment{}, spec.Components.Schemas)
+	spec.Components.Schemas["BootAssignment"] = resourceSchema
+
+	createReqSchema := requestSchema(&CreateBootAssignmentRequest{}, spec.Components.Schemas)
+	createReqSchema.Value.Required = []string{"spec"}
+	createReqSchema.Value.Properties["metadata"].Value.Nullable = true
+
+	spec.Components.Schemas["CreateBootAssignmentRequest"] = createReqSchema
+
+	updateReqSchema := requestSchema(&UpdateBootAssignmentRequest{}, spec.Components.Schemas)
+	// PUT replaces spec. Omitting it is equivalent to a zero-valued spec;
+	// require presence only when that value fails the configured tag policy.
+	var emptySpec v1.BootAssignmentSpec
+	// The resource validator traverses Spec even when the PUT envelope's
+	// omitempty tag skips its zero value, so infer Spec from its own root.
+	updateReqSchema.Value.Properties["spec"] = requestSchema(&emptySpec, spec.Components.Schemas)
+	if "strict" == "strict" && validation.ValidateResource(&emptySpec) != nil {
+		updateReqSchema.Value.Required = []string{"spec"}
+	}
+	spec.Components.Schemas["UpdateBootAssignmentRequest"] = updateReqSchema
+
+	statusSchema := requestSchema(&v1.BootAssignmentStatus{}, spec.Components.Schemas)
+	spec.Components.Schemas["BootAssignmentStatus"] = statusSchema
+
+	// Error response schema
+	if _, exists := spec.Components.Schemas["ErrorResponse"]; !exists {
+		errorSchema := openapi3.NewObjectSchema().
+			WithProperty("error", openapi3.NewStringSchema()).
+			WithRequired([]string{"error"})
+		spec.Components.Schemas["ErrorResponse"] = &openapi3.SchemaRef{Value: errorSchema}
+	}
+
+	// DELETE response schema
+	if _, exists := spec.Components.Schemas["DeleteResponse"]; !exists {
+		deleteSchema, _ := openapi3gen.NewSchemaRefForValue(&DeleteResponse{}, spec.Components.Schemas)
+		spec.Components.Schemas["DeleteResponse"] = deleteSchema
+	}
+
+	// List BootAssignments operation
+	listOp := openapi3.NewOperation()
+	listOp.OperationID = "listBootAssignments"
+	listOp.Summary = "List all BootAssignment resources"
+	listOp.Description = "Returns a list of all BootAssignment resources in the inventory"
+	listOp.Tags = []string{"BootAssignment"}
+	listOp.Responses = openapi3.NewResponses()
+	arraySchema := openapi3.NewArraySchema()
+	arraySchema.Items = componentSchemaRef(spec, "BootAssignment")
+	listOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Successful response").
+			WithJSONSchemaRef(&openapi3.SchemaRef{Value: arraySchema}),
+	})
+	listOp.Responses.Set("500", errorResponse(spec))
+
+	// Create BootAssignment operation
+	createOp := openapi3.NewOperation()
+	createOp.OperationID = "createBootAssignment"
+	createOp.Summary = "Create a new BootAssignment resource"
+	createOp.Description = "Creates a new BootAssignment resource with the provided specification"
+	createOp.Tags = []string{"BootAssignment"}
+	createOp.RequestBody = &openapi3.RequestBodyRef{
+		Value: openapi3.NewRequestBody().
+			WithRequired(true).
+			WithJSONSchemaRef(componentSchemaRef(spec, "CreateBootAssignmentRequest")),
+	}
+	createOp.Responses = openapi3.NewResponses()
+	createOp.Responses.Set("201", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Resource created successfully").
+			WithJSONSchemaRef(componentSchemaRef(spec, "BootAssignment")),
+	})
+	createOp.Responses.Set("400", errorResponse(spec))
+	createOp.Responses.Set("500", errorResponse(spec))
+
+	// Get BootAssignment operation
+	getOp := openapi3.NewOperation()
+	getOp.OperationID = "getBootAssignment"
+	getOp.Summary = "Get a specific BootAssignment resource"
+	getOp.Description = "Returns details of a specific BootAssignment resource by UID"
+	getOp.Tags = []string{"BootAssignment"}
+	getOp.Responses = openapi3.NewResponses()
+	getOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Successful response").
+			WithJSONSchemaRef(componentSchemaRef(spec, "BootAssignment")),
+	})
+	getOp.Responses.Set("404", errorResponse(spec))
+	getOp.Responses.Set("500", errorResponse(spec))
+
+	// Update BootAssignment operation
+	updateOp := openapi3.NewOperation()
+	updateOp.OperationID = "updateBootAssignment"
+	updateOp.Summary = "Update a BootAssignment resource"
+	updateOp.Description = "Updates an existing BootAssignment resource with new values"
+	updateOp.Tags = []string{"BootAssignment"}
+	updateOp.RequestBody = &openapi3.RequestBodyRef{
+		Value: openapi3.NewRequestBody().
+			WithRequired(true).
+			WithJSONSchemaRef(componentSchemaRef(spec, "UpdateBootAssignmentRequest")),
+	}
+	updateOp.Responses = openapi3.NewResponses()
+	updateOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Resource updated successfully").
+			WithJSONSchemaRef(componentSchemaRef(spec, "BootAssignment")),
+	})
+	updateOp.Responses.Set("400", errorResponse(spec))
+	updateOp.Responses.Set("404", errorResponse(spec))
+	updateOp.Responses.Set("500", errorResponse(spec))
+
+	// Patch BootAssignment operation
+	patchOp := openapi3.NewOperation()
+	patchOp.OperationID = "patchBootAssignment"
+	patchOp.Summary = "Patch a BootAssignment resource"
+	patchOp.Description = "Partially updates an existing BootAssignment resource using patch semantics"
+	patchOp.Tags = []string{"BootAssignment"}
+	patchOp.RequestBody = patchRequestBody()
+	patchOp.Responses = openapi3.NewResponses()
+	patchOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Resource patched successfully").
+			WithJSONSchemaRef(componentSchemaRef(spec, "BootAssignment")),
+	})
+	patchOp.Responses.Set("400", errorResponse(spec))
+	patchOp.Responses.Set("404", errorResponse(spec))
+	patchOp.Responses.Set("422", errorResponse(spec))
+	patchOp.Responses.Set("500", errorResponse(spec))
+
+	// Update BootAssignment status operation
+	updateStatusOp := openapi3.NewOperation()
+	updateStatusOp.OperationID = "updateBootAssignmentStatus"
+	updateStatusOp.Summary = "Update BootAssignment status"
+	updateStatusOp.Description = "Updates only the status subresource for an existing BootAssignment"
+	updateStatusOp.Tags = []string{"BootAssignment"}
+	updateStatusOp.RequestBody = &openapi3.RequestBodyRef{
+		Value: openapi3.NewRequestBody().
+			WithRequired(true).
+			WithJSONSchemaRef(componentSchemaRef(spec, "BootAssignmentStatus")),
+	}
+	updateStatusOp.Responses = openapi3.NewResponses()
+	updateStatusOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Status updated successfully").
+			WithJSONSchemaRef(componentSchemaRef(spec, "BootAssignment")),
+	})
+	updateStatusOp.Responses.Set("400", errorResponse(spec))
+	updateStatusOp.Responses.Set("404", errorResponse(spec))
+	updateStatusOp.Responses.Set("500", errorResponse(spec))
+
+	// Patch BootAssignment status operation
+	patchStatusOp := openapi3.NewOperation()
+	patchStatusOp.OperationID = "patchBootAssignmentStatus"
+	patchStatusOp.Summary = "Patch BootAssignment status"
+	patchStatusOp.Description = "Partially updates only the status subresource for an existing BootAssignment"
+	patchStatusOp.Tags = []string{"BootAssignment"}
+	patchStatusOp.RequestBody = patchRequestBody()
+	patchStatusOp.Responses = openapi3.NewResponses()
+	patchStatusOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Status patched successfully").
+			WithJSONSchemaRef(componentSchemaRef(spec, "BootAssignment")),
+	})
+	patchStatusOp.Responses.Set("400", errorResponse(spec))
+	patchStatusOp.Responses.Set("404", errorResponse(spec))
+	patchStatusOp.Responses.Set("422", errorResponse(spec))
+	patchStatusOp.Responses.Set("500", errorResponse(spec))
+
+	// Delete BootAssignment operation
+	deleteOp := openapi3.NewOperation()
+	deleteOp.OperationID = "deleteBootAssignment"
+	deleteOp.Summary = "Delete a BootAssignment resource"
+	deleteOp.Description = "Removes a BootAssignment resource from the inventory"
+	deleteOp.Tags = []string{"BootAssignment"}
+	deleteOp.Responses = openapi3.NewResponses()
+	deleteOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Resource deleted successfully").
+			WithJSONSchemaRef(componentSchemaRef(spec, "DeleteResponse")),
+	})
+	deleteOp.Responses.Set("400", errorResponse(spec))
+	deleteOp.Responses.Set("404", errorResponse(spec))
+	deleteOp.Responses.Set("500", errorResponse(spec))
+
+	// Create path items
+	collectionPath := &openapi3.PathItem{
+		Get:  listOp,
+		Post: createOp,
+	}
+
+	uidSchema := openapi3.NewStringSchema()
+	uidSchema.Example = "bootassignment_01h455vb4pex5vsknk084sn02q"
+	uidParam := openapi3.NewPathParameter("uid").
+		WithDescription("Immutable BootAssignment UID. New resources use TypeID/UUIDv7; existing legacy prefix-hex UIDs remain accepted.").
+		WithRequired(true).
+		WithSchema(uidSchema)
+
+	itemPath := &openapi3.PathItem{
+		Get:    getOp,
+		Put:    updateOp,
+		Patch:  patchOp,
+		Delete: deleteOp,
+		Parameters: []*openapi3.ParameterRef{
+			{Value: uidParam},
+		},
+	}
+
+	statusPath := &openapi3.PathItem{
+		Put:   updateStatusOp,
+		Patch: patchStatusOp,
+		Parameters: []*openapi3.ParameterRef{
+			{Value: uidParam},
+		},
+	}
+
+	// Add paths to spec
+
+	spec.Paths.Set("/bootassignments", collectionPath)
+	spec.Paths.Set("/bootassignments/{uid}", itemPath)
+	spec.Paths.Set("/bootassignments/{uid}/status", statusPath)
+
+}
+
+// registerBootConfigPaths registers OpenAPI paths for BootConfig resources
+func registerBootConfigPaths(spec *openapi3.T) {
+	// Generate schemas from Go types - NO ANNOTATIONS NEEDED
+	resourceSchema, _ := openapi3gen.NewSchemaRefForValue(&v1.BootConfig{}, spec.Components.Schemas)
+	spec.Components.Schemas["BootConfig"] = resourceSchema
+
+	createReqSchema := requestSchema(&CreateBootConfigRequest{}, spec.Components.Schemas)
+	createReqSchema.Value.Required = []string{"spec"}
+	createReqSchema.Value.Properties["metadata"].Value.Nullable = true
+
+	createReqSchema.Value.Required = []string{"metadata", "spec"}
+	metadataSchema := createReqSchema.Value.Properties["metadata"].Value
+	metadataSchema.Nullable = false
+	metadataSchema.Required = append(metadataSchema.Required, "name")
+	metadataSchema.Properties["name"].Value.MinLength = 1
+
+	spec.Components.Schemas["CreateBootConfigRequest"] = createReqSchema
+
+	updateReqSchema := requestSchema(&UpdateBootConfigRequest{}, spec.Components.Schemas)
+	// PUT replaces spec. Omitting it is equivalent to a zero-valued spec;
+	// require presence only when that value fails the configured tag policy.
+	var emptySpec v1.BootConfigSpec
+	// The resource validator traverses Spec even when the PUT envelope's
+	// omitempty tag skips its zero value, so infer Spec from its own root.
+	updateReqSchema.Value.Properties["spec"] = requestSchema(&emptySpec, spec.Components.Schemas)
+	if "strict" == "strict" && validation.ValidateResource(&emptySpec) != nil {
+		updateReqSchema.Value.Required = []string{"spec"}
+	}
+	spec.Components.Schemas["UpdateBootConfigRequest"] = updateReqSchema
+
+	statusSchema := requestSchema(&v1.BootConfigStatus{}, spec.Components.Schemas)
+	spec.Components.Schemas["BootConfigStatus"] = statusSchema
+
+	// Error response schema
+	if _, exists := spec.Components.Schemas["ErrorResponse"]; !exists {
+		errorSchema := openapi3.NewObjectSchema().
+			WithProperty("error", openapi3.NewStringSchema()).
+			WithRequired([]string{"error"})
+		spec.Components.Schemas["ErrorResponse"] = &openapi3.SchemaRef{Value: errorSchema}
+	}
+
+	// DELETE response schema
+	if _, exists := spec.Components.Schemas["DeleteResponse"]; !exists {
+		deleteSchema, _ := openapi3gen.NewSchemaRefForValue(&DeleteResponse{}, spec.Components.Schemas)
+		spec.Components.Schemas["DeleteResponse"] = deleteSchema
+	}
+
+	// List BootConfigs operation
+	listOp := openapi3.NewOperation()
+	listOp.OperationID = "listBootConfigs"
+	listOp.Summary = "List all BootConfig resources"
+	listOp.Description = "Returns a list of all BootConfig resources in the inventory"
+	listOp.Tags = []string{"BootConfig"}
+	listOp.Responses = openapi3.NewResponses()
+	arraySchema := openapi3.NewArraySchema()
+	arraySchema.Items = componentSchemaRef(spec, "BootConfig")
+	listOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Successful response").
+			WithJSONSchemaRef(&openapi3.SchemaRef{Value: arraySchema}),
+	})
+	listOp.Responses.Set("500", errorResponse(spec))
+
+	// Create BootConfig operation
+	createOp := openapi3.NewOperation()
+	createOp.OperationID = "createBootConfig"
+	createOp.Summary = "Create a new BootConfig resource"
+	createOp.Description = "Creates a new BootConfig resource with the provided specification"
+	createOp.Tags = []string{"BootConfig"}
+	createOp.RequestBody = &openapi3.RequestBodyRef{
+		Value: openapi3.NewRequestBody().
+			WithRequired(true).
+			WithJSONSchemaRef(componentSchemaRef(spec, "CreateBootConfigRequest")),
+	}
+	createOp.Responses = openapi3.NewResponses()
+	createOp.Responses.Set("201", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Resource created successfully").
+			WithJSONSchemaRef(componentSchemaRef(spec, "BootConfig")),
+	})
+	createOp.Responses.Set("400", errorResponse(spec))
+	createOp.Responses.Set("500", errorResponse(spec))
+
+	// Get BootConfig operation
+	getOp := openapi3.NewOperation()
+	getOp.OperationID = "getBootConfig"
+	getOp.Summary = "Get a specific BootConfig resource"
+	getOp.Description = "Returns details of a specific BootConfig resource by UID"
+	getOp.Tags = []string{"BootConfig"}
+	getOp.Responses = openapi3.NewResponses()
+	getOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Successful response").
+			WithJSONSchemaRef(componentSchemaRef(spec, "BootConfig")),
+	})
+	getOp.Responses.Set("404", errorResponse(spec))
+	getOp.Responses.Set("500", errorResponse(spec))
+
+	// Update BootConfig operation
+	updateOp := openapi3.NewOperation()
+	updateOp.OperationID = "updateBootConfig"
+	updateOp.Summary = "Update a BootConfig resource"
+	updateOp.Description = "Updates an existing BootConfig resource with new values"
+	updateOp.Tags = []string{"BootConfig"}
+	updateOp.RequestBody = &openapi3.RequestBodyRef{
+		Value: openapi3.NewRequestBody().
+			WithRequired(true).
+			WithJSONSchemaRef(componentSchemaRef(spec, "UpdateBootConfigRequest")),
+	}
+	updateOp.Responses = openapi3.NewResponses()
+	updateOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Resource updated successfully").
+			WithJSONSchemaRef(componentSchemaRef(spec, "BootConfig")),
+	})
+	updateOp.Responses.Set("400", errorResponse(spec))
+	updateOp.Responses.Set("404", errorResponse(spec))
+	updateOp.Responses.Set("500", errorResponse(spec))
+
+	// Patch BootConfig operation
+	patchOp := openapi3.NewOperation()
+	patchOp.OperationID = "patchBootConfig"
+	patchOp.Summary = "Patch a BootConfig resource"
+	patchOp.Description = "Partially updates an existing BootConfig resource using patch semantics"
+	patchOp.Tags = []string{"BootConfig"}
+	patchOp.RequestBody = patchRequestBody()
+	patchOp.Responses = openapi3.NewResponses()
+	patchOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Resource patched successfully").
+			WithJSONSchemaRef(componentSchemaRef(spec, "BootConfig")),
+	})
+	patchOp.Responses.Set("400", errorResponse(spec))
+	patchOp.Responses.Set("404", errorResponse(spec))
+	patchOp.Responses.Set("422", errorResponse(spec))
+	patchOp.Responses.Set("500", errorResponse(spec))
+
+	// Update BootConfig status operation
+	updateStatusOp := openapi3.NewOperation()
+	updateStatusOp.OperationID = "updateBootConfigStatus"
+	updateStatusOp.Summary = "Update BootConfig status"
+	updateStatusOp.Description = "Updates only the status subresource for an existing BootConfig"
+	updateStatusOp.Tags = []string{"BootConfig"}
+	updateStatusOp.RequestBody = &openapi3.RequestBodyRef{
+		Value: openapi3.NewRequestBody().
+			WithRequired(true).
+			WithJSONSchemaRef(componentSchemaRef(spec, "BootConfigStatus")),
+	}
+	updateStatusOp.Responses = openapi3.NewResponses()
+	updateStatusOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Status updated successfully").
+			WithJSONSchemaRef(componentSchemaRef(spec, "BootConfig")),
+	})
+	updateStatusOp.Responses.Set("400", errorResponse(spec))
+	updateStatusOp.Responses.Set("404", errorResponse(spec))
+	updateStatusOp.Responses.Set("500", errorResponse(spec))
+
+	// Patch BootConfig status operation
+	patchStatusOp := openapi3.NewOperation()
+	patchStatusOp.OperationID = "patchBootConfigStatus"
+	patchStatusOp.Summary = "Patch BootConfig status"
+	patchStatusOp.Description = "Partially updates only the status subresource for an existing BootConfig"
+	patchStatusOp.Tags = []string{"BootConfig"}
+	patchStatusOp.RequestBody = patchRequestBody()
+	patchStatusOp.Responses = openapi3.NewResponses()
+	patchStatusOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Status patched successfully").
+			WithJSONSchemaRef(componentSchemaRef(spec, "BootConfig")),
+	})
+	patchStatusOp.Responses.Set("400", errorResponse(spec))
+	patchStatusOp.Responses.Set("404", errorResponse(spec))
+	patchStatusOp.Responses.Set("422", errorResponse(spec))
+	patchStatusOp.Responses.Set("500", errorResponse(spec))
+
+	// Delete BootConfig operation
+	deleteOp := openapi3.NewOperation()
+	deleteOp.OperationID = "deleteBootConfig"
+	deleteOp.Summary = "Delete a BootConfig resource"
+	deleteOp.Description = "Removes a BootConfig resource from the inventory"
+	deleteOp.Tags = []string{"BootConfig"}
+	deleteOp.Responses = openapi3.NewResponses()
+	deleteOp.Responses.Set("200", &openapi3.ResponseRef{
+		Value: openapi3.NewResponse().
+			WithDescription("Resource deleted successfully").
+			WithJSONSchemaRef(componentSchemaRef(spec, "DeleteResponse")),
+	})
+	deleteOp.Responses.Set("400", errorResponse(spec))
+	deleteOp.Responses.Set("404", errorResponse(spec))
+	deleteOp.Responses.Set("500", errorResponse(spec))
+
+	// Create path items
+	collectionPath := &openapi3.PathItem{
+		Get:  listOp,
+		Post: createOp,
+	}
+
+	uidSchema := openapi3.NewStringSchema()
+	uidSchema.Example = "bootconfig_01h455vb4pex5vsknk084sn02q"
+	uidParam := openapi3.NewPathParameter("uid").
+		WithDescription("Immutable BootConfig UID. New resources use TypeID/UUIDv7; existing legacy prefix-hex UIDs remain accepted.").
+		WithRequired(true).
+		WithSchema(uidSchema)
+
+	itemPath := &openapi3.PathItem{
+		Get:    getOp,
+		Put:    updateOp,
+		Patch:  patchOp,
+		Delete: deleteOp,
+		Parameters: []*openapi3.ParameterRef{
+			{Value: uidParam},
+		},
+	}
+
+	statusPath := &openapi3.PathItem{
+		Put:   updateStatusOp,
+		Patch: patchStatusOp,
+		Parameters: []*openapi3.ParameterRef{
+			{Value: uidParam},
+		},
+	}
+
+	// Add paths to spec
+
+	_ = collectionPath
+	_ = itemPath
+	_ = statusPath
+	revisionSchema, _ := openapi3gen.NewSchemaRefForValue(&BootConfigRevision{}, spec.Components.Schemas)
+	spec.Components.Schemas["BootConfigRevision"] = revisionSchema
+	seriesSchema, _ := openapi3gen.NewSchemaRefForValue(&RevisionSeriesStatus{}, spec.Components.Schemas)
+	spec.Components.Schemas["RevisionSeriesStatus"] = seriesSchema
+	resolveSchema, _ := openapi3gen.NewSchemaRefForValue(&RevisionResolveResponse{}, spec.Components.Schemas)
+	spec.Components.Schemas["RevisionResolveResponse"] = resolveSchema
+	conflictSchema, _ := openapi3gen.NewSchemaRefForValue(&RevisionConflictResponse{}, spec.Components.Schemas)
+	spec.Components.Schemas["RevisionConflictResponse"] = conflictSchema
+	preconditionSchema, _ := openapi3gen.NewSchemaRefForValue(&RevisionPreconditionResponse{}, spec.Components.Schemas)
+	spec.Components.Schemas["RevisionPreconditionResponse"] = preconditionSchema
+	promoteRequestSchema := requestSchema(&PromoteBootConfigDefaultRequest{}, spec.Components.Schemas)
+	promoteRequestSchema.Value.Required = []string{"revisionUid"}
+	promoteRequestSchema.Value.Properties["revisionUid"].Value.MinLength = 1
+	spec.Components.Schemas["PromoteBootConfigDefaultRequest"] = promoteRequestSchema
+
+	createOp.Responses.Set("201", &openapi3.ResponseRef{Value: openapi3.NewResponse().WithDescription("Series and first revision created").WithJSONSchemaRef(componentSchemaRef(spec, "BootConfigRevision"))})
+	createOp.Responses.Set("409", &openapi3.ResponseRef{Value: openapi3.NewResponse().WithDescription("Series already exists").WithJSONSchemaRef(componentSchemaRef(spec, "RevisionConflictResponse"))})
+	spec.Paths.Set("/bootconfigs", &openapi3.PathItem{Post: createOp})
+
+	nameParam := openapi3.NewPathParameter("name").WithRequired(true).WithSchema(openapi3.NewStringSchema())
+	revisionNameParam := openapi3.NewPathParameter("revisionName").WithRequired(true).WithSchema(openapi3.NewStringSchema())
+	revisionUIDParam := openapi3.NewPathParameter("revisionUID").WithRequired(true).WithSchema(openapi3.NewStringSchema())
+
+	getSeriesOp := openapi3.NewOperation()
+	getSeriesOp.OperationID = "getBootConfigSeries"
+	getSeriesOp.Summary = "Get BootConfig revision series state"
+	getSeriesOp.Tags = []string{"BootConfig Revisions"}
+	getSeriesOp.Responses = openapi3.NewResponses()
+	getSeriesOp.Responses.Set("200", &openapi3.ResponseRef{Value: openapi3.NewResponse().WithDescription("Series state").WithJSONSchemaRef(componentSchemaRef(spec, "RevisionSeriesStatus"))})
+	getSeriesOp.Responses.Set("404", errorResponse(spec))
+	spec.Paths.Set("/bootconfigs/{name}", &openapi3.PathItem{Get: getSeriesOp, Parameters: []*openapi3.ParameterRef{{Value: nameParam}}})
+
+	listRevisionsOp := openapi3.NewOperation()
+	listRevisionsOp.OperationID = "listBootConfigRevisions"
+	listRevisionsOp.Summary = "List immutable BootConfig revisions"
+	listRevisionsOp.Tags = []string{"BootConfig Revisions"}
+	listRevisionsOp.Responses = openapi3.NewResponses()
+	revisionArray := openapi3.NewArraySchema()
+	revisionArray.Items = componentSchemaRef(spec, "BootConfigRevision")
+	listRevisionsOp.Responses.Set("200", &openapi3.ResponseRef{Value: openapi3.NewResponse().WithDescription("Revision records").WithJSONSchemaRef(&openapi3.SchemaRef{Value: revisionArray})})
+	createRevisionOp := openapi3.NewOperation()
+	createRevisionOp.OperationID = "createBootConfigRevision"
+	createRevisionOp.Summary = "Create an unnamed immutable revision"
+	createRevisionOp.Tags = []string{"BootConfig Revisions"}
+	revisionRequestSchema := requestSchema(&CreateBootConfigRequest{}, spec.Components.Schemas)
+	revisionRequestSchema.Value.Required = []string{"spec"}
+	revisionRequestSchema.Value.Properties["metadata"].Value.Nullable = true
+	spec.Components.Schemas["CreateBootConfigRevisionRequest"] = revisionRequestSchema
+	createRevisionOp.RequestBody = &openapi3.RequestBodyRef{Value: openapi3.NewRequestBody().WithRequired(true).WithJSONSchemaRef(componentSchemaRef(spec, "CreateBootConfigRevisionRequest"))}
+	createRevisionOp.Responses = openapi3.NewResponses()
+	createRevisionOp.Responses.Set("201", &openapi3.ResponseRef{Value: openapi3.NewResponse().WithDescription("Revision created").WithJSONSchemaRef(componentSchemaRef(spec, "BootConfigRevision"))})
+	spec.Paths.Set("/bootconfigs/{name}/revisions", &openapi3.PathItem{Get: listRevisionsOp, Post: createRevisionOp, Parameters: []*openapi3.ParameterRef{{Value: nameParam}}})
+
+	ensureRevisionOp := openapi3.NewOperation()
+	ensureRevisionOp.OperationID = "ensureBootConfigRevision"
+	ensureRevisionOp.Summary = "Idempotently ensure a named immutable revision"
+	ensureRevisionOp.Tags = []string{"BootConfig Revisions"}
+	ensureRevisionOp.RequestBody = createRevisionOp.RequestBody
+	ensureRevisionOp.Responses = openapi3.NewResponses()
+	ensureRevisionOp.Responses.Set("200", &openapi3.ResponseRef{Value: openapi3.NewResponse().WithDescription("Existing identical revision").WithJSONSchemaRef(componentSchemaRef(spec, "BootConfigRevision"))})
+	ensureRevisionOp.Responses.Set("201", &openapi3.ResponseRef{Value: openapi3.NewResponse().WithDescription("Revision created").WithJSONSchemaRef(componentSchemaRef(spec, "BootConfigRevision"))})
+	ensureRevisionOp.Responses.Set("409", &openapi3.ResponseRef{Value: openapi3.NewResponse().WithDescription("Revision name is bound to different content").WithJSONSchemaRef(componentSchemaRef(spec, "RevisionConflictResponse"))})
+	ensureRevisionOp.Responses.Set("410", &openapi3.ResponseRef{Value: openapi3.NewResponse().WithDescription("Revision name is permanently bound to a retired revision")})
+	spec.Paths.Set("/bootconfigs/{name}/revisions/{revisionName}", &openapi3.PathItem{Put: ensureRevisionOp, Parameters: []*openapi3.ParameterRef{{Value: nameParam}, {Value: revisionNameParam}}})
+
+	getRevisionOp := openapi3.NewOperation()
+	getRevisionOp.OperationID = "getBootConfigRevision"
+	getRevisionOp.Summary = "Get an immutable revision by UID"
+	getRevisionOp.Tags = []string{"BootConfig Revisions"}
+	getRevisionOp.Responses = openapi3.NewResponses()
+	getRevisionOp.Responses.Set("200", &openapi3.ResponseRef{Value: openapi3.NewResponse().WithDescription("Revision record").WithJSONSchemaRef(componentSchemaRef(spec, "BootConfigRevision"))})
+	getRevisionOp.Responses.Set("404", errorResponse(spec))
+	getRevisionOp.Responses.Set("410", &openapi3.ResponseRef{Value: openapi3.NewResponse().WithDescription("Revision is retired")})
+	retireRevisionOp := openapi3.NewOperation()
+	retireRevisionOp.OperationID = "retireBootConfigRevision"
+	retireRevisionOp.Summary = "Retire an immutable revision without releasing its identity"
+	retireRevisionOp.Tags = []string{"BootConfig Revisions"}
+	retireRevisionOp.Responses = openapi3.NewResponses()
+	retireRevisionOp.Responses.Set("200", &openapi3.ResponseRef{Value: openapi3.NewResponse().WithDescription("Revision tombstoned").WithJSONSchemaRef(componentSchemaRef(spec, "BootConfigRevision"))})
+	retireRevisionOp.Responses.Set("404", errorResponse(spec))
+	retireRevisionOp.Responses.Set("409", errorResponse(spec))
+	retireRevisionOp.Responses.Set("410", &openapi3.ResponseRef{Value: openapi3.NewResponse().WithDescription("Revision is already retired")})
+	spec.Paths.Set("/bootconfigs/{name}/revisions/by-uid/{revisionUID}", &openapi3.PathItem{Get: getRevisionOp, Delete: retireRevisionOp, Parameters: []*openapi3.ParameterRef{{Value: nameParam}, {Value: revisionUIDParam}}})
+
+	resolveRevisionOp := openapi3.NewOperation()
+	resolveRevisionOp.OperationID = "resolveBootConfigRevision"
+	resolveRevisionOp.Summary = "Resolve a revision reference"
+	resolveRevisionOp.Tags = []string{"BootConfig Revisions"}
+	selectorQuerySchema := openapi3.NewStringSchema()
+	selectorQuerySchema.Enum = []interface{}{"default", "latest"}
+	resolveRevisionOp.Parameters = []*openapi3.ParameterRef{
+		{Value: openapi3.NewQueryParameter("uid").WithSchema(openapi3.NewStringSchema())},
+		{Value: openapi3.NewQueryParameter("revisionName").WithSchema(openapi3.NewStringSchema())},
+		{Value: openapi3.NewQueryParameter("selector").WithSchema(selectorQuerySchema)},
+	}
+	resolveRevisionOp.Responses = openapi3.NewResponses()
+	resolveRevisionOp.Responses.Set("200", &openapi3.ResponseRef{Value: openapi3.NewResponse().WithDescription("Resolved revision metadata").WithJSONSchemaRef(componentSchemaRef(spec, "RevisionResolveResponse"))})
+	resolveRevisionOp.Responses.Set("404", errorResponse(spec))
+	resolveRevisionOp.Responses.Set("410", &openapi3.ResponseRef{Value: openapi3.NewResponse().WithDescription("Referenced revision is retired")})
+	spec.Paths.Set("/bootconfigs/{name}/resolve", &openapi3.PathItem{Get: resolveRevisionOp, Parameters: []*openapi3.ParameterRef{{Value: nameParam}}})
+
+	promoteDefaultOp := openapi3.NewOperation()
+	promoteDefaultOp.OperationID = "promoteBootConfigDefault"
+	promoteDefaultOp.Summary = "Promote the default revision alias"
+	promoteDefaultOp.Tags = []string{"BootConfig Revisions"}
+	promoteDefaultOp.Parameters = []*openapi3.ParameterRef{{Value: openapi3.NewHeaderParameter("If-Match").WithRequired(true).WithSchema(openapi3.NewStringSchema())}}
+	promoteDefaultOp.RequestBody = &openapi3.RequestBodyRef{Value: openapi3.NewRequestBody().WithRequired(true).WithJSONSchemaRef(componentSchemaRef(spec, "PromoteBootConfigDefaultRequest"))}
+	promoteDefaultOp.Responses = openapi3.NewResponses()
+	promoteDefaultOp.Responses.Set("200", &openapi3.ResponseRef{Value: openapi3.NewResponse().WithDescription("Default alias promoted").WithJSONSchemaRef(componentSchemaRef(spec, "RevisionSeriesStatus"))})
+	promoteDefaultOp.Responses.Set("404", errorResponse(spec))
+	promoteDefaultOp.Responses.Set("410", &openapi3.ResponseRef{Value: openapi3.NewResponse().WithDescription("Target revision is retired")})
+	promoteDefaultOp.Responses.Set("412", &openapi3.ResponseRef{Value: openapi3.NewResponse().WithDescription("Series ETag precondition failed").WithJSONSchemaRef(componentSchemaRef(spec, "RevisionPreconditionResponse"))})
+	spec.Paths.Set("/bootconfigs/{name}/default", &openapi3.PathItem{Put: promoteDefaultOp, Parameters: []*openapi3.ParameterRef{{Value: nameParam}}})
+	updateStatusOp.OperationID = "updateBootConfigSeriesStatus"
+	updateStatusOp.Description = "Updates mutable status shared by the named revision series"
+	updateStatusOp.Responses.Set("200", &openapi3.ResponseRef{Value: openapi3.NewResponse().WithDescription("Series status updated").WithJSONSchemaRef(componentSchemaRef(spec, "BootConfigStatus"))})
+	patchStatusOp.OperationID = "patchBootConfigSeriesStatus"
+	patchStatusOp.Description = "Patches mutable status shared by the named revision series"
+	patchStatusOp.Responses.Set("200", &openapi3.ResponseRef{Value: openapi3.NewResponse().WithDescription("Series status patched").WithJSONSchemaRef(componentSchemaRef(spec, "BootConfigStatus"))})
+
+	for _, operation := range []*openapi3.Operation{updateStatusOp, patchStatusOp} {
+		operation.Parameters = append(operation.Parameters, &openapi3.ParameterRef{Value: openapi3.NewHeaderParameter("If-Match").WithSchema(openapi3.NewStringSchema())})
+		operation.Responses.Set("412", &openapi3.ResponseRef{Value: openapi3.NewResponse().WithDescription("Series ETag precondition failed").WithJSONSchemaRef(componentSchemaRef(spec, "RevisionPreconditionResponse"))})
+	}
+
+	spec.Paths.Set("/bootconfigs/{name}/status", &openapi3.PathItem{Put: updateStatusOp, Patch: patchStatusOp, Parameters: []*openapi3.ParameterRef{{Value: nameParam}}})
 
 }
 

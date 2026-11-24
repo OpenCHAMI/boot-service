@@ -14,6 +14,8 @@
 // Generated commands for each resource:
 //   - client health
 //   - client bmc [list|get|create|update|patch|delete]
+//   - client bootassignment [list|get|create|update|patch|delete]
+//   - client bootconfig [list|get|create|update|patch|delete]
 //   - client bootconfiguration [list|get|create|update|patch|delete]
 //   - client node [list|get|create|update|patch|delete]
 //
@@ -140,6 +142,8 @@ func init() {
 	rootCmd.AddCommand(healthCmd)
 	rootCmd.AddCommand(NewVersionCommand())
 	rootCmd.AddCommand(bmcCmd)
+	rootCmd.AddCommand(bootassignmentCmd)
+	rootCmd.AddCommand(bootconfigCmd)
 	rootCmd.AddCommand(bootconfigurationCmd)
 	rootCmd.AddCommand(nodeCmd)
 
@@ -619,6 +623,561 @@ func init() {
 	bmcPatchCmd.Flags().StringArray("unset", nil, "Unset field using dot notation")
 	bmcPatchCmd.Flags().StringArray("add", nil, "Add value to array field (field=value)")
 	bmcPatchCmd.Flags().StringArray("remove", nil, "Remove value from array field (field=value)")
+
+}
+
+// BootAssignment commands
+var bootassignmentCmd = &cobra.Command{
+	Use:   "bootassignment",
+	Short: "Manage bootassignments",
+	Long:  `Create, read, update, patch, and delete bootassignments.`,
+}
+
+var bootassignmentListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List all bootassignments",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		c, err := getClient()
+		if err != nil {
+			return fmt.Errorf("failed to create client: %w", err)
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		items, err := c.GetBootAssignments(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to list bootassignments: %w", err)
+		}
+
+		return printOutput(items)
+	},
+}
+
+var bootassignmentGetCmd = &cobra.Command{
+	Use:   "get [uid]",
+	Short: "Get a BootAssignment by UID",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		c, err := getClient()
+		if err != nil {
+			return fmt.Errorf("failed to create client: %w", err)
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		item, err := c.GetBootAssignment(ctx, args[0])
+		if err != nil {
+			return fmt.Errorf("failed to get BootAssignment: %w", err)
+		}
+
+		return printOutput(item)
+	},
+}
+
+var bootassignmentCreateCmd = &cobra.Command{
+	Use:   "create",
+	Short: "Create a new BootAssignment",
+	Long: `Create a new BootAssignment.
+
+Examples:
+  # Create from stdin
+  echo '{"selector": "{}", "profile": "example-value", "priority": 42, "configRef": "{}"}' | client bootassignment create
+
+  # Create with --spec flag
+  client bootassignment create --spec '{"selector": "{}", "profile": "example-value", "priority": 42, "configRef": "{}"}'
+
+Spec fields:
+  selector (*v1.BootAssignmentSelector)
+  profile (string)
+  priority (int)
+  configRef (revision.Reference)
+`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		c, err := getClient()
+		if err != nil {
+			return fmt.Errorf("failed to create client: %w", err)
+		}
+
+		// Read request from flags or stdin
+		reqJSON, _ := cmd.Flags().GetString("spec")
+		var req client.CreateBootAssignmentRequest
+
+		if reqJSON == "" {
+			// Read from stdin if no spec provided
+			decoder := json.NewDecoder(os.Stdin)
+			if err := decoder.Decode(&req); err != nil {
+				return fmt.Errorf("failed to decode request from stdin: %w", err)
+			}
+		} else {
+			// Parse request from JSON string
+			if err := json.Unmarshal([]byte(reqJSON), &req); err != nil {
+				return fmt.Errorf("failed to parse request JSON: %w", err)
+			}
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		item, err := c.CreateBootAssignment(ctx, req)
+		if err != nil {
+			return fmt.Errorf("failed to create BootAssignment: %w", err)
+		}
+
+		return printOutput(item)
+	},
+}
+
+var bootassignmentUpdateCmd = &cobra.Command{
+	Use:   "update [uid]",
+	Short: "Update an existing BootAssignment",
+	Long: `Update an existing BootAssignment.
+
+Examples:
+  # Update from stdin
+  echo '{"selector": "{}", "profile": "example-value", "priority": 42, "configRef": "{}"}' | client bootassignment update <uid>
+
+  # Update with --spec flag
+  client bootassignment update <uid> --spec '{"selector": "{}", "profile": "example-value", "priority": 42, "configRef": "{}"}'
+
+Spec fields:
+  selector (*v1.BootAssignmentSelector)
+  profile (string)
+  priority (int)
+  configRef (revision.Reference)
+`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		c, err := getClient()
+		if err != nil {
+			return fmt.Errorf("failed to create client: %w", err)
+		}
+
+		// Read request from flags or stdin
+		reqJSON, _ := cmd.Flags().GetString("spec")
+		var req client.UpdateBootAssignmentRequest
+
+		if reqJSON == "" {
+			// Read from stdin if no spec provided
+			decoder := json.NewDecoder(os.Stdin)
+			if err := decoder.Decode(&req); err != nil {
+				return fmt.Errorf("failed to decode request from stdin: %w", err)
+			}
+		} else {
+			// Parse request from JSON string
+			if err := json.Unmarshal([]byte(reqJSON), &req); err != nil {
+				return fmt.Errorf("failed to parse request JSON: %w", err)
+			}
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		item, err := c.UpdateBootAssignment(ctx, args[0], req)
+		if err != nil {
+			return fmt.Errorf("failed to update BootAssignment: %w", err)
+		}
+
+		return printOutput(item)
+	},
+}
+
+var bootassignmentPatchCmd = &cobra.Command{
+	Use:   "patch [uid]",
+	Short: "Patch a BootAssignment",
+	Long: `Patch an existing BootAssignment spec using various patch formats.
+
+IMPORTANT: Only the spec portion of the resource can be patched.
+Metadata (name, labels, annotations) and status are managed by the API.
+
+Examples:
+  # JSON Merge Patch (simple merge) - patch spec fields
+  client bootassignment patch <uid> --spec '{"manufacturer":"Intel","model":"Updated Model"}'
+
+  # Shorthand patch (dot notation - most convenient)
+  client bootassignment patch <uid> --set manufacturer=Intel --set model="Updated Model" --unset customField
+
+  # JSON Patch (RFC 6902 - most powerful)
+  client bootassignment patch <uid> --json-patch '[
+    {"op":"replace","path":"/manufacturer","value":"Intel"},
+    {"op":"add","path":"/properties/newField","value":"newValue"}
+  ]'
+
+  # From stdin (JSON Merge Patch format)
+  echo '{"manufacturer":"AMD","partNumber":"RYZEN-9000"}' | client bootassignment patch <uid>
+
+Patch Formats:
+  --spec        JSON Merge Patch (RFC 7386) - simple object merge
+  --set/--unset Shorthand patch - dot notation for convenience
+  --json-patch  JSON Patch (RFC 6902) - operation-based patches
+  stdin         JSON Merge Patch format
+
+Shorthand Operations (spec fields only):
+  --set field=value     Set a spec field value (supports dot notation)
+  --unset field         Remove a spec field (supports dot notation)
+  --add field=value     Add to spec array field (field must end with '.-')
+  --remove field=value  Remove from spec array field
+
+Note: All patch operations target the resource spec only.
+Attempts to patch metadata or status fields will be ignored.`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		c, err := getClient()
+		if err != nil {
+			return fmt.Errorf("failed to create client: %w", err)
+		}
+
+		uid := args[0]
+
+		// Get patch flags
+		specPatch, _ := cmd.Flags().GetString("spec")
+		jsonPatch, _ := cmd.Flags().GetString("json-patch")
+		setPairs, _ := cmd.Flags().GetStringArray("set")
+		unsetFields, _ := cmd.Flags().GetStringArray("unset")
+		addPairs, _ := cmd.Flags().GetStringArray("add")
+		removePairs, _ := cmd.Flags().GetStringArray("remove")
+
+		var patchData []byte
+		var contentType string
+
+		// Determine patch format and build patch data
+		if jsonPatch != "" {
+			// JSON Patch (RFC 6902)
+			patchData = []byte(jsonPatch)
+			contentType = "application/json-patch+json"
+		} else if len(setPairs) > 0 || len(unsetFields) > 0 || len(addPairs) > 0 || len(removePairs) > 0 {
+			// Shorthand patch - convert to JSON Merge Patch
+			patch := make(map[string]interface{})
+
+			// Process --set flags
+			for _, setPair := range setPairs {
+				parts := strings.SplitN(setPair, "=", 2)
+				if len(parts) != 2 {
+					return fmt.Errorf("invalid --set format: %s (expected field=value)", setPair)
+				}
+				setNestedField(patch, parts[0], parts[1])
+			}
+
+			// Process --unset flags
+			for _, field := range unsetFields {
+				setNestedField(patch, field, nil)
+			}
+
+			// Process --add flags (add to arrays)
+			for _, addPair := range addPairs {
+				parts := strings.SplitN(addPair, "=", 2)
+				if len(parts) != 2 {
+					return fmt.Errorf("invalid --add format: %s (expected field=value)", addPair)
+				}
+				// For arrays, we'll use JSON Merge Patch append syntax if possible
+				// Otherwise convert to JSON Patch
+				setNestedField(patch, parts[0], parts[1])
+			}
+
+			// Process --remove flags
+			for _, removePair := range removePairs {
+				parts := strings.SplitN(removePair, "=", 2)
+				if len(parts) != 2 {
+					return fmt.Errorf("invalid --remove format: %s (expected field=value)", removePair)
+				}
+				// Remove operations are complex and might need JSON Patch
+				// For now, we'll handle simple cases
+				return fmt.Errorf("--remove operations require --json-patch format")
+			}
+
+			patchBytes, err := json.Marshal(patch)
+			if err != nil {
+				return fmt.Errorf("failed to marshal shorthand patch: %w", err)
+			}
+			patchData = patchBytes
+			contentType = "application/merge-patch+json"
+		} else if specPatch != "" {
+			// JSON Merge Patch from --spec
+			patchData = []byte(specPatch)
+			contentType = "application/merge-patch+json"
+		} else {
+			// Read from stdin (default to JSON Merge Patch)
+			decoder := json.NewDecoder(os.Stdin)
+			var patch interface{}
+			if err := decoder.Decode(&patch); err != nil {
+				return fmt.Errorf("failed to decode patch from stdin: %w", err)
+			}
+			patchBytes, err := json.Marshal(patch)
+			if err != nil {
+				return fmt.Errorf("failed to marshal patch: %w", err)
+			}
+			patchData = patchBytes
+			contentType = "application/merge-patch+json"
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		item, err := c.PatchBootAssignment(ctx, uid, patchData, contentType)
+		if err != nil {
+			return fmt.Errorf("failed to patch BootAssignment: %w", err)
+		}
+
+		return printOutput(item)
+	},
+}
+
+var bootassignmentDeleteCmd = &cobra.Command{
+	Use:   "delete [uid...]",
+	Short: "Delete one or more BootAssignment resources",
+	Long: `Deletes one or more BootAssignment resources.
+
+You can provide multiple UIDs separated by spaces to delete them all in a single command.
+Each UID is processed one by one as an individual, atomic delete operation. If any deletion fails, the command will still attempt to delete the remaining UIDs and report the errors at the end.`,
+	Args: cobra.MinimumNArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		c, err := getClient()
+		if err != nil {
+			return fmt.Errorf("failed to create client: %w", err)
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		var errs []error
+		for _, uid := range args {
+			if err := c.DeleteBootAssignment(ctx, uid); err != nil {
+				errs = append(errs, fmt.Errorf("failed to delete BootAssignment %q: %w", uid, err))
+				continue
+			}
+			fmt.Printf("BootAssignment %s deleted successfully\n", uid)
+		}
+
+		if len(errs) > 0 {
+			var errMsgs []string
+			for _, e := range errs {
+				errMsgs = append(errMsgs, e.Error())
+			}
+			return fmt.Errorf("encountered %d error(s) during deletion:\n%s", len(errs), strings.Join(errMsgs, "\n"))
+		}
+		return nil
+	},
+}
+
+func init() {
+
+	bootassignmentCmd.AddCommand(bootassignmentListCmd)
+	bootassignmentCmd.AddCommand(bootassignmentGetCmd)
+	bootassignmentCmd.AddCommand(bootassignmentCreateCmd)
+	bootassignmentCmd.AddCommand(bootassignmentUpdateCmd)
+	bootassignmentCmd.AddCommand(bootassignmentPatchCmd)
+	bootassignmentCmd.AddCommand(bootassignmentDeleteCmd)
+
+	// Add spec flag for create and update commands
+	bootassignmentCreateCmd.Flags().String("spec", "", "BootAssignment specification in JSON format")
+	bootassignmentUpdateCmd.Flags().String("spec", "", "BootAssignment specification in JSON format")
+
+	// Add patch command flags
+	bootassignmentPatchCmd.Flags().String("spec", "", "JSON Merge Patch specification")
+	bootassignmentPatchCmd.Flags().String("json-patch", "", "JSON Patch operations (RFC 6902)")
+	bootassignmentPatchCmd.Flags().StringArray("set", nil, "Set field value using dot notation (field=value)")
+	bootassignmentPatchCmd.Flags().StringArray("unset", nil, "Unset field using dot notation")
+	bootassignmentPatchCmd.Flags().StringArray("add", nil, "Add value to array field (field=value)")
+	bootassignmentPatchCmd.Flags().StringArray("remove", nil, "Remove value from array field (field=value)")
+
+}
+
+// BootConfig commands
+var bootconfigCmd = &cobra.Command{
+	Use:   "bootconfig",
+	Short: "Manage bootconfigs",
+	Long:  `Manage named BootConfig series and immutable revisions.`,
+}
+
+var bootconfigRevisionsCmd = &cobra.Command{Use: "revisions", Short: "Manage immutable BootConfig revisions"}
+
+var bootconfigRevisionSeriesCmd = &cobra.Command{
+	Use: "series [series-name]", Short: "Get revision series state and current ETag", Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		c, err := getClient()
+		if err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		status, etag, err := c.GetBootConfigSeries(ctx, args[0])
+		if err != nil {
+			return err
+		}
+		return printOutput(map[string]interface{}{"series": status, "etag": etag})
+	},
+}
+
+var bootconfigRevisionCreateSeriesCmd = &cobra.Command{
+	Use: "create", Short: "Create a named series and its initial revision from stdin", Args: cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		var req client.CreateBootConfigRequest
+		if err := json.NewDecoder(cmd.InOrStdin()).Decode(&req); err != nil {
+			return fmt.Errorf("decode series request: %w", err)
+		}
+		revisionName, _ := cmd.Flags().GetString("revision-name")
+		c, err := getClient()
+		if err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
+		defer cancel()
+		record, err := c.CreateBootConfigSeries(ctx, req, revisionName)
+		if err != nil {
+			return err
+		}
+		return printOutput(record)
+	},
+}
+
+var bootconfigRevisionCreateCmd = &cobra.Command{
+	Use: "create [series-name]", Short: "Create an unnamed revision from stdin (retries create new revisions)", Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		var req client.CreateBootConfigRequest
+		if err := json.NewDecoder(cmd.InOrStdin()).Decode(&req); err != nil {
+			return fmt.Errorf("decode revision request: %w", err)
+		}
+		c, err := getClient()
+		if err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
+		defer cancel()
+		record, err := c.CreateBootConfigRevision(ctx, args[0], req)
+		if err != nil {
+			return err
+		}
+		return printOutput(record)
+	},
+}
+
+var bootconfigRevisionEnsureCmd = &cobra.Command{
+	Use: "ensure [series-name] [revision-name]", Short: "Idempotently ensure a named revision", Args: cobra.ExactArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		var req client.CreateBootConfigRequest
+		if err := json.NewDecoder(os.Stdin).Decode(&req); err != nil {
+			return fmt.Errorf("decode revision request: %w", err)
+		}
+		c, err := getClient()
+		if err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		record, err := c.EnsureBootConfigRevision(ctx, args[0], args[1], req)
+		if err != nil {
+			return err
+		}
+		return printOutput(record)
+	},
+}
+
+var bootconfigRevisionListCmd = &cobra.Command{
+	Use: "list [series-name]", Short: "List immutable revisions", Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		c, err := getClient()
+		if err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		records, err := c.ListBootConfigRevisions(ctx, args[0])
+		if err != nil {
+			return err
+		}
+		return printOutput(records)
+	},
+}
+
+var bootconfigRevisionGetCmd = &cobra.Command{
+	Use: "get [series-name] [revision-uid]", Short: "Get an immutable revision by UID", Args: cobra.ExactArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		c, err := getClient()
+		if err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		record, err := c.GetBootConfigRevision(ctx, args[0], args[1])
+		if err != nil {
+			return err
+		}
+		return printOutput(record)
+	},
+}
+
+var bootconfigRevisionRetireCmd = &cobra.Command{
+	Use: "retire [series-name] [revision-uid]", Short: "Tombstone an unreferenced revision while preserving its identity", Args: cobra.ExactArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		c, err := getClient()
+		if err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		record, err := c.RetireBootConfigRevision(ctx, args[0], args[1])
+		if err != nil {
+			return err
+		}
+		return printOutput(record)
+	},
+}
+
+var bootconfigRevisionResolveCmd = &cobra.Command{
+	Use: "resolve [series-name]", Short: "Resolve default, latest, UID, or revision name", Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		selector, _ := cmd.Flags().GetString("selector")
+		revisionName, _ := cmd.Flags().GetString("revision-name")
+		uid, _ := cmd.Flags().GetString("uid")
+		c, err := getClient()
+		if err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		resolved, err := c.ResolveBootConfigRevision(ctx, client.ResourceReference{Name: args[0], UID: uid, RevisionName: revisionName, Selector: client.ReferenceSelector(selector)})
+		if err != nil {
+			return err
+		}
+		return printOutput(resolved)
+	},
+}
+
+var bootconfigPromoteDefaultCmd = &cobra.Command{
+	Use: "promote-default [series-name] [revision-uid]", Short: "Promote the default alias with an ETag precondition", Args: cobra.ExactArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ifMatch, _ := cmd.Flags().GetString("if-match")
+		c, err := getClient()
+		if err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		if ifMatch == "" {
+			_, ifMatch, err = c.GetBootConfigSeries(ctx, args[0])
+			if err != nil {
+				return fmt.Errorf("get current series ETag: %w", err)
+			}
+		}
+		status, err := c.PromoteBootConfigDefault(ctx, args[0], args[1], ifMatch)
+		if err != nil {
+			return err
+		}
+		return printOutput(status)
+	},
+}
+
+func init() {
+
+	bootconfigCmd.AddCommand(bootconfigRevisionsCmd)
+	bootconfigRevisionsCmd.AddCommand(bootconfigRevisionSeriesCmd, bootconfigRevisionCreateCmd, bootconfigRevisionEnsureCmd, bootconfigRevisionListCmd, bootconfigRevisionGetCmd, bootconfigRevisionRetireCmd, bootconfigRevisionResolveCmd, bootconfigPromoteDefaultCmd)
+	bootconfigRevisionSeriesCmd.AddCommand(bootconfigRevisionCreateSeriesCmd)
+	bootconfigRevisionCreateSeriesCmd.Flags().String("revision-name", "", "deterministic name for the initial revision")
+	bootconfigRevisionResolveCmd.Flags().String("selector", "", "revision selector: default or latest")
+	bootconfigRevisionResolveCmd.Flags().String("revision-name", "", "deterministic revision name")
+	bootconfigRevisionResolveCmd.Flags().String("uid", "", "immutable revision UID")
+	bootconfigPromoteDefaultCmd.Flags().String("if-match", "", "current series ETag (required)")
 
 }
 

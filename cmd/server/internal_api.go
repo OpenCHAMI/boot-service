@@ -32,7 +32,7 @@ func newInternalAPIClient() (*client.Client, error) {
 	router.Use(middleware.Recoverer)
 	// Generated create handlers read the negotiated version from the context.
 	router.Use(versioning.VersionNegotiationMiddleware(versioning.GlobalVersionRegistry, nil))
-	RegisterGeneratedRoutes(router)
+	RegisterGeneratedRoutes(legacyGeneratedRouter{Router: router})
 
 	return client.NewClient(internalAPIBaseURL,
 		&http.Client{Transport: handlerTransport{handler: router}}, client.DefaultLogger())
