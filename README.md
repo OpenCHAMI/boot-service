@@ -12,6 +12,12 @@ configuration in HPC environments. It exposes modern resource APIs for
 (`/bootscript`, `/bootparameters`, `/service/status`). Legacy BSS-compatible
 endpoints are available at `/boot/v1/*` when `enable_legacy_api: true`.
 
+The additive declarative boot API separates immutable `BootConfig` revisions from
+mutable `BootAssignment` selection. It requires scoped JWTs for management and
+preserves the legacy boot path for nodes without a matching assignment. See the
+[operator guide](docs/declarative-boot.md) for conditional writes, rollout,
+explicit legacy adoption, and recovery limits.
+
 ## What Is In This Repo
 
 - Generated CRUD and status endpoints for `/bmcs`, `/bootconfigurations`, and `/nodes`
